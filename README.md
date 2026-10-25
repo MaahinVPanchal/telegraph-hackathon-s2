@@ -117,6 +117,8 @@ The grace period is only the miners' *ranking mechanic* — November itself is t
 
 ### Week 1 (Nov 1–7): lock in + first sprint
 
+> 🔗 **Check here:** entries → [hackathon.telegraphprotocol.com](https://hackathon.telegraphprotocol.com/) · leaderboard → [Explorer /leaderboard](https://explorer.telegraphprotocol.com/leaderboard) or `node build/check-leaderboard.mjs` · community → [Discord](https://discord.gg/telegraphprotocol)
+
 | What | Why |
 |---|---|
 | **Formal entries on the site** — lock Apps & Agents (Mission 01) + Miner track | Formal registration of what we're competing for |
@@ -128,16 +130,22 @@ The grace period is only the miners' *ranking mechanic* — November itself is t
 
 ### Week 2 (Nov 8–14): ship build #2 + milestone showcase
 
+> 🔗 **Check here:** milestone rules → [rules page](https://hackathon.telegraphprotocol.com/rules) · memo artifact → [`build/milestones/real-run-memos/`](build/milestones/real-run-memos/) · showcase → Discord **#showcase**
+
 - Finish build #2 (simpler than the desk — continuous monitoring + a billing-when-alerting twist)
 - **Nov 14:** First Integration Milestone — show a working Telegraph request (artifact ✅ already exists; now show both builds)
 - **Nov 20:** community showcase — demo both builds publicly
 
 ### Week 3 (Nov 15–22): adoption push
 
+> 🔗 **Check here:** share your miners → [explorer miner pages](https://explorer.telegraphprotocol.com/miners) · [live catalogue](https://devnode.telegraphprotocol.com/api/miners) · log adoption receipts → [`build/milestones/`](build/milestones/)
+
 - Get 1–2 other builders to actually *run* the desk or call our miners — "real independent adoption" is **15 rubric points**
 - Keep every receipt of external usage — that is the adoption evidence
 
 ### Week 4 (Nov 23–Dec 1): submission sprint
+
+> 🔗 **Check here:** submit → [hackathon.telegraphprotocol.com](https://hackathon.telegraphprotocol.com/) · video script → [`build/pitch/DEMO-SCRIPT.md`](build/pitch/DEMO-SCRIPT.md) · summary → [`build/pitch/OVERVIEW.md`](build/pitch/OVERVIEW.md) · on-chain proof → [basescan](https://sepolia.basescan.org/address/0x5549286a1C71893816899BbEF8F4CE4d91f87821)
 
 - Record the demo video (script ready in `build/pitch/DEMO-SCRIPT.md`)
 - Finalize the public summary (draft ready in `build/pitch/OVERVIEW.md`)

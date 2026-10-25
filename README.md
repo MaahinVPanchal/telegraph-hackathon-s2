@@ -111,6 +111,46 @@
 
 ---
 
+## 🏃 November game plan — week by week (nothing is "just waiting")
+
+The grace period is only the miners' *ranking mechanic* — November itself is the 30-day build season. Here is the full schedule:
+
+### Week 1 (Nov 1–7): lock in + first sprint
+
+| What | Why |
+|---|---|
+| **Formal entries on the site** — lock Apps & Agents (Mission 01) + Miner track | Formal registration of what we're competing for |
+| **Run the desk against 2–3 real pending-listing candidates** | Memo artifacts become "tested on real cases", not just a demo token |
+| **Start Mission 01 build #2** — "surveillance that only bills when it finds something" (`WASH_TRADING_DETECTION` + `LIQUIDITY_DEPTH_VERIFY`) | Two completed missions = the multi-mission delivery-award path (8 Apps awards!) |
+| **Discord daily-ish**: answer builder questions, reply to founder posts | "Real adoption & retention" is **15 rubric points** — it comes from people actually using our stuff |
+| **~Nov 2–3:** pull the first leaderboard placement (`node build/check-leaderboard.mjs`) | See where the miners landed vs verifywire's 0.465 |
+| **~Nov 7:** grace ends → 70/20/10 rank routing begins | If our score beats 0.465, we take rank 1 = 70% of that Intent's traffic |
+
+### Week 2 (Nov 8–14): ship build #2 + milestone showcase
+
+- Finish build #2 (simpler than the desk — continuous monitoring + a billing-when-alerting twist)
+- **Nov 14:** First Integration Milestone — show a working Telegraph request (artifact ✅ already exists; now show both builds)
+- **Nov 20:** community showcase — demo both builds publicly
+
+### Week 3 (Nov 15–22): adoption push
+
+- Get 1–2 other builders to actually *run* the desk or call our miners — "real independent adoption" is **15 rubric points**
+- Keep every receipt of external usage — that is the adoption evidence
+
+### Week 4 (Nov 23–Dec 1): submission sprint
+
+- Record the demo video (script ready in `build/pitch/DEMO-SCRIPT.md`)
+- Finalize the public summary (draft ready in `build/pitch/OVERVIEW.md`)
+- **Dec 1, 23:59 UTC:** submit — flip the main repo **public**, paste links
+
+### 🤖 Runs itself (zero action needed)
+
+Grace-period scoring · spot checks every ~20s · epoch settlements (~every 7.5h) · miner earnings accumulating · MACHINA payouts to the fee address.
+
+> **The mindset:** the miners work in the background — November is spent on the demand side, because that's where the 70/100 score and the 8 delivery awards live. Waiting is the only losing move. 🏃‍♂️💨
+
+---
+
 ## 📈 Leaderboard — how to check & where we stand
 
 **There is no single global board.** Every Intent has its **own** leaderboard, recomputed each epoch by the validators: rank #1 receives **70%** of that Intent's routed traffic, #2 gets 20%, #3 gets 10%. A miner's **first 7 days are the grace period** — no placement yet, but 5% of traffic is shared equally among new miners so a track record can build. That's the phase we're in (registered 26 Oct → placement expected **~Nov 2–3**).

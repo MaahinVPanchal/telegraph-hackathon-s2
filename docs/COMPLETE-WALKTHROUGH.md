@@ -202,6 +202,10 @@ The question: "a new transaction for 0.05 appeared — what is it?" Method, reus
 ## Part 8 — Monitoring cheat sheet
 
 ```bash
+# Leaderboard — our ranks vs the field, per Intent
+node build/check-leaderboard.mjs
+# browser: https://explorer.telegraphprotocol.com/miners and /intents
+
 # Wallet balances (Base Sepolia)
 node build/check-wallet.mjs 0x5549…7821
 # Trace any tx across 5 chains

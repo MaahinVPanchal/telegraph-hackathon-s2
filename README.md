@@ -109,6 +109,33 @@
 
 ---
 
+## 📈 Leaderboard — how to check & where we stand
+
+**There is no single global board.** Every Intent has its **own** leaderboard, recomputed each epoch by the validators: rank #1 receives **70%** of that Intent's routed traffic, #2 gets 20%, #3 gets 10%. A miner's **first 7 days are the grace period** — no placement yet, but 5% of traffic is shared equally among new miners so a track record can build. That's the phase we're in (registered 26 Oct → placement expected **~Nov 2–3**).
+
+### Three ways to check
+
+1. **Our one-command checker** (best — shows our position highlighted against the field):
+   ```bash
+   node build/check-leaderboard.mjs
+   ```
+2. **Browser:** [explorer.telegraphprotocol.com/miners](https://explorer.telegraphprotocol.com/miners) and [explorer.telegraphprotocol.com/intents](https://explorer.telegraphprotocol.com/intents) (per-Intent rankings)
+3. **Raw API:** `curl -s https://devnode.telegraphprotocol.com/api/miners` → each miner carries a `scores[]` array with `intent_id`, `epoch_id`, **`rank`**, `score`
+
+### Current standings (pulled 26 Oct, epoch ~440)
+
+**Our miners:** 🟢 both active and already serving (`onchain-metric-publicnode`: 2 requests, `weather-verify-openmeteo`: 1) — ⏳ **no rank yet, grace period**.
+
+| Intent | Top of the board | Field | Our shot |
+|---|---|---|---|
+| `ONCHAIN_METRIC_VERIFY` | 1. verifywire **0.465** · 2. telegraph-verity 0.361 · 3. ocm-mempool 0.309 | 36 ranked | Our RPC reads are exact — the comparator scores mechanically, so rank 1 is realistic |
+| `WEATHER_FORECAST` | 1. livecert **0.0005** · 2. wxf-wttr 0.0005 · 3. txlens 0.0004 | 25 ranked | **Effectively wide open** — nobody validates well; our Open-Meteo ICON miner can take rank 1 |
+| `WEATHER_FORECAST_VERIFY` | 1. wxfv-om-flood **0.641** · 2. wxfv-om-aq 0.638 · 3. wxfv-om-daily 0.636 | 19 ranked | Crowded with Open-Meteo variants, all mediocre — beatable with a tighter model pin |
+
+> 💡 These numbers move every epoch — `node build/check-leaderboard.mjs` always reflects the live board. The scores to beat are low enough that "be correct and stay online" is a genuine winning strategy.
+
+---
+
 ## "Why this 'Miner' and 'EVM wallet'? What is this?" — explained
 
 This is the part that was confusing in the announcement. Short version: **Telegraph is a marketplace where AI agents *pay money* to *buy answers* from providers, and the whole thing settles on-chain. That requires crypto wallets — that's why you keep seeing "miner" and "wallet".**

@@ -1,5 +1,7 @@
 # Telegraph Hackathon Season II — Complete Reference (README)
 
+> **Deep-dive companion:** `docs/COMPLETE-WALKTHROUGH.md` — the full beginner-to-hackathon documentation of everything we did (concepts, every command, failure post-mortems, tx tracing, rubric mapping, repo policy).
+>
 > **What this file is:** every detail of the **Telegraph Hackathon Season II** (a.k.a. "H2", runs **1 Nov – 1 Dec 2026**), collected on **25 Oct 2026** from the official announcement (X/Discord, posted 10/22/26 by Ahmed Ali, Co-Founder) and from every page of `hackathon.telegraphprotocol.com`, the protocol site, and `docs.telegraphprotocol.com`. The goal: **you should be able to search this file instead of visiting the sites.** Official pages can change — re-verify anything critical against the links in [All links](#all-links).
 >
 > Raw extracted data also lives next to this file: `data-intents.json` (the full 134-Intent catalogue with every field) and `data-missions.json` (all 15 missions with every buyer profile and all 102 example builds, verbatim).

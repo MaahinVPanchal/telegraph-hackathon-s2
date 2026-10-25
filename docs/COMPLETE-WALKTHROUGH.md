@@ -233,7 +233,7 @@ cast call 0x5a2324aA18613FAD4e44bDF0d6c73Ec1f6D87ff8 "getCanonicalIntents()(stri
 - **Transaction hash (tx hash)** — the tracking number of a transaction.
 - **Block** — a batch of transactions; the block number is the ledger's page count.
 - **Explorer** (basescan/etherscan) — the chain's public search engine.
-- **ERC-20** — the token standard USDC uses. Tokens move via  events; **decimals** define counting (USDC: 1000000 = $1).
+- **ERC-20** — the token standard USDC uses. Tokens move via Transfer events; **decimals** define counting (USDC: 1000000 = $1).
 - **approve** — giving a contract permission to pull tokens from you (required before depositUSDC).
 - **Contract / Diamond** — code living on-chain; the Diamond is Telegraph's main contract (diamond = a contract pattern with swappable modules called facets).
 - **Signature (personal_sign, EIP-191)** — proving you authorized a message with your key, without sending a transaction. **EIP-712** = the fancier typed-data version (used by the x402 "exact" rail).

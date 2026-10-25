@@ -1,0 +1,203 @@
+{
+  "memo": {
+    "token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+    "verdict": "GO",
+    "signals": [
+      [
+        "good",
+        "no sanctions matches (lists per miner)"
+      ],
+      [
+        "warn",
+        "SMART_CONTRACT_AUDIT unavailable: Engine HTTP 500: {\"error\":\"upstream error 400: {\\\"customCode\\\":\\\"invalid_parameter\\\",\\\"message\\\":\\\"Unknown query paramet"
+      ],
+      [
+        "warn",
+        "CODE_REVIEW unavailable: Engine HTTP 500: {\"error\":\"upstream error 404: {\\\"message\\\":\\\"Not Found\\\",\\\"documentation_url\\\":\\\"https://docs.github.co"
+      ]
+    ],
+    "hardBlock": false,
+    "inputs": {
+      "audit": {},
+      "onchain": {
+        "coins": {
+          "ethereum:0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48": {
+            "confidence": 0.99,
+            "decimals": 6,
+            "price": 0.9995879011916234,
+            "symbol": "USDC",
+            "timestamp": 1792959819
+          }
+        }
+      },
+      "sanctions": {
+        "entity": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+        "on_list": 0,
+        "sanctioned": 0,
+        "source": "ofac_sdn_xml"
+      },
+      "social": {
+        "miner_id": "108008",
+        "miner_name": "HN User",
+        "endpoint": "/query",
+        "result": null,
+        "cost_usd": 0.01,
+        "duration_ms": 10060,
+        "timestamp": "2026-10-25T20:22:26.374743577Z",
+        "reasoning": "The user is asking to analyze the social following of a token address and estimate the share of bot or purchased accounts. The 'HN User' subnet (ID: 108008) has the intent SOCIAL_BOT_DETECTION and its description mentions 'HN user profile bot/human signal', which is the closest match to the user's request for estimating bot accounts. The parameters required by this miner are 'user', which can be mapped to the provided token address.",
+        "intent": "SOCIAL_BOT_DETECTION",
+        "signal_hash": "0xa0cc7845cc642b379434f5014ac37edf0b000540b0c1727d1481f5e23dc53dfa"
+      },
+      "code": {}
+    },
+    "receipts": [
+      {
+        "intent": "SOCIAL_BOT_DETECTION",
+        "miner": "HN User (#108008)",
+        "costUsd": 0.01,
+        "durationMs": 64609,
+        "signalHash": "0xa0cc7845cc642b379434f5014ac37edf0b000540b0c1727d1481f5e23dc53dfa",
+        "mode": "real"
+      },
+      {
+        "intent": "ONCHAIN_METRIC_VERIFY",
+        "miner": "DefiLlama Token Price Context (#51010)",
+        "costUsd": 0.01,
+        "durationMs": 32029,
+        "signalHash": "0xe86f100b00342c65d3b344a25e1773be5c73455b64a347167b4543bdc92981ff",
+        "mode": "real"
+      },
+      {
+        "intent": "SANCTIONS_SCREENING_MATCH",
+        "miner": "OFAC SDN Entity Screen (#78021)",
+        "costUsd": 0.01,
+        "durationMs": 5028,
+        "signalHash": "0xce40d8994e572f4231a2b4ec79292eb7bcdcef0780808c49276c10f93e49d77a",
+        "mode": "real"
+      }
+    ],
+    "failures": [
+      {
+        "intent": "SMART_CONTRACT_AUDIT",
+        "query": "Audit the smart contract at 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48: is the bytecode verified, is there an owner-controlled mint or blacklist function, is the source a honeypot, and what is the overall deploy risk? Answer with findings and a risk score 0-1.",
+        "error": "Engine HTTP 500: {\"error\":\"upstream error 400: {\\\"customCode\\\":\\\"invalid_parameter\\\",\\\"message\\\":\\\"Unknown query parameter 'mission'\\\",\\\"errorId\\\":\\\"408fa462-4cec-428f-b917-87bbafbedc13\\\"}\",\"miner_tried\":\"200002\",\"rou",
+        "isPaymentRequired": false
+      },
+      {
+        "intent": "CODE_REVIEW",
+        "query": "Review the public commit history and contributor authenticity of token 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48's repository: are commits organic, do contributors have real history, any signs of a copy-paste fork? Answer with findings and an authenticity score 0-1.",
+        "error": "Engine HTTP 500: {\"error\":\"upstream error 404: {\\\"message\\\":\\\"Not Found\\\",\\\"documentation_url\\\":\\\"https://docs.github.com/rest/commits/commits#list-commits\\\",\\\"status\\\":\\\"404\\\"}\",\"miner_tried\":\"156001\",\"route_source\":",
+        "isPaymentRequired": false
+      }
+    ],
+    "totalUsd": 0.03,
+    "wallMs": 249342,
+    "mode": "real",
+    "caps": {
+      "maxUsdPerRun": 0.1,
+      "maxUsdPerIntent": 0.02
+    },
+    "verificationHash": "0x0606b593031c7e1d23bea65fe1bac97034b6f3eec4872645e30ebfa6861d585d",
+    "generatedAt": "2026-10-25T20:25:44.266Z"
+  },
+  "receipts": [
+    {
+      "intent": "SOCIAL_BOT_DETECTION",
+      "mode": "real",
+      "minerId": "108008",
+      "minerName": "HN User",
+      "costUsd": 0.01,
+      "durationMs": 64609,
+      "signalHash": "0xa0cc7845cc642b379434f5014ac37edf0b000540b0c1727d1481f5e23dc53dfa",
+      "reasoning": "The user is asking to analyze the social following of a token address and estimate the share of bot or purchased accounts. The 'HN User' subnet (ID: 108008) has the intent SOCIAL_BOT_DETECTION and its description mentions 'HN user profile bot/human signal', which is the closest match to the user's request for estimating bot accounts. The parameters required by this miner are 'user', which can be mapped to the provided token address.",
+      "result": {
+        "miner_id": "108008",
+        "miner_name": "HN User",
+        "endpoint": "/query",
+        "result": null,
+        "cost_usd": 0.01,
+        "duration_ms": 10060,
+        "timestamp": "2026-10-25T20:22:26.374743577Z",
+        "reasoning": "The user is asking to analyze the social following of a token address and estimate the share of bot or purchased accounts. The 'HN User' subnet (ID: 108008) has the intent SOCIAL_BOT_DETECTION and its description mentions 'HN user profile bot/human signal', which is the closest match to the user's request for estimating bot accounts. The parameters required by this miner are 'user', which can be mapped to the provided token address.",
+        "intent": "SOCIAL_BOT_DETECTION",
+        "signal_hash": "0xa0cc7845cc642b379434f5014ac37edf0b000540b0c1727d1481f5e23dc53dfa"
+      },
+      "timestamp": "2026-10-25T20:22:39.554Z",
+      "settlement": {
+        "receipt_hash": "0x52b974d013700239cb3a9fcd052b65c23d84fc6cfc0125672fe27d83facd546f",
+        "rail": "escrow",
+        "payer": "0x5549286a1c71893816899bbef8f4ce4d91f87821",
+        "miner": "3051",
+        "intent": "SOCIAL_BOT_DETECTION",
+        "amount_uusdc": "10000",
+        "epoch_id": 440,
+        "settlement": "epoch",
+        "chain": "telegraph",
+        "timestamp": 1792959753
+      }
+    },
+    {
+      "intent": "ONCHAIN_METRIC_VERIFY",
+      "mode": "real",
+      "minerId": "51010",
+      "minerName": "DefiLlama Token Price Context",
+      "costUsd": 0.01,
+      "durationMs": 32029,
+      "signalHash": "0xe86f100b00342c65d3b344a25e1773be5c73455b64a347167b4543bdc92981ff",
+      "reasoning": "The user is asking for token holder count, top-holder concentration, liquidity pool depth, and contract age for a specific token address (0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48). The DefiLlama Token Price Context miner (ID: 51010) supports the TOKEN_HOLDER_COUNT intent and can provide token holder information. The `coins` parameter can be set to 'ethereum:0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' to specify the token and chain. The `includePrices` parameter is set to 'true' to get price information, which might be useful for calculating liquidity pool depth in USD. Other requested information like contract age and top-holder concentration are not directly available from this miner, but the core request for holder count and price context is met.",
+      "result": {
+        "coins": {
+          "ethereum:0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48": {
+            "confidence": 0.99,
+            "decimals": 6,
+            "price": 0.9995879011916234,
+            "symbol": "USDC",
+            "timestamp": 1792959819
+          }
+        }
+      },
+      "timestamp": "2026-10-25T20:24:46.050Z",
+      "settlement": {
+        "receipt_hash": "0x904c9347abc255b3dbdb32172b4554b2e54f7e26ae8058563c4c934ede9785b4",
+        "rail": "escrow",
+        "payer": "0x5549286a1c71893816899bbef8f4ce4d91f87821",
+        "miner": "4099",
+        "intent": "TOKEN_HOLDER_COUNT",
+        "amount_uusdc": "10000",
+        "epoch_id": 440,
+        "settlement": "epoch",
+        "chain": "telegraph",
+        "timestamp": 1792959886
+      }
+    },
+    {
+      "intent": "SANCTIONS_SCREENING_MATCH",
+      "mode": "real",
+      "minerId": "78021",
+      "minerName": "OFAC SDN Entity Screen",
+      "costUsd": 0.01,
+      "durationMs": 5028,
+      "signalHash": "0xce40d8994e572f4231a2b4ec79292eb7bcdcef0780808c49276c10f93e49d77a",
+      "reasoning": "Intent: The query explicitly asks to screen specific addresses (deployer and treasury of a token) against sanctions lists (OFAC SDN and similar). This directly matches the purpose of the SANCTIONS_SCREENING_MATCH intent. As a secondary, WEB_SEARCH is a fallback if the primary intent cannot be fulfilled, as sanctions screening often involves querying external databases.\nMiner: The user is asking to screen specific addresses against sanctions lists. The OFAC SDN Entity Screen miner is designed for SANCTIONS_SCREENING_MATCH intent and has an endpoint that accepts an 'entity' parameter for screening. The provided address is used as the entity to be screened.",
+      "result": {
+        "entity": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+        "on_list": 0,
+        "sanctioned": 0,
+        "source": "ofac_sdn_xml"
+      },
+      "timestamp": "2026-10-25T20:24:54.083Z",
+      "settlement": {
+        "receipt_hash": "0x7f6c2ea029079d46c129e55214d22419222c23530a3145f3b5210b4905a7233c",
+        "rail": "escrow",
+        "payer": "0x5549286a1c71893816899bbef8f4ce4d91f87821",
+        "miner": "2859",
+        "intent": "SANCTIONS_SCREENING_MATCH",
+        "amount_uusdc": "10000",
+        "epoch_id": 440,
+        "settlement": "epoch",
+        "chain": "telegraph",
+        "timestamp": 1792959894
+      }
+    }
+  ]
+}

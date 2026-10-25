@@ -62,7 +62,7 @@ A chronological record of the whole build-up, so any step can be reproduced or r
 
 ### Current status & next steps
 - ✅ Wallet funded (0.0001 ETH gas + 20 USDC ≈ 400 desk runs) · ✅ `.env` verified · ✅ YAMLs hosted & hashed · ✅ intents canonical · ✅ gas estimated
-- ⏳ **Pending user go-ahead:** send `registerMiner` for `onchain-metric-publicnode` (ID 9602) on the Diamond `0x5a2324aA18613FAD4e44bDF0d6c73Ec1f6D87ff8`.
+- ✅ **ALL DONE (26 Oct):** both miners registered and **ACTIVE** — `onchain-metric-publicnode` (ID 9602, registration 4848) and `weather-verify-openmetoe` (ID 9603, registration 4847). Escrow funded with $5. First **real purchases** completed with settlement receipts (~$0.05 spent). Full log: `build/milestones/MILESTONES-2026-10-26.md`. Registration lessons learned: the node schema requires `external_path` on every endpoint; GitHub raw serves stale bytes for ~5 min after a push (verify the served hash before submitting); the escrow authorization window is capped at **2 minutes**.
 - After that: confirm activation in `/api/miners` → optionally register `weather-verify-openmeteo` (rank-1 incumbent: 0.001) → fund the desk escrow once (`approve` + `depositUSDC 5_000_000` = $5) → first **real** listings-desk run = the Nov 14 milestone artifact.
 - **Nov 1:** hackathon starts; keep the 7-day miner grace period in mind (earlier registration = more baseline traffic). Flip the main repo to **public at submission**.
 

@@ -1,14 +1,31 @@
-# Telegraph Hackathon Season II — Complete Reference (README)
+# 🚀 Telegraph Hackathon S2 — Mission Control
 
-> **Deep-dive companion:** `docs/COMPLETE-WALKTHROUGH.md` — the full beginner-to-hackathon documentation of everything we did (concepts, every command, failure post-mortems, tx tracing, rubric mapping, repo policy).
+**🟢 2 miners live on testnet · 🟢 real purchases with on-chain receipts · 🟢 escrow funded ($5) · 🟡 grace period until ~Nov 2 · 📅 season opens Nov 1**
+
+> **Deep-dive companion:** `docs/COMPLETE-WALKTHROUGH.md` — the full beginner-to-hackathon documentation (concepts, every command, failure post-mortems, tx tracing, rubric mapping, repo policy).
 >
-> **What this file is:** every detail of the **Telegraph Hackathon Season II** (a.k.a. "H2", runs **1 Nov – 1 Dec 2026**), collected on **25 Oct 2026** from the official announcement (X/Discord, posted 10/22/26 by Ahmed Ali, Co-Founder) and from every page of `hackathon.telegraphprotocol.com`, the protocol site, and `docs.telegraphprotocol.com`. The goal: **you should be able to search this file instead of visiting the sites.** Official pages can change — re-verify anything critical against the links in [All links](#all-links).
+> **What this file is:** every detail of the **Telegraph Hackathon Season II** (runs **1 Nov – 1 Dec 2026**), collected on **25 Oct 2026** from the official announcement (X/Discord, 10/22/26) and every page of `hackathon.telegraphprotocol.com`, the protocol site, and `docs.telegraphprotocol.com`. **Search this file instead of visiting the sites** — and re-verify anything critical via [All links](#all-links).
 >
-> Raw extracted data also lives next to this file: `data-intents.json` (the full 134-Intent catalogue with every field) and `data-missions.json` (all 15 missions with every buyer profile and all 102 example builds, verbatim).
+> Raw data next to this file: `data-intents.json` (134-Intent catalogue, every field) · `data-missions.json` (15 missions, all 102 example builds, verbatim).
+
+### 🧭 Find your way
+
+| You want… | Jump to |
+|---|---|
+| The 60-second brief | ⚡ [TL;DR](#tldr--the-60-second-version) |
+| How we got here — the full story | 🧭 [The Journey](#-the-journey--from-zero-to-live-in-five-chapters) |
+| What "Miner" and "EVM wallet" even mean | 💡 [Explained](#-why-this-miner-and-evm-wallet-what-is-this--explained) |
+| Rules, prizes, judging, submissions | 📜 [The event in full](#-the-event-in-full) |
+| Strategy per track | 🎯 [How to win each track](#-how-to-actually-win-each-track-practical-notes-from-the-docs) |
+| Season I winners | 🏆 [Recap](#-season-i-recap--what-already-happened-and-the-winners) |
+| Ready-for-Nov-1 checklist | ✅ [Checklist](#-what-to-do-now-before-nov-1--readiness-checklist) |
+| Every link worth having | 🔗 [All links](#all-links) |
+| All 15 mission briefs + 102 builds | 🎯 [Missions](#the-15-commercial-missions-full-detail) |
+| All 134 Intents | 📇 [Intent catalogue](#appendix-the-shared-intent-catalogue-all-134-intents) |
 
 ---
 
-## TL;DR — the 60-second version
+## ⚡ TL;DR — the 60-second version
 
 | | |
 |---|---|
@@ -26,47 +43,69 @@
 
 ---
 
-## Setup Journal — everything we did, from zero to registration (25–26 Oct 2026)
+## 🧭 The Journey — from zero to live in five chapters
 
-A chronological record of the whole build-up, so any step can be reproduced or revisited. Public identifiers only — the wallet's private key lives solely in the local `build/miner-kit/.env` (git-ignored, never committed).
+> A chronological record of the whole build-up, so any step can be reproduced or revisited. Public identifiers only — the wallet's private key lives solely in the local `build/miner-kit/.env` (git-ignored, never committed).
 
-### Phase 0 — Research & reference (25 Oct, evening)
+### 📚 Ch.0 — Research & reference *(25 Oct, evening)*
 - Collected every page of `hackathon.telegraphprotocol.com` (rules, missions, tracks, timeline, why, how-it-works, build, S1 archive) plus the protocol site and full docs (miners, scoring, x402/escrow, tokenomics).
 - The missions and intents pages are JS-rendered, so the data was extracted from the site's own Next.js webpack bundles → `data-intents.json` (134 Intents), `data-missions.json` (15 missions, 102 example builds) — the catalogue in this README's appendix comes from that.
 - Wrote this README as the single searchable reference.
 
-### Phase 1 — Strategy from live network recon (overnight 25→26 Oct)
+### 🔭 Ch.1 — Recon & strategy *(overnight 25→26 Oct)*
 - Pulled the **live miner catalogue** (`GET devnode.telegraphprotocol.com/api/miners`, 1,919 active miners, epoch 439).
 - Key finding: **all 134 Intents have supply, but no priority Intent has a rank-1 miner scoring ≥ 0.9** — routing pays 70/20/10 by rank, so weak incumbents are beatable.
 - Targets chosen (free, keyless upstreams): `ONCHAIN_METRIC_VERIFY` (#1 scores **0.364**), `WEATHER_FORECAST` (#1 scores **0.001**), `FX_NOW` (#1 scores 0.791, crowded).
 - Built and tested **`build/miner-kit/`** (3 registerable YAML miners + smoke tests, all passing live) and **`build/listings-desk/`** (Mission 01 app: 5 parallel paid intents → receipts → risk memo with cost line; mock mode working, real mode implemented against the Engine's live 402 escrow challenge; 8/8 unit tests).
 - Created **private** repo [`MaahinVPanchal/telegraph-hackathon-s2`](https://github.com/MaahinVPanchal/telegraph-hackathon-s2) and pushed everything (private until submission — it holds the strategy research).
 
-### Phase 2 — Wallet & accounts (user, guided)
+### 👛 Ch.2 — Wallet & faucets *(user, guided)*
 - Created a **fresh MetaMask wallet** (`0x5549286a1C71893816899BbEF8F4CE4d91f87821`) — testnet-only, zero mainnet exposure.
 - Added **Base Sepolia** as a custom network (chain ID **84532**, RPC `https://sepolia.base.org`, explorer `sepolia.basescan.org`).
 - Faucet lessons learned the hard way:
   - **QuickNode faucet blocked us** — it requires a small *mainnet* ETH balance as an anti-abuse check. Fresh wallets don't have one. Same class of gate on Alchemy's faucet. **Skipped both.**
-  - **USDC** came from the [Circle faucet](https://faucet.circle.com) (GitHub sign-in → Base Sepolia → 20 USDC ✅) — this is the faucet Telegraph's own docs recommend.
-  - **ETH** came from the [Coinbase Developer Platform faucet](https://portal.cdp.coinbase.com/products/faucet) (free account → Base Sepolia → 0.0001 ETH ✅, no mainnet-balance gate).
-- Pitfalls hit and solved along the way: Circle's network dropdown defaults to **Arc Testnet** (must switch to Base Sepolia); USDC is **invisible in MetaMask** until you *Import tokens* with contract `0x036CbD53842c5426634e7929541eC2318f3dCF7e`; balances are publicly checkable by address (`eth_call balanceOf` — no keys involved), which is what `build/check-wallet.mjs` does.
+  - **USDC** came from the [Circle faucet](https://faucet.circle.com) (GitHub sign-in → Base Sepolia → 20 USDC ✅) — this is the faucet Telegraph's own docs recommend. **Watch its Network dropdown — it defaults to Arc Testnet** (a stray ~1 USDC still sits on Arc from that; harmless, wrong chain).
+  - **ETH** came from the [Coinbase Developer Platform faucet](https://portal.cdp.coinbase.com/products/faucet) (free account → Base Sepolia → 0.0001 ETH ✅, no mainnet-balance gate). A bonus **0.05 testnet ETH** also landed on *Ethereum Sepolia* (tx `0xa4a2554c…ca810`, traced and harmless — see `build/trace-tx.mjs`).
+- Pitfalls hit and solved along the way: USDC is **invisible in MetaMask** until you *Import tokens* with contract `0x036CbD53842c5426634e7929541eC2318f3dCF7e`; balances are publicly checkable by address (`eth_call balanceOf` — no keys involved), which is what `build/check-wallet.mjs` does.
 
-### Phase 3 — Local environment
+### 🛠️ Ch.3 — Local environment
 - Installed **Foundry** (`curl -L https://foundry.paradigm.xyz | bash`, then `foundryup`) → `cast` 1.8.6 for signing/transactions.
 - Created `build/miner-kit/.env` (`MINER_PRIVATE_KEY`, `FEE_ADDRESS`, `RPC_URL=https://base-sepolia-rpc.publicnode.com`). Two pitfalls fixed: Notepad saved it as **`.env.txt`** (renamed), and MetaMask exports keys **without the `0x` prefix** (added).
 - Verified without printing the key: `cast wallet address` derives **exactly** `0x5549…7821` ✅, and the RPC answers with chain `0x14a34` (84532) ✅.
 - Verified on-chain that all four target Intents are **canonical** (`isCanonicalIntent` = true), so registration can't revert on intent grounds.
 
-### Phase 4 — Hosting the YAMLs (26 Oct)
+### 🌐 Ch.4 — Hosting & registration *(26 Oct — a three-act saga)*
 - The main repo is private, so GitHub can't serve YAMLs from it (raw URLs 404). Created a **separate public repo** [`MaahinVPanchal/telegraph-miner-yaml`](https://github.com/MaahinVPanchal/telegraph-miner-yaml) holding only the three YAMLs — they're public by design anyway (every registered miner's YAML is publicly readable).
-- Pushed, fetched back, and verified the hosted bytes are **byte-identical** to local (sha256 `0x6114d18c02ee5fa24606dd496acc4b91eb54b6af4dec745d53323f8d75cca39c`). (Windows `sha256sum` prints a stray `\` on text-mode reads — compare files through `/tmp` paths or use `cmp`.)
-- Gas estimated for registration: **0.0000026 ETH** (~2.6% of the faucet ETH) — dust.
+- **Act 1:** first `registerMiner` rejected — `external_path is required` (the deployed node schema is stricter than the docs). Fixed all YAMLs, cross-checked against live miners' configs.
+- **Act 2:** second attempt rejected — `YAML hash mismatch`: **GitHub raw's CDN served stale bytes for ~5 min after the push**. New rule: fetch the URL, hash what it *serves*, only submit when it matches.
+- **Act 3:** ✅ both miners **ACTIVE** — network catalogue grew **1,919 → 1,921** the day we registered.
 
-### Current status & next steps
-- ✅ Wallet funded (0.0001 ETH gas + 20 USDC ≈ 400 desk runs) · ✅ `.env` verified · ✅ YAMLs hosted & hashed · ✅ intents canonical · ✅ gas estimated
-- ✅ **ALL DONE + VALIDATED (26 Oct):** both miners re-tested end-to-end via direct Engine calls — clean answers, and the desk now buys from our own supply (registration 4849 supersedes 4848). both miners registered and **ACTIVE** — `onchain-metric-publicnode` (ID 9602, registration 4848) and `weather-verify-openmetoe` (ID 9603, registration 4847). Escrow funded with $5. First **real purchases** completed with settlement receipts (~$0.05 spent). Full log: `build/milestones/MILESTONES-2026-10-26.md`. Registration lessons learned: the node schema requires `external_path` on every endpoint; GitHub raw serves stale bytes for ~5 min after a push (verify the served hash before submitting); the escrow authorization window is capped at **2 minutes**.
-- After that: confirm activation in `/api/miners` → optionally register `weather-verify-openmeteo` (rank-1 incumbent: 0.001) → fund the desk escrow once (`approve` + `depositUSDC 5_000_000` = $5) → first **real** listings-desk run = the Nov 14 milestone artifact.
-- **Nov 1:** hackathon starts; keep the 7-day miner grace period in mind (earlier registration = more baseline traffic). Flip the main repo to **public at submission**.
+### ✅ Ch.5 — Validation: buying from ourselves *(26 Oct)*
+- **M3 escrow:** `approve` + `depositUSDC(5_000_000)` confirmed on-chain (USDC 20.00 → 15.00) — txs `0xdcfa813d…05fe2`, `0x998fded3…93b7`.
+- **M4 purchases:** first a single-intent smoke buy (`CURRENCY_EXCHANGE` via FXRatesAPI, settlement receipt `0x5d238598…49cd`) — which caught a real protocol quirk: **the escrow authorization window is capped at 2 minutes** (server: *"authorization is valid for 11m0s; the maximum is 2m0s"*). Our client now signs 110-second windows. Then the full desk run: **3 of 5 Intents purchased** (OFAC sanctions screen, social-bot detection, DefiLlama on-chain metrics — receipts in the memo), 2 failures were *other miners'* upstream bugs (not billed — documented, bounty material).
+- **M5 self-purchase loop:** direct Engine calls to **our own miners** — weather served a real ICON forecast; onchain initially blocked by our own `limitations` block (the node's size checker misread 63 B vs 1024 B — removed, re-registered as **4849**, active) — then **clean 200 answers, zero warnings, and the Engine paid OUR registration 10,000 μUSDC**. The full supply→demand loop now runs inside our own project, leaking only the 2% treasury fee.
+- 💰 Total intelligence spend to date: **~$0.08** of the $5 escrow. 📜 Full evidence log: `build/milestones/MILESTONES-2026-10-26.md`.
+
+### 📊 Status board
+
+| System | State |
+|---|---|
+| 🪨 Miner `onchain-metric-publicnode` (ID 9602) | 🟢 **ACTIVE** — registration 4849, serves `ONCHAIN_METRIC_VERIFY` (missions 01, 02, 05, 07) |
+| 🌤️ Miner `weather-verify-openmetoe` (ID 9603) | 🟢 **ACTIVE** — registration 4847, serves `WEATHER_FORECAST` + `_VERIFY` (missions 05, 06, 13, 14) |
+| 💵 Escrow | 🟢 $5.00 funded · ~$4.92 remaining after test purchases |
+| 🖥️ Listings desk (Mission 01) | 🟢 working — mock + real modes, 8/8 tests, retry pass, real receipts |
+| 📈 Leaderboard | 🟡 grace period — first placement expected **~Nov 2–3** |
+| 🧾 Nov 14 milestone | ✅ already satisfied (real purchases with receipts) |
+
+### 🗓️ What's next
+
+| When | What |
+|---|---|
+| **Now → Nov 2** | Grace period accumulates; spot checks every ~20s (our upstreams are reliable) |
+| **~Nov 2–3** | First leaderboard placement — compare vs verifywire (0.465) and wxfv-om-aq (0.632) |
+| **Nov 1** | Season opens — lock formal entries, run the desk against real listing candidates, start Mission 01 build #2 |
+| **~Nov 7** | Grace period ends → 70/20/10 rank-based routing begins |
+| **Dec 1, 23:59 UTC** | Submission — flip the main repo **public** |
 
 ---
 
@@ -292,17 +331,17 @@ Season I ("H1") ran **Aug 17 – Sep 7, 2026** ($5,000), part of a 3-hackathon s
 
 ---
 
-## What to do NOW (before Nov 1) — readiness checklist
+## ✅ What to do NOW (before Nov 1) — readiness checklist
 
-- [x] Registered (done by you — one registration covers all tracks).
-- [ ] **Join the Discord** ([discord.gg/telegraphprotocol](https://discord.gg/telegraphprotocol)) — the announcement says invitations for S2 are going out and "we're getting ready to bring everyone together"; also where teams/collaborators form. "You don't need an existing team or a finished project to get involved."
-- [ ] **Set up an EVM wallet** (e.g. MetaMask/Rabby) + get a little **Base Sepolia ETH** from a faucet (gas only — nothing else costs anything).
-- [ ] Decide a track *direction* now (you can change): an app idea from the 15 missions, an API we could wrap as a Miner, or an Evaluator angle.
-- [ ] Read the **mission detail** for anything interesting (below) and shortlist 2–3 example builds that fit our skills.
-- [ ] Skim the **Intent catalogue** (appendix) — especially the 63 ★ priority Intents and which missions buy them.
-- [ ] Try the network read-only: [Alexandria](https://alexandria.telegraphprotocol.com/) (Intelligence Terminal), `GET https://devnode.telegraphprotocol.com/api/miners`.
-- [ ] Bookmark the docs: [docs.telegraphprotocol.com](https://docs.telegraphprotocol.com) — key pages: `miners/miner-overview`, `miners/yaml-config`, `miners/miner-registration`, `scoring/build-a-scoring-module`, `using/engine-ask`, `using/x402-inference`, `using/escrow-inference`, `using/erc8183-jobs`, `protocol/how-it-works`, `protocol/tokenomics`, `troubleshooting`.
-- [ ] **Nov 1:** lock track + mission/Intent. **Nov 14:** first working Telegraph request shown. **Dec 1 23:59 UTC:** everything submitted.
+- [x] Registered (one registration covers all tracks).
+- [x] EVM wallet set up + funded (0.0001 ETH gas + 20 USDC via Circle/CDP faucets — see Ch.2).
+- [x] Track direction decided: **Apps & Agents on Mission 01** + **Miner track** (2 miners live, 1 hosted).
+- [x] Miners registered, validated end-to-end, escrow funded, first real purchases done (Ch.4–5).
+- [x] Full documentation written (`docs/COMPLETE-WALKTHROUGH.md` + this README).
+- [ ] **Join the Discord** ([discord.gg/telegraphprotocol](https://discord.gg/telegraphprotocol)) and post the intro with screenshots — where teams/collaborators form. "You don't need an existing team or a finished project to get involved."
+- [ ] **Post the 4 catalogued protocol/miner bugs** to Telegraph's GitHub bounties — early visibility before judges start watching (see `build/milestones/` log).
+- [ ] Skim the **mission detail** (below) and shortlist the next 1–2 example builds that fit our skills.
+- [ ] **Nov 1:** lock track + mission/Intent formally; run the desk against real listing candidates. **Nov 14:** milestone demo (artifact ready). **Dec 1 23:59 UTC:** everything submitted; flip this repo public.
 
 ---
 

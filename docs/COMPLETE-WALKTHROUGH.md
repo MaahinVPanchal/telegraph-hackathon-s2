@@ -222,6 +222,52 @@ curl -s https://devnode.telegraphprotocol.com/engine/v1/signal/<signal_hash>
 cast call 0x5a2324aA18613FAD4e44bDF0d6c73Ec1f6D87ff8 "getCanonicalIntents()(string[])" --rpc-url $RPC_URL
 ```
 
-## Part 9 — Glossary
+## Part 9 — Glossary (every word, plain language)
 
-**Intent** — a registered type of question. **Miner** — a wrapped API answering Intents. **Evaluator** — WASM scoring module; challenger replaces the canonical on a hidden sample. **Validator** — 1 of 64 nodes finalizing scores. **Epoch** — a scoring round (~minutes; testnet is at 440+). **Grace period** — a miner's first 7 days: 5% of traffic shared equally, no leaderboard. **Routing 70/20/10** — traffic split by rank. **Spot check** — ~20s liveness test; fail consecutively → revoked until next epoch. **TWAP** — time-weighted settlement: 98% of each payment drips into Uniswap over 24h, buys MACHINA for the miner. **x402** — HTTP-native payment flow (402 challenge → signed payment → retry). **Escrow** — pre-funded balance in the Diamond; deductions authorized per-request by `personal_sign`, settled at epoch close. **signal_hash** — the on-chain pointer to a specific answer. **μUSDC** — USDC in 6 decimals (10000 = $0.01).
+### Blockchain basics
+- **Wallet** — a keychain, not a purse. The **address** (0x…) is public like an email; the **private key** is the only thing that can spend.
+- **Seed phrase** — the 12-word master key that generates all accounts. Never leaves paper.
+- **Gas** — postage fee paid to the network for every transaction. Testnet gas is free-ish.
+- **Testnet / mainnet** — rehearsal stage vs the real stage. Testnet tokens are free and worth $0.
+- **Faucet** — a free dispenser of testnet tokens.
+- **Transaction hash (tx hash)** — the tracking number of a transaction.
+- **Block** — a batch of transactions; the block number is the ledger's page count.
+- **Explorer** (basescan/etherscan) — the chain's public search engine.
+- **ERC-20** — the token standard USDC uses. Tokens move via  events; **decimals** define counting (USDC: 1000000 = $1).
+- **approve** — giving a contract permission to pull tokens from you (required before depositUSDC).
+- **Contract / Diamond** — code living on-chain; the Diamond is Telegraph's main contract (diamond = a contract pattern with swappable modules called facets).
+- **Signature (personal_sign, EIP-191)** — proving you authorized a message with your key, without sending a transaction. **EIP-712** = the fancier typed-data version (used by the x402 "exact" rail).
+- **Nonce** — a one-time number preventing replay attacks.
+- **Escrow** — money parked in a contract, spent per rules.
+- **TWAP** — drip-buying: 98% of each payment enters Uniswap over 24h to buy MACHINA.
+- **MACHINA** — the protocol token. Miners are paid in it; 21M max, halvings, zero pre-mine.
+- **Epoch** — one scoring round (~7.5h on testnet). Scores finalize per epoch.
+- **Validators / BFT / commit-reveal** — the 64-referee committee scoring miners; 43-of-64 must agree; scores are committed secretly then revealed to prevent copying.
+- **zkTLS** — cryptographic proof binding a miner to the answer it gave.
+
+### Telegraph's own vocabulary
+- **Intent** — a registered *type of question* (job category). 134 exist; 63 are ★ priority.
+- **Miner** — anyone whose API answers Intents. Declared in **YAML** (a config file), registered in one transaction.
+- **slug** — the miner's username. **canonical intent** — an officially registered Intent; you may only declare those.
+- **external_path** — the upstream path the node must call (required by the deployed schema even though docs said optional).
+- **updateMiner** — the edit button; issues a NEW registrationId each time.
+- **Engine** — the API agents call: POST /engine/v1/ask.
+- **Receipt / signal_hash** — purchase proof + the pointer to that exact answer.
+- **Grace period** — a miner's first 7 days: 5% of traffic shared equally, no leaderboard.
+- **Routing 70/20/10** — traffic split by rank. **Spot check** — ~20s liveness test; fail → revoked until next epoch.
+- **Mission** — an industry use-case (the demand side). Only Apps & Agents pick one.
+
+### Code words used in our project
+- **API / endpoint** — a URL a program calls. **JSON** — the data format; **JSON-RPC** — the blockchain call format.
+- **HTTP status codes** — 200 ok · 402 payment required · 404 not found · 429 too many requests · 500 server error · 504 gateway timeout.
+- **Header (X-PAYMENT)** — metadata attached to an HTTP request (carries our signed payment). **base64** — the text encoding for that envelope.
+- **sha256** — a file's fingerprint; proves the hosted YAML equals the registered bytes.
+- **Verification hash** — our run's fingerprint: same token in → same hash out.
+- **Mock vs real mode** — simulated purchases vs real ones.
+- **Parallel (Promise.allSettled)** — fire all 5 requests at once; failures don't cancel the others.
+- **Retry with backoff** — re-try failures one-by-one with growing waits (3s, 6s).
+- **Spending caps** — MAX_USD_PER_RUN / PER_INTENT, enforced before and after dispatch.
+- **Confidence gate** — verdict capped at REVIEW when fewer than 4 of 5 Intents answer.
+- **CLI / .env / git commit+push** — command-line app / local secrets file / save + upload versions.
+- **Unit test** — automated checks (node --test). Ours: 8/8.
+

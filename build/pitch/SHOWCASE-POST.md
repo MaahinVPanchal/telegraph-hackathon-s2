@@ -6,13 +6,21 @@
 
 ---
 
-## Title
+## Title (Discord forum titles cap ~100 chars — this fits)
 
 ```
-🟢 LIVE on testnet: Listings Desk (Mission 01) + 2 miners already serving ONCHAIN_METRIC_VERIFY & weather
+🟢 LIVE: Listings Desk (Mission 01) + 2 miners serving onchain & weather Intents
 ```
 
-## Body
+Shorter alternates:
+```
+🟢 Mission 01: Listings Desk + 2 live miners — receipts included
+🟢 Listings Desk is live: 5 bought Intents → risk memo with receipts
+```
+
+## Body (compact version — fits Discord's 2000-char message limit)
+
+> The original long body is below for channels without limits.
 
 ```
 Hi all 👋 building for **Mission 01 (Exchange)** — an autonomous **listings desk** that buys

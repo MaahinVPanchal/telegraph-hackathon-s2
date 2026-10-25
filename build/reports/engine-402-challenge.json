@@ -1,0 +1,29 @@
+{
+  "error": "payment required",
+  "accepts": [
+    {
+      "scheme": "exact",
+      "price": "$0.01",
+      "network": "eip155:84532",
+      "payTo": "0x5a2324aA18613FAD4e44bDF0d6c73Ec1f6D87ff8"
+    },
+    {
+      "scheme": "exact",
+      "price": "$0.01",
+      "network": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+      "payTo": "G53EbeTZSNsAn7bj6iMFUQnq3zpDdEbHhKkPRywo8bix"
+    },
+    {
+      "extra": {
+        "description": "Deduct from the caller's Telegraph escrow balance at the next epoch close. Fund it once with EscrowFacet.depositUSDC(amount); no per-request settlement.",
+        "message": "Telegraph Escrow Payment\n\nWallet: {from}\nPay To: 0x5a2324aa18613fad4e44bdf0d6c73ec1f6d87ff8\nAmount: 10000 uUSDC\nResource: /v1/ask\nNonce: {nonce}\nValid After: {validAfter}\nValid Before: {validBefore}",
+        "resource": "/v1/ask",
+        "signWith": "personal_sign (EIP-191)"
+      },
+      "network": "eip155:84532",
+      "payTo": "0x5a2324aa18613fad4e44bdf0d6c73ec1f6d87ff8",
+      "price": "$0.01",
+      "scheme": "escrow"
+    }
+  ]
+}

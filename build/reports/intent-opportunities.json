@@ -1,0 +1,569 @@
+[
+ {
+  "name": "CORPORATE_REGISTRY_LOOKUP",
+  "count": 20,
+  "topScore": 0.796,
+  "strong": 0,
+  "weak": 18,
+  "demand": 6,
+  "minP": "0.01"
+ },
+ {
+  "name": "SANCTIONS_SCREENING_MATCH",
+  "count": 14,
+  "topScore": 0.63,
+  "strong": 0,
+  "weak": 14,
+  "demand": 5,
+  "minP": "0.01"
+ },
+ {
+  "name": "REGULATORY_FILING_MONITOR",
+  "count": 15,
+  "topScore": 0.686,
+  "strong": 0,
+  "weak": 15,
+  "demand": 5,
+  "minP": "0.01"
+ },
+ {
+  "name": "MACRO_ECONOMIC_INDICATOR",
+  "count": 25,
+  "topScore": 0.739,
+  "strong": 0,
+  "weak": 22,
+  "demand": 5,
+  "minP": "0.01"
+ },
+ {
+  "name": "TASK_EXECUTION_QUALITY",
+  "count": 13,
+  "topScore": 0.595,
+  "strong": 0,
+  "weak": 13,
+  "demand": 5,
+  "minP": "0.01"
+ },
+ {
+  "name": "WEATHER_FORECAST_VERIFY",
+  "count": 19,
+  "topScore": 0.632,
+  "strong": 0,
+  "weak": 19,
+  "demand": 5,
+  "minP": "0.01"
+ },
+ {
+  "name": "EVENT_OUTCOME_RESOLUTION",
+  "count": 31,
+  "topScore": 0.662,
+  "strong": 0,
+  "weak": 31,
+  "demand": 4,
+  "minP": "0.01"
+ },
+ {
+  "name": "ONCHAIN_METRIC_VERIFY",
+  "count": 35,
+  "topScore": 0.364,
+  "strong": 0,
+  "weak": 35,
+  "demand": 4,
+  "minP": "0.01"
+ },
+ {
+  "name": "LIVE_SHELF_PRICE",
+  "count": 20,
+  "topScore": 0.298,
+  "strong": 0,
+  "weak": 20,
+  "demand": 4,
+  "minP": "0.01"
+ },
+ {
+  "name": "ASSET_RESERVE_ATTESTATION",
+  "count": 21,
+  "topScore": 0.497,
+  "strong": 0,
+  "weak": 21,
+  "demand": 4,
+  "minP": "0.01"
+ },
+ {
+  "name": "DOCUMENT_AUTHENTICITY",
+  "count": 12,
+  "topScore": 0.581,
+  "strong": 0,
+  "weak": 12,
+  "demand": 4,
+  "minP": "0.01"
+ },
+ {
+  "name": "FX_NOW",
+  "count": 17,
+  "topScore": 0.791,
+  "strong": 0,
+  "weak": 16,
+  "demand": 4,
+  "minP": "0.01"
+ },
+ {
+  "name": "SOCIAL_BOT_DETECTION",
+  "count": 12,
+  "topScore": 0.455,
+  "strong": 0,
+  "weak": 12,
+  "demand": 4,
+  "minP": "0.01"
+ },
+ {
+  "name": "SENSOR_TELEMETRY_VERIFY",
+  "count": 17,
+  "topScore": 0.622,
+  "strong": 0,
+  "weak": 17,
+  "demand": 4,
+  "minP": "0.01"
+ },
+ {
+  "name": "WASH_TRADING_DETECTION",
+  "count": 13,
+  "topScore": 0.459,
+  "strong": 0,
+  "weak": 13,
+  "demand": 3,
+  "minP": "0.01"
+ },
+ {
+  "name": "LIQUIDITY_DEPTH_VERIFY",
+  "count": 33,
+  "topScore": 0.615,
+  "strong": 0,
+  "weak": 33,
+  "demand": 3,
+  "minP": "0.01"
+ },
+ {
+  "name": "CROSS_CHAIN_STATE_VERIFY",
+  "count": 26,
+  "topScore": 0.54,
+  "strong": 0,
+  "weak": 26,
+  "demand": 3,
+  "minP": "0.01"
+ },
+ {
+  "name": "LLM_OUTPUT_EVALUATION",
+  "count": 13,
+  "topScore": 0.616,
+  "strong": 0,
+  "weak": 13,
+  "demand": 3,
+  "minP": "0.01"
+ },
+ {
+  "name": "CONTRACT_OBLIGATION_AUDIT",
+  "count": 13,
+  "topScore": 0.49,
+  "strong": 0,
+  "weak": 13,
+  "demand": 3,
+  "minP": "0.01"
+ },
+ {
+  "name": "URL_SAFE",
+  "count": 15,
+  "topScore": 0.626,
+  "strong": 0,
+  "weak": 15,
+  "demand": 3,
+  "minP": "0.01"
+ },
+ {
+  "name": "SHIP_RATE_ETA",
+  "count": 10,
+  "topScore": 0.391,
+  "strong": 0,
+  "weak": 10,
+  "demand": 3,
+  "minP": "0.01"
+ },
+ {
+  "name": "GRID_POWER_PRICE",
+  "count": 23,
+  "topScore": null,
+  "strong": 0,
+  "weak": 23,
+  "demand": 3,
+  "minP": "0.01"
+ },
+ {
+  "name": "SATELLITE_IMAGERY_ANALYSIS",
+  "count": 12,
+  "topScore": 0.161,
+  "strong": 0,
+  "weak": 12,
+  "demand": 3,
+  "minP": "0.01"
+ },
+ {
+  "name": "LIVE_PORT_CONGESTION",
+  "count": 11,
+  "topScore": 0.373,
+  "strong": 0,
+  "weak": 11,
+  "demand": 3,
+  "minP": "0.01"
+ },
+ {
+  "name": "VESSEL_TELEMETRY_VERIFY",
+  "count": 13,
+  "topScore": 0.586,
+  "strong": 0,
+  "weak": 13,
+  "demand": 3,
+  "minP": "0.01"
+ },
+ {
+  "name": "CODE_REVIEW",
+  "count": 13,
+  "topScore": 0.459,
+  "strong": 0,
+  "weak": 13,
+  "demand": 2,
+  "minP": "0.01"
+ },
+ {
+  "name": "SECURITY_REVIEW",
+  "count": 21,
+  "topScore": 0.403,
+  "strong": 0,
+  "weak": 21,
+  "demand": 2,
+  "minP": "0.01"
+ },
+ {
+  "name": "VULNERABILITY_TRIAGE",
+  "count": 35,
+  "topScore": 0.623,
+  "strong": 0,
+  "weak": 35,
+  "demand": 2,
+  "minP": "0.01"
+ },
+ {
+  "name": "CODE_PATCH_VERIFY",
+  "count": 17,
+  "topScore": 0.427,
+  "strong": 0,
+  "weak": 17,
+  "demand": 2,
+  "minP": "0.01"
+ },
+ {
+  "name": "SKU_IN_STOCK",
+  "count": 12,
+  "topScore": 0.198,
+  "strong": 0,
+  "weak": 12,
+  "demand": 2,
+  "minP": "0.01"
+ },
+ {
+  "name": "TRAVEL_DISRUPTION",
+  "count": 13,
+  "topScore": 0.568,
+  "strong": 0,
+  "weak": 13,
+  "demand": 2,
+  "minP": "0.01"
+ },
+ {
+  "name": "FRAUD_RISK",
+  "count": 12,
+  "topScore": 0.678,
+  "strong": 0,
+  "weak": 12,
+  "demand": 2,
+  "minP": "0.01"
+ },
+ {
+  "name": "MEDIA_FORENSIC_VERIFY",
+  "count": 11,
+  "topScore": 0.714,
+  "strong": 0,
+  "weak": 10,
+  "demand": 2,
+  "minP": "0.01"
+ },
+ {
+  "name": "PRODUCT_AUTHENTICITY",
+  "count": 10,
+  "topScore": 0.49,
+  "strong": 0,
+  "weak": 10,
+  "demand": 2,
+  "minP": "0.01"
+ },
+ {
+  "name": "ROUTE_ETA",
+  "count": 14,
+  "topScore": 0.425,
+  "strong": 0,
+  "weak": 14,
+  "demand": 2,
+  "minP": "0.01"
+ },
+ {
+  "name": "SLA_COMPLIANCE",
+  "count": 12,
+  "topScore": 0.509,
+  "strong": 0,
+  "weak": 12,
+  "demand": 2,
+  "minP": "0.01"
+ },
+ {
+  "name": "PACKAGE_STATUS",
+  "count": 12,
+  "topScore": 0.261,
+  "strong": 0,
+  "weak": 12,
+  "demand": 2,
+  "minP": "0.01"
+ },
+ {
+  "name": "COMMERCE_PURCHASE_VERIFY",
+  "count": 12,
+  "topScore": 0.251,
+  "strong": 0,
+  "weak": 12,
+  "demand": 1,
+  "minP": "0.01"
+ },
+ {
+  "name": "TRANSACTION_RISK",
+  "count": 12,
+  "topScore": 0.424,
+  "strong": 0,
+  "weak": 12,
+  "demand": 1,
+  "minP": "0.01"
+ },
+ {
+  "name": "VENDOR_VERIFY",
+  "count": 18,
+  "topScore": 0.625,
+  "strong": 0,
+  "weak": 18,
+  "demand": 1,
+  "minP": "0.01"
+ },
+ {
+  "name": "REGRESSION_VERIFY",
+  "count": 13,
+  "topScore": 0.431,
+  "strong": 0,
+  "weak": 13,
+  "demand": 1,
+  "minP": "0.01"
+ },
+ {
+  "name": "VALIDATOR_PERFORMANCE_VERIFY",
+  "count": 16,
+  "topScore": 0.456,
+  "strong": 0,
+  "weak": 16,
+  "demand": 1,
+  "minP": "0.01"
+ },
+ {
+  "name": "MINING_HASHPRICE_VERIFY",
+  "count": 24,
+  "topScore": 0.587,
+  "strong": 0,
+  "weak": 24,
+  "demand": 1,
+  "minP": "0.01"
+ },
+ {
+  "name": "DATACENTER_TELEMETRY_VERIFY",
+  "count": 11,
+  "topScore": 0,
+  "strong": 0,
+  "weak": 11,
+  "demand": 1,
+  "minP": "0.01"
+ },
+ {
+  "name": "WAREHOUSE_INVENTORY",
+  "count": 11,
+  "topScore": 0,
+  "strong": 0,
+  "weak": 11,
+  "demand": 1,
+  "minP": "0.01"
+ },
+ {
+  "name": "CARRIER_SERVICEABILITY",
+  "count": 14,
+  "topScore": 0.364,
+  "strong": 0,
+  "weak": 14,
+  "demand": 1,
+  "minP": "0.01"
+ },
+ {
+  "name": "SHIPMENT_DELAY_RISK",
+  "count": 11,
+  "topScore": 0.51,
+  "strong": 0,
+  "weak": 11,
+  "demand": 1,
+  "minP": "0.01"
+ },
+ {
+  "name": "OPTIMAL_EXECUTION_ROUTE",
+  "count": 22,
+  "topScore": 0.37,
+  "strong": 0,
+  "weak": 22,
+  "demand": 0,
+  "minP": "0.01"
+ },
+ {
+  "name": "KYC_BIOMETRIC_LIVENESS",
+  "count": 11,
+  "topScore": 0.448,
+  "strong": 0,
+  "weak": 11,
+  "demand": 0,
+  "minP": "0.01"
+ },
+ {
+  "name": "PAYMENT_METHOD_VERIFY",
+  "count": 19,
+  "topScore": 0.581,
+  "strong": 0,
+  "weak": 19,
+  "demand": 0,
+  "minP": "0.01"
+ },
+ {
+  "name": "B2B_IDENTITY_ENRICHMENT",
+  "count": 12,
+  "topScore": 0.324,
+  "strong": 0,
+  "weak": 12,
+  "demand": 0,
+  "minP": "0.01"
+ },
+ {
+  "name": "INVOICE_LEDGER_RECONCILE",
+  "count": 12,
+  "topScore": 0.569,
+  "strong": 0,
+  "weak": 12,
+  "demand": 0,
+  "minP": "0.01"
+ },
+ {
+  "name": "PURCHASE_ORDER_VERIFY",
+  "count": 11,
+  "topScore": 0.429,
+  "strong": 0,
+  "weak": 11,
+  "demand": 0,
+  "minP": "0.01"
+ },
+ {
+  "name": "EMAIL_SECURITY",
+  "count": 17,
+  "topScore": 0.572,
+  "strong": 0,
+  "weak": 17,
+  "demand": 0,
+  "minP": "0.01"
+ },
+ {
+  "name": "MALWARE_DETECTION",
+  "count": 13,
+  "topScore": 0.572,
+  "strong": 0,
+  "weak": 13,
+  "demand": 0,
+  "minP": "0.01"
+ },
+ {
+  "name": "THREAT_INTELLIGENCE",
+  "count": 18,
+  "topScore": 0.684,
+  "strong": 0,
+  "weak": 18,
+  "demand": 0,
+  "minP": "0.01"
+ },
+ {
+  "name": "RETURN_POLICY_VERIFY",
+  "count": 12,
+  "topScore": 0.59,
+  "strong": 0,
+  "weak": 12,
+  "demand": 0,
+  "minP": "0.01"
+ },
+ {
+  "name": "TRAVEL_TRANSIT_LOCK",
+  "count": 10,
+  "topScore": 0.547,
+  "strong": 0,
+  "weak": 10,
+  "demand": 0,
+  "minP": "0.01"
+ },
+ {
+  "name": "FLIGHT_AVAILABILITY",
+  "count": 11,
+  "topScore": 0.408,
+  "strong": 0,
+  "weak": 11,
+  "demand": 0,
+  "minP": "0.01"
+ },
+ {
+  "name": "HOTEL_AVAILABILITY",
+  "count": 10,
+  "topScore": null,
+  "strong": 0,
+  "weak": 10,
+  "demand": 0,
+  "minP": "0.01"
+ },
+ {
+  "name": "FARE_RULE_VERIFY",
+  "count": 11,
+  "topScore": 0.486,
+  "strong": 0,
+  "weak": 11,
+  "demand": 0,
+  "minP": "0.01"
+ },
+ {
+  "name": "CUSTOMER_TICKET_RESOLUTION",
+  "count": 13,
+  "topScore": 0.476,
+  "strong": 0,
+  "weak": 13,
+  "demand": 0,
+  "minP": "0.01"
+ },
+ {
+  "name": "DELIVERY_WINDOW_VERIFY",
+  "count": 12,
+  "topScore": 0.731,
+  "strong": 0,
+  "weak": 11,
+  "demand": 0,
+  "minP": "0.01"
+ }
+]

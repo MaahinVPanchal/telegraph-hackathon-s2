@@ -1,0 +1,17 @@
+# Secrets — NEVER commit these
+.env
+**/.env
+*.key
+*_private_key*
+
+# Dependencies / build artifacts
+node_modules/
+__pycache__/
+
+# Regenerated outputs (run `npm run demo` to remake)
+**/memos/
+
+# OS noise
+Thumbs.db
+.DS_Store
+*.log

@@ -11,7 +11,7 @@
 **SHOW:** the finished memo open in your browser (`build/milestones/real-run-memos/…html`) — scroll slowly from verdict to receipts to the cost line.
 
 **SAY:**
-> "This is a listing risk memo produced by our app, the Listings Desk, for Telegraph Hackathon Season Two. Every line of it was **bought with real money** from the Telegraph network — five pieces of intelligence, parallel, ninety seconds, and the total cost printed at the bottom. Let me show you how."
+> "This is a listing risk memo produced by our app, the Listings Desk, for Telegraph Hackathon Season Two. Every line of it was **bought with real money** from the Telegraph network — five pieces of intelligence, parallel, a couple of minutes including automatic retries, and the total cost printed at the bottom. Let me show you how."
 
 ---
 
@@ -49,7 +49,7 @@
 **SHOW:** the memo's cost line, then the leaderboards (`node build/check-leaderboard.mjs`).
 
 **SAY:**
-> "The economics: one request costs one cent. A full listing review costs five cents and runs in under two minutes — against weeks of analyst time. And because rankings are public, quality is transparent: our Intents have incumbents scoring zero-point-three to zero-point-six, and our validators-verified answers are built to beat them."
+> "The economics: one request costs one cent. A full listing review costs five cents and runs in a couple of minutes — against weeks of analyst time. And because rankings are public, quality is transparent: our Intents have incumbents scoring zero-point-three to zero-point-six, and our validators-verified answers are built to beat them."
 
 ---
 
@@ -74,4 +74,4 @@
 
 ## 🎙️ If asked to speak live (30-second version)
 
-> "We built a listings desk for Mission One: it buys five kinds of verified intelligence — contract audit, on-chain metrics, sanctions, bot detection, code review — in parallel through Telegraph, and returns a risk memo with receipts and a cost line, in about ninety seconds for five cents. We also run two live miners on the network supplying that intelligence. Everything is on-chain, receipted, and reproducible — repo and receipts in the thread."
+> "We built a listings desk for Mission One: it buys five kinds of verified intelligence — contract audit, on-chain metrics, sanctions, bot detection, code review — in parallel through Telegraph, and returns a risk memo with receipts and a cost line, in minutes for five cents. We also run two live miners on the network supplying that intelligence. Everything is on-chain, receipted, and reproducible — repo and receipts in the thread."

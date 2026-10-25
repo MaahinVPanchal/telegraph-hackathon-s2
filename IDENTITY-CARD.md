@@ -26,7 +26,7 @@ One-liner if asked "what do you run?":
 |---|---|
 | Prize pool (Season II) | **$10,000** ($7,000 main + $3,000 December) · 29 award places |
 | Cost per intelligence request | **$0.01** |
-| Cost of a full listing review | **~$0.05 · 90–120 seconds** (vs weeks of analyst time) |
+| Cost of a full listing review | **~$0.05 · 2–5 minutes end-to-end** incl. automatic retries (measured: 249 s) — vs weeks of analyst time |
 | Real purchases completed | **4**, all with settlement receipts (~$0.08 spent of $5 escrow) |
 | Network size when we joined | 1,919 miners → **1,921** after ours went live |
 | Routing split | **70% / 20% / 10%** by rank, per Intent |

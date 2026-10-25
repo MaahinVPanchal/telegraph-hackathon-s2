@@ -162,7 +162,10 @@ function assess(token, receipts, failures, { totalUsd, wallMs, caps, mode }) {
 
   const hardBlock = sanctioned;
   const badCount = signals.filter((s) => s[0] === "bad").length;
-  const verdict = hardBlock ? "NO-GO" : badCount === 0 ? "GO" : badCount === 1 ? "REVIEW" : "NO-GO";
+  // Confidence gate: a GO on partial intelligence is overclaiming — cap at REVIEW
+  // when fewer than 4 of 5 Intents answered. NO-GO (sanctions) is never upgraded.
+  let verdict = hardBlock ? "NO-GO" : badCount === 0 ? "GO" : badCount === 1 ? "REVIEW" : "NO-GO";
+  if (verdict === "GO" && receipts.length < INTENT_ASKS.length - 1) verdict = "REVIEW";
 
   return {
     token,

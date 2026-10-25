@@ -1,6 +1,6 @@
 # 🎯 OVERVIEW — Telegraph Listings Desk
 
-> **One-liner:** an autonomous exchange-listings desk that buys verified intelligence with real money through the Telegraph network and produces a signed risk memo — with receipts and a cost line — in about 90 seconds.
+> **One-liner:** an autonomous exchange-listings desk that buys verified intelligence with real money through the Telegraph network and produces a signed risk memo — with receipts and a cost line — in minutes, for cents.
 
 ---
 
@@ -71,7 +71,7 @@ flowchart TB
 ## The five commercial questions (submission item #5)
 
 - **Who is it for?** Exchange listing/compliance desks — and any agent that needs trustworthy answers before committing money.
-- **What does it improve?** Listing review from weeks of analyst time to ~90 seconds of bought, verified intelligence — with per-item cost instead of per-seat licensing.
+- **What does it improve?** Listing review from weeks of analyst time to minutes of bought, verified intelligence — with per-item cost instead of per-seat licensing.
 - **What works today?** Live purchases on testnet: 4 settled buys across 4 Intents, each with receipts; 2 registered miners serving traffic; spending caps enforced.
 - **Why would someone adopt it?** Receipts on every input, pay-per-request economics, and routing that automatically improves as miners compete.
 - **How to try it?** Clone the repo → `npm install` (nothing to install — zero deps) → `npm run demo` for the full offline pipeline → add a funded wallet for live purchases.

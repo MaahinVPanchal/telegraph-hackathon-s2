@@ -21,7 +21,7 @@ export function renderMarkdown(m) {
   for (const r of m.receipts) {
     L.push(`| \`${r.intent}\` | ${r.miner} | $${r.costUsd.toFixed(4)} | ${r.durationMs} ms | \`${r.signalHash}\` |`);
   }
-  for (const f of m.failures ?? []) L.push(`| \`${f.intent}\` | — | — | — | FAILED: ${f.error.slice(0, 80)} |`);
+  for (const f of m.failures ?? []) L.push(`| \`${f.intent}\` | — | — | — | FAILED: ${shortReason(f.error)} |`);
   L.push("");
   L.push("## How to reproduce");
   L.push("");
@@ -36,6 +36,14 @@ export function renderMarkdown(m) {
   return L.join("\n");
 }
 
+const shortReason = (err) => {
+  if (/504/.test(err)) return "upstream timeout (gateway 504)";
+  if (/upstream error 400/.test(err)) return "upstream miner rejected the request (400)";
+  if (/upstream error 404/.test(err)) return "upstream miner endpoint not found (404)";
+  if (/429|rate/i.test(err)) return "Engine router rate-limited (429) — retried";
+  return err.slice(0, 90);
+};
+
 export function renderHtml(m) {
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const badge =
@@ -47,7 +55,7 @@ export function renderHtml(m) {
     )
     .join("\n");
   const fails = (m.failures ?? [])
-    .map((f) => `<tr class="fail"><td><code>${esc(f.intent)}</code></td><td colspan="4">FAILED — ${esc(f.error.slice(0, 120))}</td></tr>`)
+    .map((f) => `<tr class="fail"><td><code>${esc(f.intent)}</code></td><td colspan="4">FAILED — ${esc(shortReason(f.error))} <span class="meta">(raw error in the .json artifact)</span></td></tr>`)
     .join("\n");
   const signals = m.signals
     .map(([k, t]) => `<li class="${k}">${esc(t)}</li>`)

@@ -25,7 +25,7 @@ Shorter alternates:
 ```
 Hi all 👋 building for **Mission 01 (Exchange)** — an autonomous **listings desk** that buys
 verified intelligence through Telegraph and returns a signed risk memo with receipts and a
-cost line. In ~90 seconds and $0.05, instead of weeks of analyst time.
+cost line. In minutes and $0.05, instead of weeks of analyst time.
 
 **How it works (demand side):**
 A token candidate arrives → the desk fires **5 parallel paid Intents** through the Engine

@@ -21,6 +21,7 @@
 | Ready-for-Nov-1 checklist | ✅ [Checklist](#-what-to-do-now-before-nov-1--readiness-checklist) |
 | Every link worth having | 🔗 [All links](#all-links) |
 | Pitch kit: overview, video script, Discord post | 🎬 [build/pitch/](build/pitch/OVERVIEW.md) |
+| **Identity card — names, numbers, hashes, Q&A crib** | 🪪 [IDENTITY-CARD.md](IDENTITY-CARD.md) |
 | All 15 mission briefs + 102 builds | 🎯 [Missions](#the-15-commercial-missions-full-detail) |
 | All 134 Intents | 📇 [Intent catalogue](#appendix-the-shared-intent-catalogue-all-134-intents) |
 

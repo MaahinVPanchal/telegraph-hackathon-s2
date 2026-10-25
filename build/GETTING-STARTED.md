@@ -36,11 +36,13 @@ Both RPCs verified live (chainId responds `0x14a34` = 84532).
 
 You need two tokens: **ETH** (pays gas) and **USDC** (pays for intelligence).
 
-- **ETH** → [faucet.quicknode.com/base/sepolia](https://faucet.quicknode.com/base/sepolia) — sign in
-  with GitHub, paste your wallet address, receive testnet ETH. (Alternative: Alchemy's faucet after
-  creating a free Alchemy account.)
 - **USDC** → [faucet.circle.com](https://faucet.circle.com) — sign in with GitHub, choose Base
-  Sepolia, paste the same address. This is the official Circle (USDC issuer) faucet. Get ~$5 worth.
+  Sepolia, paste your address. This is the official Circle (USDC issuer) faucet and the one
+  Telegraph's own troubleshooting docs recommend. Grab ETH here too if offered. Get ~$5 worth.
+- **ETH** → [Coinbase Developer Platform faucet](https://portal.cdp.coinbase.com/products/faucet) —
+  free account, dispenses Base Sepolia ETH with no mainnet-balance requirement.
+  (QuickNode's and Alchemy's faucets require a small **mainnet** ETH balance as an anti-abuse
+  check, which a fresh testnet wallet doesn't have — skip them.)
 
 On-chain USDC contract on Base Sepolia (from Telegraph's docs): `0x036CbD53842c5426634e7929541eC2318f3dCF7e`.
 You can check your balances at sepolia.basescan.org by pasting your address.

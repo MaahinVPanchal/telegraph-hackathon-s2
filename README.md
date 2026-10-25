@@ -24,6 +24,50 @@
 
 ---
 
+## Setup Journal — everything we did, from zero to registration (25–26 Oct 2026)
+
+A chronological record of the whole build-up, so any step can be reproduced or revisited. Public identifiers only — the wallet's private key lives solely in the local `build/miner-kit/.env` (git-ignored, never committed).
+
+### Phase 0 — Research & reference (25 Oct, evening)
+- Collected every page of `hackathon.telegraphprotocol.com` (rules, missions, tracks, timeline, why, how-it-works, build, S1 archive) plus the protocol site and full docs (miners, scoring, x402/escrow, tokenomics).
+- The missions and intents pages are JS-rendered, so the data was extracted from the site's own Next.js webpack bundles → `data-intents.json` (134 Intents), `data-missions.json` (15 missions, 102 example builds) — the catalogue in this README's appendix comes from that.
+- Wrote this README as the single searchable reference.
+
+### Phase 1 — Strategy from live network recon (overnight 25→26 Oct)
+- Pulled the **live miner catalogue** (`GET devnode.telegraphprotocol.com/api/miners`, 1,919 active miners, epoch 439).
+- Key finding: **all 134 Intents have supply, but no priority Intent has a rank-1 miner scoring ≥ 0.9** — routing pays 70/20/10 by rank, so weak incumbents are beatable.
+- Targets chosen (free, keyless upstreams): `ONCHAIN_METRIC_VERIFY` (#1 scores **0.364**), `WEATHER_FORECAST` (#1 scores **0.001**), `FX_NOW` (#1 scores 0.791, crowded).
+- Built and tested **`build/miner-kit/`** (3 registerable YAML miners + smoke tests, all passing live) and **`build/listings-desk/`** (Mission 01 app: 5 parallel paid intents → receipts → risk memo with cost line; mock mode working, real mode implemented against the Engine's live 402 escrow challenge; 8/8 unit tests).
+- Created **private** repo [`MaahinVPanchal/telegraph-hackathon-s2`](https://github.com/MaahinVPanchal/telegraph-hackathon-s2) and pushed everything (private until submission — it holds the strategy research).
+
+### Phase 2 — Wallet & accounts (user, guided)
+- Created a **fresh MetaMask wallet** (`0x5549286a1C71893816899BbEF8F4CE4d91f87821`) — testnet-only, zero mainnet exposure.
+- Added **Base Sepolia** as a custom network (chain ID **84532**, RPC `https://sepolia.base.org`, explorer `sepolia.basescan.org`).
+- Faucet lessons learned the hard way:
+  - **QuickNode faucet blocked us** — it requires a small *mainnet* ETH balance as an anti-abuse check. Fresh wallets don't have one. Same class of gate on Alchemy's faucet. **Skipped both.**
+  - **USDC** came from the [Circle faucet](https://faucet.circle.com) (GitHub sign-in → Base Sepolia → 20 USDC ✅) — this is the faucet Telegraph's own docs recommend.
+  - **ETH** came from the [Coinbase Developer Platform faucet](https://portal.cdp.coinbase.com/products/faucet) (free account → Base Sepolia → 0.0001 ETH ✅, no mainnet-balance gate).
+- Pitfalls hit and solved along the way: Circle's network dropdown defaults to **Arc Testnet** (must switch to Base Sepolia); USDC is **invisible in MetaMask** until you *Import tokens* with contract `0x036CbD53842c5426634e7929541eC2318f3dCF7e`; balances are publicly checkable by address (`eth_call balanceOf` — no keys involved), which is what `build/check-wallet.mjs` does.
+
+### Phase 3 — Local environment
+- Installed **Foundry** (`curl -L https://foundry.paradigm.xyz | bash`, then `foundryup`) → `cast` 1.8.6 for signing/transactions.
+- Created `build/miner-kit/.env` (`MINER_PRIVATE_KEY`, `FEE_ADDRESS`, `RPC_URL=https://base-sepolia-rpc.publicnode.com`). Two pitfalls fixed: Notepad saved it as **`.env.txt`** (renamed), and MetaMask exports keys **without the `0x` prefix** (added).
+- Verified without printing the key: `cast wallet address` derives **exactly** `0x5549…7821` ✅, and the RPC answers with chain `0x14a34` (84532) ✅.
+- Verified on-chain that all four target Intents are **canonical** (`isCanonicalIntent` = true), so registration can't revert on intent grounds.
+
+### Phase 4 — Hosting the YAMLs (26 Oct)
+- The main repo is private, so GitHub can't serve YAMLs from it (raw URLs 404). Created a **separate public repo** [`MaahinVPanchal/telegraph-miner-yaml`](https://github.com/MaahinVPanchal/telegraph-miner-yaml) holding only the three YAMLs — they're public by design anyway (every registered miner's YAML is publicly readable).
+- Pushed, fetched back, and verified the hosted bytes are **byte-identical** to local (sha256 `0x6114d18c02ee5fa24606dd496acc4b91eb54b6af4dec745d53323f8d75cca39c`). (Windows `sha256sum` prints a stray `\` on text-mode reads — compare files through `/tmp` paths or use `cmp`.)
+- Gas estimated for registration: **0.0000026 ETH** (~2.6% of the faucet ETH) — dust.
+
+### Current status & next steps
+- ✅ Wallet funded (0.0001 ETH gas + 20 USDC ≈ 400 desk runs) · ✅ `.env` verified · ✅ YAMLs hosted & hashed · ✅ intents canonical · ✅ gas estimated
+- ⏳ **Pending user go-ahead:** send `registerMiner` for `onchain-metric-publicnode` (ID 9602) on the Diamond `0x5a2324aA18613FAD4e44bDF0d6c73Ec1f6D87ff8`.
+- After that: confirm activation in `/api/miners` → optionally register `weather-verify-openmeteo` (rank-1 incumbent: 0.001) → fund the desk escrow once (`approve` + `depositUSDC 5_000_000` = $5) → first **real** listings-desk run = the Nov 14 milestone artifact.
+- **Nov 1:** hackathon starts; keep the 7-day miner grace period in mind (earlier registration = more baseline traffic). Flip the main repo to **public at submission**.
+
+---
+
 ## "Why this 'Miner' and 'EVM wallet'? What is this?" — explained
 
 This is the part that was confusing in the announcement. Short version: **Telegraph is a marketplace where AI agents *pay money* to *buy answers* from providers, and the whole thing settles on-chain. That requires crypto wallets — that's why you keep seeing "miner" and "wallet".**

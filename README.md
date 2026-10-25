@@ -91,7 +91,7 @@
 | System | State |
 |---|---|
 | 🪨 Miner `onchain-metric-publicnode` (ID 9602) | 🟢 **ACTIVE** — registration 4849, serves `ONCHAIN_METRIC_VERIFY` (missions 01, 02, 05, 07) |
-| 🌤️ Miner `weather-verify-openmetoe` (ID 9603) | 🟢 **ACTIVE** — registration 4847, serves `WEATHER_FORECAST` + `_VERIFY` (missions 05, 06, 13, 14) |
+| 🌤️ Miner `weather-verify-openmeteo` (ID 9603) | 🟢 **ACTIVE** — registration 4847, serves `WEATHER_FORECAST` + `_VERIFY` (missions 05, 06, 13, 14) |
 | 💵 Escrow | 🟢 $5.00 funded · ~$4.92 remaining after test purchases |
 | 🖥️ Listings desk (Mission 01) | 🟢 working — mock + real modes, 8/8 tests, retry pass, real receipts |
 | 📈 Leaderboard | 🟡 grace period — first placement expected **~Nov 2–3** |

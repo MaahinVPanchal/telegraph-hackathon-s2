@@ -62,7 +62,7 @@ Reusable by any agent we build.
 ## M5 — End-to-end self-purchase validation (26 Oct, ~02:20 UTC)
 
 - Direct Engine calls to OUR miners validate the full supply path:
-  - `weather-verify-openmetoe` (4847): HTTP 200, real ICON forecast served, paid OURSELF 10000 μUSDC.
+  - `weather-verify-openmeteo` (4847): HTTP 200, real ICON forecast served, paid OURSELF 10000 μUSDC.
   - `onchain-metric-publicnode`: first blocked by OUR OWN `limitations` block — the node's size_bytes checker misreads (63 B vs 1024 B declared → flagged as exceeding). Removed the MAX_BODY_SIZE limitation, `updateMiner` → **registration 4849, active**, tx `0x025e455f…0106c`. Re-test: HTTP 200, **zero warnings**, correct eth_getBalance answer, paid OURSELF 10000 μUSDC.
 - Conclusion: both miners are production-ready; the desk can now buy from our own supply (the 2% treasury fee is the only leakage).
 - Fourth node/miner-ecosystem bug catalogued: limitation-checker size_bytes evaluation.

@@ -54,7 +54,7 @@ The full mission list with every example build is in this repo's `README.md` (ap
 | **Apps & Agents** | listings-desk | **Mission 01 — Exchange** (autonomous listings desk) | 🟢 Built, tested, **3/5 Intents purchased live** ($0.03/run); Nov 14 milestone already satisfied |
 | | (planned) | Mission 01 build #2 — "surveillance that only bills when it finds something" (`WASH_TRADING_DETECTION` + `LIQUIDITY_DEPTH_VERIFY`) | ⚪ Nov 1 |
 | **Miners** | onchain-metric-publicnode | `ONCHAIN_METRIC_VERIFY` (priority 10 — bought by missions **01, 02, 05, 07**) | 🟢 **ACTIVE** (id 9602, registration 4848); grace period until ~2 Nov, then leaderboard |
-| | weather-verify-openmetoe | `WEATHER_FORECAST` + `WEATHER_FORECAST_VERIFY` (priority 5 — bought by missions **05, 06, 13, 14**) | 🟢 **ACTIVE** (id 9603, registration 4847) |
+| | weather-verify-openmeteo | `WEATHER_FORECAST` + `WEATHER_FORECAST_VERIFY` (priority 5 — bought by missions **05, 06, 13, 14**) | 🟢 **ACTIVE** (id 9603, registration 4847) |
 | | fx-now-frankfurter | `FX_NOW` (missions 02, 03, 08, 10) | 🟡 YAML fixed & hosted; not registered yet (an `fx-frankfurter` incumbent exists — register when we differentiate) |
 | **Evaluators** | (optional) | Truth-source contributions for deterministic Intents | ⚪ Optional, cheap, counts as a qualifying contribution |
 

@@ -27,7 +27,8 @@ export async function ask(engineBase, { query, context, intent, maxUsd }, fetchI
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ query, ...(context ? { context } : {}) }),
-    signal: AbortSignal.timeout(30_000),
+    // judgment/hybrid intents are answered by LLM-backed miners — allow up to 2 min
+    signal: AbortSignal.timeout(120_000),
   });
 
   if (res.status === 402) {

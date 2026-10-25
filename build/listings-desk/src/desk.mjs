@@ -50,10 +50,42 @@ export async function runDesk(token, opts = {}) {
     else
       failures.push({
         intent: INTENT_ASKS[i].intent,
+        query: INTENT_ASKS[i].query.replaceAll("{token}", token),
         error: String(s.reason?.message ?? s.reason),
         isPaymentRequired: s.reason instanceof PaymentRequiredError,
       });
   });
+
+  // Retry pass — sequential with backoff. The Engine's LLM router 429s under
+  // parallel bursts and some miner upstreams flap; failed requests are never
+  // billed, so a retry costs nothing unless it actually succeeds.
+  let spent = receipts.reduce((s, r) => s + r.costUsd, 0);
+  for (const f of failures.filter((x) => !x.isPaymentRequired)) {
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      if (spent + caps.maxUsdPerIntent > caps.maxUsdPerRun) break; // stay under the run cap
+      await new Promise((r) => setTimeout(r, 3000 * attempt));
+      try {
+        const r = await askFn(engineBase, {
+          intent: f.intent,
+          query: f.query,
+          context: { token, mission: "exchange-listings-desk", retry: attempt },
+          maxUsd: caps.maxUsdPerIntent,
+        });
+        spent += r.costUsd;
+        receipts.push(r);
+        f.retried = true;
+        f.recovered = true;
+        break;
+      } catch (e) {
+        f.error = String(e?.message ?? e);
+        f.isPaymentRequired = e instanceof PaymentRequiredError;
+        if (f.isPaymentRequired) break;
+      }
+    }
+  }
+  const recovered = failures.filter((f) => f.recovered);
+  for (const f of recovered) failures.splice(failures.indexOf(f), 1);
+  for (const f of recovered) f.error = null;
 
   if (!receipts.length) {
     const pr = failures.find((f) => f.isPaymentRequired);

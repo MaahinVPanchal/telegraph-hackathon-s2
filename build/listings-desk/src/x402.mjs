@@ -69,8 +69,9 @@ export class EscrowSigner {
       from, // MUST be lowercase — the node lowercases before verifying
       to: String(entry.payTo).toLowerCase(),
       value: (String(entry.extra?.message).match(/Amount:\s*(\d+)\s*uUSDC/) ?? [])[1] ?? "10000",
-      validAfter: String(now - 60),
-      validBefore: String(now + 600),
+      // node enforces a max 2-minute authorization window — keep it at ~110s
+      validAfter: String(now - 10),
+      validBefore: String(now + 100),
       nonce: randomUUID(),
     };
     if (!auth.value) throw new Error("could not read the Amount line from the escrow message template");

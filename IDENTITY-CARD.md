@@ -83,4 +83,6 @@ One-liner if asked "what do you run?":
 
 **"Team?"** — Solo builder (me) + AI pair-engineering. Everything documented: research, strategy, code, evidence.
 
+**"What are those 0xc3e35965 rows on basescan?"** — our `updateMiner` transactions (basescan has not labeled that selector yet). The 20 USDC "IN" is the Circle faucet drop; the 5 USDC "OUT" is our escrow deposit. All intentional.
+
 **"What's after the hackathon?"** — December challenges ($3,000 reserved), then mainnet January 2027. Our miners keep earning from routed demand either way.

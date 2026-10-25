@@ -136,6 +136,13 @@
 
 > 💡 These numbers move every epoch — `node build/check-leaderboard.mjs` always reflects the live board. The scores to beat are low enough that "be correct and stay online" is a genuine winning strategy.
 
+### 📖 Reading your own explorer page (sepolia.basescan.org)
+
+Basescan **decodes the method names** for anyone viewing our wallet — the tx list is self-explanatory: `Register Miner`, `Deposit USDC`, `Approve`. Two rows need explanation if anyone asks:
+
+- The rows showing `0xc3e35965` are our **`updateMiner`** transactions (basescan does not have that selector labeled yet — they are the YAML-fix re-submissions, registration 4846 → 4848 → 4849).
+- The **"Transfer 20 IN"** in the ERC-20 list is the **Circle faucet drop** (our starting USDC), and the **"Deposit USDC 5 OUT"** is the escrow funding — both intentional.
+
 ---
 
 ## "Why this 'Miner' and 'EVM wallet'? What is this?" — explained

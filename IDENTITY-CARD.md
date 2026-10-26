@@ -11,8 +11,8 @@
 | What | Name (say it as) | The technical string |
 |---|---|---|
 | **Our app** | **"the Listings Desk"** | `listings-desk` (Mission 01 entry) |
-| **Miner #1** | **"On-Chain Metric Verify — Public Node edition"** | name: `OnChain Metric Verify (PublicNode Ethereum)` · slug: `onchain-metric-publicnode` · ID **9602** · registration **4849** |
-| **Miner #2** | **"Weather Forecast Verify — Open Meteo ICON"** (say: "open-MEH-teh-oh") | name: `Weather Forecast Verify (Open-Meteo ICON)` · slug: `weather-verify-openmeteo` · ID **9603** · registration **4847** |
+| **Miner #1** | **"On-Chain Metric Verify — Public Node edition"** | name: `OnChain Metric Verify (PublicNode Ethereum)` · slug: `onchain-metric-publicnode` · ID **9602** · registration **4852** (Blockscout decimal upstream — scoring-optimized) |
+| **Miner #2** | **"Weather Forecast Verify — Open Meteo ICON"** (say: "open-MEH-teh-oh") | name: `Weather Forecast Verify (Open-Meteo ICON)` · slug: `weather-verify-openmeteo` · ID **9603** · registration **4851** (label_field: hourly — scoring-optimized) |
 | **Miner #3 (hosted, not yet registered)** | "FX Now — Frankfurter" | slug: `fx-now-frankfurter` · ID 9601 reserved |
 
 One-liner if asked "what do you run?":

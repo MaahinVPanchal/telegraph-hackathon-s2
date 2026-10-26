@@ -10,7 +10,7 @@
 ## Title
 
 ```
-Miner update: fixed a 0-score bug + new FX miner live 🟢
+Miner update: from rank 35 (0.0000) to fixed — root cause + new FX miner live 🟢
 ```
 
 ## Body
@@ -18,10 +18,12 @@ Miner update: fixed a 0-score bug + new FX miner live 🟢
 ```
 Quick update on our miners (onchain-metric-publicnode, weather-verify-openmeteo):
 
-🔧 Found and fixed a scoring bug on our onchain miner. It was scoring 0.0000
-despite answering correctly — root cause: we served HEX values from a raw
-JSON-RPC node, and hadn't mapped signal_mapping.label_field to an answer field.
-The response parser needs a clean decimal label it can read.
+🔧 Honest build-log entry: our onchain miner was **rank 35 with a 0.0000 score**
+on the leaderboard — despite our API answering correctly when tested by hand.
+Root cause: we served HEX values from a raw JSON-RPC node, and hadn't mapped
+signal_mapping.label_field to an answer field. The response parser needs a
+clean decimal label it can read — correctness alone doesn't score if the
+parser can't find the value.
 
 ✅ What we changed:
 • switched the upstream to a source that returns decimal values

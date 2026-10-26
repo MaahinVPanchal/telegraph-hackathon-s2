@@ -184,6 +184,28 @@ Grace-period scoring · spot checks every ~20s · epoch settlements (~every 9h) 
 
 > 💡 These numbers move every epoch — `node build/check-leaderboard.mjs` always reflects the live board. The scores to beat are low enough that "be correct and stay online" is a genuine winning strategy.
 
+### 🌅 After the next epoch — self-service check (no AI needed)
+
+Run this one command in the project folder:
+
+```bash
+node build/check-leaderboard.mjs
+```
+
+**How to read the output:**
+
+| What you see | What it means | Do this |
+|---|---|---|
+| `ONCHAIN_METRIC_VERIFY · rank 1 · score > 0.435` | 🏆 **RANK 1** — we beat ocm-ethplorer; 70% of that Intent's traffic is ours | Screenshot → Discord + tell the AI next session |
+| onchain score **above 0.0000** but below 0.435 | ✅ The label fix worked — climbing | Note the rank/score, compare next epoch |
+| onchain score **still 0.0000** after 2+ epochs | ⚠️ The label fix didn't take — something deeper | Save the full output + the epoch number shown, bring it to the AI session for debugging |
+| `WEATHER_FORECAST_VERIFY · score > 0.702` | 🏆 #1 — we beat Txlens | Screenshot → Discord + LinkedIn update |
+| weather score between 0.577 and 0.702 | ✅ Climbing (was rank 7 @ 0.577) | Keep watching — each epoch re-shuffles |
+
+**Browser alternative:** [explorer.telegraphprotocol.com/leaderboard](https://explorer.telegraphprotocol.com/leaderboard) → the leaderboard tab → Ctrl+F `publicnode` and `openmeteo`. The top of each Intent board shows exactly who to beat and by how much.
+
+**Golden rule:** any score **above 0.0000** for the onchain miner is the single most important signal — it proves the Blockscout + `label_field` pattern works, which unlocks the rest of the plan (miners 4 and 5).
+
 ### 🔧 Rank-climb pass (26 Oct) — why we weren't #1, and the fix
 
 Fetched the #1 miners' actual YAMLs and diffed against ours. Two fatal gaps:

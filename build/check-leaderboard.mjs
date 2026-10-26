@@ -9,8 +9,8 @@
 //   shared equally with other new miners while a track record builds.
 
 const API = "https://devnode.telegraphprotocol.com/api/miners";
-const OURS = ["onchain-metric-publicnode", "weather-verify-openmeteo"];
-const OUR_INTENTS = ["ONCHAIN_METRIC_VERIFY", "WEATHER_FORECAST", "WEATHER_FORECAST_VERIFY"];
+const OURS = ["onchain-metric-publicnode", "weather-verify-openmeteo", "fx-now-frankfurter"];
+const OUR_INTENTS = ["ONCHAIN_METRIC_VERIFY", "WEATHER_FORECAST", "WEATHER_FORECAST_VERIFY", "FX_NOW"];
 
 const miners = await (await fetch(API, { signal: AbortSignal.timeout(30_000) })).json();
 

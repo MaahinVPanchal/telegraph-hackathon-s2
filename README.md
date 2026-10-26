@@ -153,7 +153,7 @@ The grace period is only the miners' *ranking mechanic* — November itself is t
 
 ### 🤖 Runs itself (zero action needed)
 
-Grace-period scoring · spot checks every ~20s · epoch settlements (~every 7.5h) · miner earnings accumulating · MACHINA payouts to the fee address.
+Grace-period scoring · spot checks every ~20s · epoch settlements (~every 9h) · miner earnings accumulating · MACHINA payouts to the fee address.
 
 > **The mindset:** the miners work in the background — November is spent on the demand side, because that's where the 70/100 score and the 8 delivery awards live. Waiting is the only losing move. 🏃‍♂️💨
 
@@ -205,6 +205,39 @@ Fetched the #1 miners' actual YAMLs and diffed against ours. Two fatal gaps:
 - 🧨 **Carpet model:** one operator machine-generates a miner per Intent (`ocm-` family = 32 miners, `route-` = 33, `wxfv-om` ~10) — mediocre scores, but they occupy many Intents.
 - 🎯 **Specialist model:** Txlens — ONE miner, **72 Intents**, 4,023 requests (4× anyone), best scores 1.000.
 - **Our plan: deep-first, then widen.** Rank 1 on our existing Intents, then add more Intents to the same miners via `updateMiner` (onchain naturally fits WALLET_BALANCE_CHECK, GAS_PRICE, ONCHAIN_TX_LOOKUP…). Every added Intent = a new leaderboard with our existing infrastructure.
+
+---
+
+### ⚠️ Verification discipline — what is proven vs unproven
+
+The optimizations above are **live but not yet proven by a ranked evaluation**. Honest ledger:
+
+| Claim | Status |
+|---|---|
+| Both manifests published + registrations Active | ✅ proven (onchain 4852, weather 4851) |
+| Direct-ask returns a parser-readable decimal label (`coin_balance`) | ✅ proven for one address lookup |
+| The ranked evaluator accepts that label and scores it | ⏳ **unproven — next epochs will tell** |
+| `coin_balance` unit matches what the scorer expects (wei vs ETH) | ⏳ unknown — truth sources also read on-chain wei, likely aligned, but unverified |
+| Weather `label_field: hourly` works despite being an object of arrays | ⏳ unknown for ours — **counter-evidence: the wxfv-om-aq leader uses exactly this pattern on the same Intent and scores 0.638** |
+| The `on_chain` `result/intent/ok` fields resolve | ⏳ copied verbatim from the leader's validated YAML — unverified for ours |
+| Epoch cadence | **~9 hours** (earlier 7.5 h estimate corrected) |
+
+**Discipline: no further scoring-related changes until the next 1–2 epochs produce evidence.** The useful next artifact is a ranked evaluation's question, expected unit, and parsed answer.
+
+---
+
+### 🗺️ Path to 15/15 mission coverage — miners 4 and 5
+
+Delivery awards measure **distinct commercial missions enabled**. After FX_NOW we touch **12 of 15**; missing are **4 (Legal), 10 (Model Economy), 15 (Consumer Automation)**. The mission-unlock map (from the catalogue data) shows a clean path — **two more miners, both Deterministic class, both keyless, both reusing the proven Blockscout-style pattern**:
+
+| # | Miner | Intent | Upstream (keyless) | Unlocks | Coverage |
+|---|---|---|---|---|---|
+| 4 | `crypto-transfer-verify` | `CRYPTO_TRANSFER_VERIFY` | Blockscout tx endpoint (decimal JSON — same API we already use) | missions **10 + 15** | **14/15** |
+| 5 | `regulatory-filing-monitor` | `REGULATORY_FILING_MONITOR` | SEC EDGAR (keyless JSON API) | mission **4** | **15/15** 🎯 |
+
+Both are Deterministic (mechanical comparator scoring — our strength), both follow the exact YAML pattern just validated on miner 4852. **Gate: registration happens only after the current optimizations prove out in an epoch.** YMLs will be prepared and hosted in advance (the FX playbook: ready to fire).
+
+> Note on a "Personal Agent" miner: Mission 09 is **already covered** via FX_NOW — no Personal-Agent-specific miner is needed for coverage. A personal-agent *product* is an app-side idea for later, not a Miner-track priority.
 
 ---
 

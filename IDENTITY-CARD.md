@@ -13,10 +13,10 @@
 | **Our app** | **"the Listings Desk"** | `listings-desk` (Mission 01 entry) |
 | **Miner #1** | **"On-Chain Metric Verify — Public Node edition"** | name: `OnChain Metric Verify (PublicNode Ethereum)` · slug: `onchain-metric-publicnode` · ID **9602** · registration **4852** (Blockscout decimal upstream — scoring-optimized) |
 | **Miner #2** | **"Weather Forecast Verify — Open Meteo ICON"** (say: "open-MEH-teh-oh") | name: `Weather Forecast Verify (Open-Meteo ICON)` · slug: `weather-verify-openmeteo` · ID **9603** · registration **4851** (label_field: hourly — scoring-optimized) |
-| **Miner #3 (hosted, not yet registered)** | "FX Now — Frankfurter" | slug: `fx-now-frankfurter` · ID 9601 reserved |
+| **Miner #3** | **"FX Now — Frankfurter"** | name: `FX Now (Frankfurter ECB)` · slug: `fx-now-frankfurter` · ID **9601** · registration **4854** |
 
 One-liner if asked "what do you run?":
-> "Two live miners — one serving `ONCHAIN_METRIC_VERIFY` from a full Ethereum node, one serving weather forecast verification from the Open-Meteo ICON model — plus a listings-desk app for Mission 01 that buys five Intents in parallel."
+> "Three live miners — ONCHAIN_METRIC_VERIFY (Ethereum node reads), weather forecast verification (Open-Meteo ICON), and FX_NOW (ECB rates) — plus a listings-desk app for Mission 01 that buys five Intents in parallel. 12 of 15 missions touched."
 
 ---
 

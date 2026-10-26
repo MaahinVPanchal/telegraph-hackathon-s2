@@ -1,6 +1,6 @@
 # 🚀 Telegraph Hackathon S2 — Mission Control
 
-**🟢 2 miners live on testnet · 🟢 real purchases with on-chain receipts · 🟢 escrow funded ($5) · 🟡 grace period until ~Nov 2 · 📅 season opens Nov 1**
+**🟢 3 miners live on testnet · 🟢 real purchases with on-chain receipts · 🟢 escrow funded ($5) · 🟡 grace period until ~Nov 2 · 📅 season opens Nov 1**
 
 > **Deep-dive companion:** `docs/COMPLETE-WALKTHROUGH.md` — the full beginner-to-hackathon documentation (concepts, every command, failure post-mortems, tx tracing, rubric mapping, repo policy).
 >
@@ -195,6 +195,7 @@ Fetched the #1 miners' actual YAMLs and diffed against ours. Two fatal gaps:
 
 **Fixes applied (both re-registered, ACTIVE):**
 
+- 💶 FX miner registered (26 Oct): `fx-now-frankfurter` (ID 9601, registration 4854) — unlocks missions 03, 05, 09 → **12 of 15 missions touched**. Validated end-to-end (200 OK, paid to our own registration).
 - 🪨 onchain miner → upstream switched to **Blockscout** (keyless, decimal `coin_balance`, independent of the incumbent) + `signal_mapping: {label_field: coin_balance}` + `on_chain` block + input_schema defaults → registration **4852**. Direct-ask: 200 OK, zero warnings, parser-readable decimal answer (5.7736 ETH).
 - 🌤️ weather miner → added `label_field: hourly` + `on_chain` block → registration **4851**. Was **rank 7 (0.577)** on WEATHER_FORECAST_VERIFY *without* these fixes.
 - Expected: next 1–2 epochs re-score with the parser-readable labels → onchain climbs from 0.0000 toward rank-1 territory (beat 0.435), weather from 0.577 toward 0.702.

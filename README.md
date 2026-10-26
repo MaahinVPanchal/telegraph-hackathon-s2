@@ -185,22 +185,25 @@ Grace-period scoring · spot checks every ~20s · epoch settlements (~every 7.5h
 > 💡 These numbers move every epoch — `node build/check-leaderboard.mjs` always reflects the live board. The scores to beat are low enough that "be correct and stay online" is a genuine winning strategy.
 
 ### 🔧 Rank-climb pass (26 Oct) — why we weren't #1, and the fix
+
 Fetched the #1 miners' actual YAMLs and diffed against ours. Two fatal gaps:
 
 | | Their YAML (rank #1) | Our old YAML | Effect |
 |---|---|---|---|
-| Upstream output | Ethplorer returns  in **decimal** | PublicNode returned **hex** () | Parser choked → **0.0000** |
-|  | Points at the exact answer field | **Missing** | Node guessed where the answer is |
+| Upstream output | Ethplorer returns `coin_balance` in **decimal** | PublicNode returned **hex** (`0x501f…`) | Parser choked → **0.0000** |
+| `signal_mapping.label_field` | Points at the exact answer field | **Missing** | Node guessed where the answer is |
 
 **Fixes applied (both re-registered, ACTIVE):**
-- 🪨 onchain miner → upstream switched to **Blockscout** (keyless, decimal , independent of the incumbent) +  +  block + input_schema defaults → registration **4852**. Direct-ask: 200 OK, zero warnings, parser-readable decimal answer.
-- 🌤️ weather miner → added  +  block → registration **4851**. Was **rank 7 (0.577)** on WEATHER_FORECAST_VERIFY *without* these fixes.
-- Expected: next 1–2 epochs re-score with the parser-readable labels → onchain climbs from 0.0000 toward rank 1 territory (beat 0.435), weather from 0.577 toward 0.702.
+
+- 🪨 onchain miner → upstream switched to **Blockscout** (keyless, decimal `coin_balance`, independent of the incumbent) + `signal_mapping: {label_field: coin_balance}` + `on_chain` block + input_schema defaults → registration **4852**. Direct-ask: 200 OK, zero warnings, parser-readable decimal answer (5.7736 ETH).
+- 🌤️ weather miner → added `label_field: hourly` + `on_chain` block → registration **4851**. Was **rank 7 (0.577)** on WEATHER_FORECAST_VERIFY *without* these fixes.
+- Expected: next 1–2 epochs re-score with the parser-readable labels → onchain climbs from 0.0000 toward rank-1 territory (beat 0.435), weather from 0.577 toward 0.702.
 
 **Strategy insight — how the leaders got there (two models):**
-- 🧨 **Carpet model:** one operator machine-generates a miner per Intent ( family = 32 miners,  = 33,  ~10) — mediocre scores, but they occupy many Intents.
+
+- 🧨 **Carpet model:** one operator machine-generates a miner per Intent (`ocm-` family = 32 miners, `route-` = 33, `wxfv-om` ~10) — mediocre scores, but they occupy many Intents.
 - 🎯 **Specialist model:** Txlens — ONE miner, **72 Intents**, 4,023 requests (4× anyone), best scores 1.000.
-- **Our plan: deep-first, then widen.** Rank 1 on our existing Intents, then add more Intents to the same miners via  (onchain naturally fits WALLET_BALANCE_CHECK, GAS_PRICE, ONCHAIN_TX_LOOKUP…). Every added Intent = a new leaderboard with our existing infrastructure.
+- **Our plan: deep-first, then widen.** Rank 1 on our existing Intents, then add more Intents to the same miners via `updateMiner` (onchain naturally fits WALLET_BALANCE_CHECK, GAS_PRICE, ONCHAIN_TX_LOOKUP…). Every added Intent = a new leaderboard with our existing infrastructure.
 
 ---
 

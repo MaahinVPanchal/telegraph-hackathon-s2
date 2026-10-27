@@ -18,7 +18,8 @@ endpoints:
     description: >
       One on-chain value for intent ONCHAIN_METRIC_VERIFY, read at the block the question states.
       Send address, block_number and metric. The response is compact JSON with ok, metric,
-      address, block, block_number, value, unit and source; for eth_balance it also has
+      address, block (always an integer block number - for latest it is the chain head the
+      value was read at), block_tag (latest or number), value, unit and source; for eth_balance it also has
       balance_wei (exact integer string) and balance_eth (exact decimal string, ETH units).
       Answer with value in the stated unit - balance_eth when the question asks for ETH,
       balance_wei when it asks for wei. For historical blocks the value is the state AT that block,
@@ -36,7 +37,7 @@ endpoints:
           - name: block_number
             type: string
             intents: ["*"]
-            description: "Block height the question is anchored at: a decimal number such as 18000000, a hex number such as 0x112a880, or the literal latest. Defaults to latest when the question names no block."
+            description: "Block height the question is anchored at: an integer such as 18000000 (hex such as 0x112a880 is also accepted) or the literal string latest. Defaults to latest when the question names no block. The response block field is always the integer block that was read."
           - name: metric
             type: string
             intents: ["*"]
@@ -62,8 +63,14 @@ input_schema:
       pattern: "^0x[0-9a-fA-F]{40}$"
       default: "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
     block_number:
-      type: string
-      description: Decimal or hex block number, or latest.
+      description: Integer block number (e.g. 18000000) or the string latest. Hex (0x112a880) is also accepted.
+      oneOf:
+        - type: integer
+          minimum: 0
+        - type: string
+          enum: [latest]
+        - type: string
+          pattern: "^(0x[0-9a-fA-F]+|[0-9]+)$"
       default: "latest"
     metric:
       type: string
@@ -84,9 +91,12 @@ output_schema:
     address:
       type: string
     block:
-      description: The requested block number, or the string latest.
-    block_number:
       type: integer
+      description: Block number the value was read at. Always an integer; for latest it is the resolved chain head.
+    block_tag:
+      type: string
+      enum: [latest, number]
+      description: latest when the question asked for latest state, number when it named a block.
     value:
       description: The answer, in unit.
     unit:

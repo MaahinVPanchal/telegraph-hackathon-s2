@@ -3,10 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Hybrid ONCHAIN_METRIC_VERIFY miner backend: Ethplorer for latest, archive JSON-RPC for historical blocks",
-  "engines": { "node": ">=18" },
+  "description": "Hybrid ONCHAIN_METRIC_VERIFY miner backend: archive JSON-RPC at an explicit block (latest resolved to head), Ethplorer fallback for latest balance",
+  "engines": {
+    "node": ">=19"
+  },
   "scripts": {
     "start": "node src/server.mjs",
-    "test": "node test/live.test.mjs"
+    "test": "node test/failover.test.mjs && node test/live.test.mjs",
+    "test:mock": "node test/failover.test.mjs",
+    "test:live": "node test/live.test.mjs"
   }
 }

@@ -92,8 +92,8 @@
 
 | System | State |
 |---|---|
-| 🪨 Miner `onchain-metric-publicnode` (ID 9602) | 🟢 **ACTIVE** — registration 4849, serves `ONCHAIN_METRIC_VERIFY` (missions 01, 02, 05, 07) |
-| 🌤️ Miner `weather-verify-openmeteo` (ID 9603) | 🟢 **ACTIVE** — registration 4847, serves `WEATHER_FORECAST` + `_VERIFY` (missions 05, 06, 13, 14) |
+| 🪨 Miner `onchain-metric-publicnode` (ID 9602) | 🟢 **ACTIVE** — registration 4852, serves `ONCHAIN_METRIC_VERIFY` (missions 01, 02, 05, 07) |
+| 🌤️ Miner `weather-verify-openmeteo` (ID 9603) | 🟢 **ACTIVE** — registration 4853, serves `WEATHER_FORECAST` + `_VERIFY` (missions 05, 06, 13, 14) |
 | 💵 Escrow | 🟢 $5.00 funded · ~$4.92 remaining after test purchases |
 | 🖥️ Listings desk (Mission 01) | 🟢 working — mock + real modes, 8/8 tests, retry pass, real receipts |
 | 📈 Leaderboard | 🟡 grace period — first placement expected **~Nov 2–3** |
@@ -172,9 +172,9 @@ Grace-period scoring · spot checks every ~20s · epoch settlements (~every 9h) 
 2. **Browser:** [explorer.telegraphprotocol.com/miners](https://explorer.telegraphprotocol.com/miners) and [explorer.telegraphprotocol.com/intents](https://explorer.telegraphprotocol.com/intents) (per-Intent rankings)
 3. **Raw API:** `curl -s https://devnode.telegraphprotocol.com/api/miners` → each miner carries a `scores[]` array with `intent_id`, `epoch_id`, **`rank`**, `score`
 
-### Current standings (pulled 26 Oct, epoch ~440)
+### Epoch ~440 history (pulled 26 Oct)
 
-**Our miners:** 🟢 both active and already serving (`onchain-metric-publicnode`: 2 requests, `weather-verify-openmeteo`: 1) — ⏳ **no rank yet, grace period**.
+**Historical snapshot only:** these standings were pulled 26 Oct around epoch 440. Our miners were active and serving (`onchain-metric-publicnode`: 2 requests, `weather-verify-openmeteo`: 1) and had no rank recorded in that snapshot.
 
 | Intent | Top of the board | Field | Our shot |
 |---|---|---|---|
@@ -183,6 +183,10 @@ Grace-period scoring · spot checks every ~20s · epoch settlements (~every 9h) 
 | `WEATHER_FORECAST_VERIFY` | 1. wxfv-om-flood **0.641** · 2. wxfv-om-aq 0.638 · 3. wxfv-om-daily 0.636 | 19 ranked | Crowded with Open-Meteo variants, all mediocre — beatable with a tighter model pin |
 
 > 💡 These numbers move every epoch — `node build/check-leaderboard.mjs` always reflects the live board. The scores to beat are low enough that "be correct and stay online" is a genuine winning strategy.
+
+**Epoch 443 actuals for `ONCHAIN_METRIC_VERIFY`:** `ocm-stablecoins` 0.4124, `ocm-ethplorer-addr` 0.3967, `ocm-blockcypher-eth` 0.3729, `ocm-eth-balance` 0.3260, and `ocm-eth-balance-flashbots` 0.3260.
+
+**Read-only recheck (27 Oct, 05:42 UTC):** our active onchain registration 4852 was rank 24 with score 0.0000 in epoch 443 (3 requests served). Weather was rank 7 with 0.5769 in epoch 442 and rank 9 with 0.0003 for `WEATHER_FORECAST`; FX registration 4854 had no score row yet (registered about 0.5 days earlier). The private onchain candidate below is a hypothesis to fix request-shape failures, not a proven scoring improvement. Its Blockscout endpoint checks passed (latest and `block_number` returned the same hex result; mapped `block=23000000` returned a different result), but the validator API returned 404 and the UI led to account creation. Gateway query forwarding, schema acceptance, hex-wei answer parsing, and the evaluator's block-reference semantics remain unverified. No registration was submitted.
 
 ### 🌅 After the next epoch — self-service check (no AI needed)
 
@@ -219,7 +223,7 @@ Fetched the #1 miners' actual YAMLs and diffed against ours. Two fatal gaps:
 
 - 💶 FX miner registered (26 Oct): `fx-now-frankfurter` (ID 9601, registration 4854) — unlocks missions 03, 05, 09 → **12 of 15 missions touched**. Validated end-to-end (200 OK, paid to our own registration).
 - 🪨 onchain miner → upstream switched to **Blockscout** (keyless, decimal `coin_balance`, independent of the incumbent) + `signal_mapping: {label_field: coin_balance}` + `on_chain` block + input_schema defaults → registration **4852**. Direct-ask: 200 OK, zero warnings, parser-readable decimal answer (5.7736 ETH).
-- 🌤️ weather miner → added `label_field: hourly` + `on_chain` block → registration **4851**. Was **rank 7 (0.577)** on WEATHER_FORECAST_VERIFY *without* these fixes.
+- 🌤️ weather miner → added `label_field: hourly` + `on_chain` block → registration **4853**. Was **rank 7 (0.577)** on WEATHER_FORECAST_VERIFY *without* these fixes.
 - Expected: next 1–2 epochs re-score with the parser-readable labels → onchain climbs from 0.0000 toward rank-1 territory (beat 0.435), weather from 0.577 toward 0.702.
 
 **Strategy insight — how the leaders got there (two models):**
@@ -236,7 +240,7 @@ The optimizations above are **live but not yet proven by a ranked evaluation**. 
 
 | Claim | Status |
 |---|---|
-| Both manifests published + registrations Active | ✅ proven (onchain 4852, weather 4851) |
+| Both manifests published + registrations Active | ✅ proven (onchain 4852, weather 4853) |
 | Direct-ask returns a parser-readable decimal label (`coin_balance`) | ✅ proven for one address lookup |
 | The ranked evaluator accepts that label and scores it | ⏳ **unproven — next epochs will tell** |
 | `coin_balance` unit matches what the scorer expects (wei vs ETH) | ⏳ unknown — truth sources also read on-chain wei, likely aligned, but unverified |

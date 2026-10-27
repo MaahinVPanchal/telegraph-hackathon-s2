@@ -1,7 +1,7 @@
 # 🪪 IDENTITY CARD — everything we might be asked, on one page
 
 > Open this during calls, interviews, or Discord chats. Every name, number and link below is
-> verified live (26 Oct 2026). If asked something not here — the deep answer is in
+> verified live (27 Oct 2026). If asked something not here — the deep answer is in
 > `docs/COMPLETE-WALKTHROUGH.md`, and `build/check-leaderboard.mjs` gives live rankings.
 
 ---
@@ -11,7 +11,7 @@
 | What | Name (say it as) | The technical string |
 |---|---|---|
 | **Our app** | **"the Listings Desk"** | `listings-desk` (Mission 01 entry) |
-| **Miner #1** | **"On-Chain Metric Verify — Public Node edition"** | name: `OnChain Metric Verify (PublicNode Ethereum)` · slug: `onchain-metric-publicnode` · ID **9602** · registration **4852** (Blockscout decimal upstream — scoring-optimized) |
+| **Miner #1** | **"On-Chain Metric Verify — Ethplorer edition"** | name: `OnChain Metric Verify (Ethplorer Ethereum)` · slug: `onchain-metric-publicnode` · ID **9602** · registration **4856** (active; `ETH.balance` in ETH units) |
 | **Miner #2** | **"Weather Forecast Verify — Open Meteo ICON"** (say: "open-MEH-teh-oh") | name: `Weather Forecast Verify (Open-Meteo ICON)` · slug: `weather-verify-openmeteo` · ID **9603** · registration **4853** (label_field: hourly — scoring-optimized) |
 | **Miner #3** | **"FX Now — Frankfurter"** | name: `FX Now (Frankfurter ECB)` · slug: `fx-now-frankfurter` · ID **9601** · registration **4854** |
 
@@ -45,7 +45,7 @@ One-liner if asked "what do you run?":
 |---|---|
 | Our wallet on Base Sepolia (7 txs) | https://sepolia.basescan.org/address/0x5549286a1C71893816899BbEF8F4CE4d91f87821 |
 | Live network catalogue (Ctrl+F our slugs) | https://devnode.telegraphprotocol.com/api/miners |
-| Our miners by registration ID | https://devnode.telegraphprotocol.com/api/miners/4849 · `…/4847` |
+| Current miner registrations | https://devnode.telegraphprotocol.com/api/miners/4856 · weather: `…/4853` |
 | Explorer — miners / intents | https://explorer.telegraphprotocol.com/miners · `/intents` |
 | Leaderboard script | `node build/check-leaderboard.mjs` |
 | Miner YAMLs (public repo) | https://github.com/MaahinVPanchal/telegraph-miner-yaml |
@@ -61,9 +61,9 @@ One-liner if asked "what do you run?":
 |---|---|
 | Wallet (also our fee address) | `0x5549286a1C71893816899BbEF8F4CE4d91f87821` |
 | Diamond contract (Base Sepolia) | `0x5a2324aA18613FAD4e44bDF0d6c73Ec1f6D87ff8` |
-| Final miner registrations | onchain: tx `0x025e455f…0106c` · weather: tx `0x7ecc1aa5…c111` |
+| Latest miner registrations | onchain 4856 active (update tx hash not captured) · weather 4853 tx `0x7ecc1aa5…c111` |
 | Escrow funding | approve `0xdcfa813d…05fe2` · deposit $5 `0x998fded3…93b7` |
-| YAML commitment (onchain) | `0x87e4129e…5821c` (IPFS-grade sha256, byte-verified vs GitHub raw) |
+| YAML commitment (onchain) | `0xd84094733f0f27aa0bc1dc7f086c41b6466f427c5b9a842e99c536947348c6bc` (SHA-256, byte-verified vs GitHub raw) |
 | Purchase receipts | sanctions `0xce40d899…d77a` · social-bot `0xa0cc7845…3dfa` · onchain-metric `0xe86f100b…81ff` · FX `0x0148e11d…5e0` |
 | Settlement proof | `0x5d238598…49cd` (rail: escrow, epoch 440) |
 

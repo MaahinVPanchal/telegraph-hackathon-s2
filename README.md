@@ -92,7 +92,7 @@
 
 | System | State |
 |---|---|
-| 🪨 Miner `onchain-metric-publicnode` (ID 9602) | 🟢 **ACTIVE** — registration 4852, serves `ONCHAIN_METRIC_VERIFY` (missions 01, 02, 05, 07) |
+| 🪨 Miner `onchain-metric-publicnode` (ID 9602) | 🟢 **ACTIVE** — registration 4856 (Ethplorer, ETH-unit `ETH.balance`), serves `ONCHAIN_METRIC_VERIFY` (missions 01, 02, 05, 07) |
 | 🌤️ Miner `weather-verify-openmeteo` (ID 9603) | 🟢 **ACTIVE** — registration 4853, serves `WEATHER_FORECAST` + `_VERIFY` (missions 05, 06, 13, 14) |
 | 💵 Escrow | 🟢 $5.00 funded · ~$4.92 remaining after test purchases |
 | 🖥️ Listings desk (Mission 01) | 🟢 working — mock + real modes, 8/8 tests, retry pass, real receipts |
@@ -186,7 +186,7 @@ Grace-period scoring · spot checks every ~20s · epoch settlements (~every 9h) 
 
 **Epoch 443 actuals for `ONCHAIN_METRIC_VERIFY`:** `ocm-stablecoins` 0.4124, `ocm-ethplorer-addr` 0.3967, `ocm-blockcypher-eth` 0.3729, `ocm-eth-balance` 0.3260, and `ocm-eth-balance-flashbots` 0.3260.
 
-**Read-only recheck (27 Oct):** our active onchain registration 4852 was rank 24 with score 0.0000 in epoch 443 (3 requests served). The Ethplorer competitor scored 0.3967 in that epoch. Our current private draft now mirrors its `/getAddressInfo/{address}` upstream and `ETH.balance` response shape, which expresses the native balance in ETH units instead of raw wei. A live Ethplorer request returned `ETH.balance: 5.773572485065093`; the same endpoint tolerated `block_number=23000000` and returned the same value. This makes the draft a better-grounded hypothesis, not a proven score improvement: the competitor's score is evidence the pattern can score, but our own gateway forwarding, schema acceptance, answer parsing, and historical-block semantics remain unverified. The current draft also returns a large token array (6,588 entries for the checked address). The validator API returned 404 and the UI led to account creation. No registration was submitted.
+**Read-only recheck (27 Oct, 06:13 UTC):** the live catalogue reports registration **4856 active**, registered at 06:01:05 UTC, using the public Ethplorer YAML. The checker still shows rank 24 / 0.0000 for epoch 443, but its `scored_at` is 26 Oct 23:27 UTC, before registration 4856; there is no post-update score result yet. The prior registration 4852 had that epoch 443 result. The endpoint returns `ETH.balance` in ETH units (`5.773572485065093` for the tested address) and tolerates an extra `block_number` parameter. `ocm-ethplorer-addr` scored 0.3967 in epoch 443, evidence that the upstream/answer pattern can score but not proof that our new registration will. The live YAML SHA-256 matches the local public file. The online validator API returned 404 and the UI led to account creation; schema/answer-parser checks and historical-block semantics remain unverified. The new registration transaction hash was not captured here; no transaction was submitted by this assistant.
 
 ### 🌅 After the next epoch — self-service check (no AI needed)
 

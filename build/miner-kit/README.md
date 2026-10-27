@@ -6,7 +6,7 @@ Three YAML miners, each targeting a ★ Season II priority Intent where the live
 
 | YAML | Intent | Why this one | Incumbent #1 score |
 |---|---|---|---|
-| `miners/onchain-metric-publicnode.yaml` | `ONCHAIN_METRIC_VERIFY` (4 missions, priority 10) | Reads chain state straight from a public full node — deterministic, comparator-scored, and the current #1 scores **0.364**. Correct reads should take rank 1 fast. | 0.364 |
+| `miners/onchain-metric-publicnode.yaml` | `ONCHAIN_METRIC_VERIFY` (4 missions, priority 10) | Active registration 4856 uses Ethplorer; `ETH.balance` returns the native balance in ETH units. `ocm-ethplorer-addr` scored **0.3967** in epoch 443; our new registration's score is pending. | 0.3967 |
 | `miners/weather-verify-openmeteo.yaml` | `WEATHER_FORECAST` + `WEATHER_FORECAST_VERIFY` (5 missions, priority 5) | Free keyless Open-Meteo pinned to the ICON model (the "different underlying models" independence lever). Current `WEATHER_FORECAST` #1 scores **0.001**. | 0.001 / 0.632 |
 | `miners/fx-now-frankfurter.yaml` | `FX_NOW` (4 missions, priority 8) | Frankfurter (ECB) is literally named a hub Intent in the catalogue. Great *learning* miner; note an `fx-frankfurter` miner already exists, so for competition add independence (different upstream or join FX data). | 0.791 |
 
@@ -63,12 +63,10 @@ curl -s https://devnode.telegraphprotocol.com/api/miners/<registrationId> | jq '
 
 ## Honest notes / upgrade paths
 
-- `ONCHAIN_METRIC_VERIFY`: the YAML passes the full JSON-RPC envelope through, so the request
-  builder must send the constant `jsonrpc`/`id` fields (described in the YAML). If scoring shows
-  the builder struggling, the upgrade is a 20-line hosted transform endpoint (clean JSON in →
-  RPC out) — register that URL as `base_url` instead. PublicNode is also a shared public RPC;
-  for real independence (and "Competitive Supply Verified") point at your own node or a
-  distinct provider from the truth sources.
+- `ONCHAIN_METRIC_VERIFY`: the active YAML calls Ethplorer's `/getAddressInfo/{address}` endpoint
+  and exposes `ETH.balance` in ETH units. The endpoint returned the expected shape in a live
+  read and tolerated an extra `block_number` parameter. Gateway parsing and the new registration's
+  score still need verification; the competitor's epoch 443 score is not our own result.
 - `FX_NOW`: fine to learn with; for the delivery-award angle ("distinct commercial missions
   enabled"), independence from `fx-frankfurter` matters — e.g. blend two sources or serve a
   related thin Intent instead.

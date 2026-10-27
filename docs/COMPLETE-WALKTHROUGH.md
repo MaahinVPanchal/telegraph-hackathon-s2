@@ -53,7 +53,7 @@ The full mission list with every example build is in this repo's `README.md` (ap
 |---|---|---|---|
 | **Apps & Agents** | listings-desk | **Mission 01 — Exchange** (autonomous listings desk) | 🟢 Built, tested, **3/5 Intents purchased live** ($0.03/run); Nov 14 milestone already satisfied |
 | | (planned) | Mission 01 build #2 — "surveillance that only bills when it finds something" (`WASH_TRADING_DETECTION` + `LIQUIDITY_DEPTH_VERIFY`) | ⚪ Nov 1 |
-| **Miners** | onchain-metric-publicnode | `ONCHAIN_METRIC_VERIFY` (priority 10 — bought by missions **01, 02, 05, 07**) | 🟢 **ACTIVE** (id 9602, registration 4852) |
+| **Miners** | onchain-metric-publicnode | `ONCHAIN_METRIC_VERIFY` (priority 10 — bought by missions **01, 02, 05, 07**) | 🟢 **ACTIVE** (id 9602, registration 4856; Ethplorer, ETH-unit `ETH.balance`) |
 | | weather-verify-openmeteo | `WEATHER_FORECAST` + `WEATHER_FORECAST_VERIFY` (priority 5 — bought by missions **05, 06, 13, 14**) | 🟢 **ACTIVE** (id 9603, registration 4853) |
 | | fx-now-frankfurter | `FX_NOW` (missions 02, 03, 08, 10) | 🟢 **ACTIVE** (id 9601, registration 4854) |
 | **Evaluators** | (optional) | Truth-source contributions for deterministic Intents | ⚪ Optional, cheap, counts as a qualifying contribution |
@@ -111,7 +111,7 @@ MetaMask → Add network manually: RPC `https://sepolia.base.org` (or `https://b
 
 A miner is a **declarative YAML** — no code. Required top level: `version, kind, id, slug, name, base_url`. Each endpoint needs `description` + `intents` (or registration is refused), and the request contract lives in `params` (grouped by `query`/`body`/…). **Every block is a closed set** — unknown keys are rejected.
 
-Our three: onchain (Blockscout-based since 26 Oct 16:43 UTC), weather (Open-Meteo pinned to ICON), fx (Frankfurter ECB). Full files in the public repo [`MaahinVPanchal/telegraph-miner-yaml`](https://github.com/MaahinVPanchal/telegraph-miner-yaml).
+Our three: onchain (Ethplorer address info, returning `ETH.balance` in ETH units; active registration 4856 since 27 Oct 06:01 UTC), weather (Open-Meteo pinned to ICON), fx (Frankfurter ECB). Full files in the public repo [`MaahinVPanchal/telegraph-miner-yaml`](https://github.com/MaahinVPanchal/telegraph-miner-yaml).
 
 ### 4.2 The hosting rule that bit us
 

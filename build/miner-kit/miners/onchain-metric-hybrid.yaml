@@ -1,0 +1,104 @@
+version: "1"
+kind: miner
+id: 9602
+slug: onchain-metric-publicnode
+protocol: generic
+name: OnChain Metric Verify (Hybrid archive + Ethplorer)
+description: Reads Ethereum mainnet state at a stated block height or latest and returns one small JSON answer (under 4 KB). ETH balance, transaction count (nonce), contract-code presence and ERC-20 token balance of an address, at any historical block via archive JSON-RPC, or at latest via Ethplorer. Answers "at block 18000000, what was the ETH balance of 0x...", "how many transactions had 0x... sent by block N", "did 0x... have contract code at block N", "what was the USDC balance of 0x... at block N".
+base_url: https://onchain-hybrid.YOUR-SUBDOMAIN.workers.dev
+
+docs:
+  website: https://github.com/MaahinVPanchal/telegraph-miner-yaml
+  documentation: https://github.com/MaahinVPanchal/telegraph-miner-yaml
+
+endpoints:
+  - path: /query
+    external_path: /query
+    method: GET
+    description: >
+      One on-chain value for intent ONCHAIN_METRIC_VERIFY, read at the block the question states.
+      Send address, block_number and metric. The response is compact JSON with ok, metric,
+      address, block, block_number, value, unit and source; for eth_balance it also has
+      balance_wei (exact integer string) and balance_eth (exact decimal string, ETH units).
+      Answer with value in the stated unit - balance_eth when the question asks for ETH,
+      balance_wei when it asks for wei. For historical blocks the value is the state AT that block,
+      never the current state. A response with ok false and an error code means the question could
+      not be answered; it never contains a guessed value.
+    intents: [ONCHAIN_METRIC_VERIFY]
+    params:
+      query:
+        required:
+          - name: address
+            type: string
+            intents: ["*"]
+            description: "Ethereum mainnet address, 0x followed by exactly 40 hex characters (42 characters total), e.g. 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045. Not an ENS name. For erc20_balance this is the holder, not the token."
+        optional:
+          - name: block_number
+            type: string
+            intents: ["*"]
+            description: "Block height the question is anchored at: a decimal number such as 18000000, a hex number such as 0x112a880, or the literal latest. Defaults to latest when the question names no block."
+          - name: metric
+            type: string
+            intents: ["*"]
+            description: "Which value to read. Send exactly one of: eth_balance (native ETH balance, the default), tx_count (number of transactions sent, i.e. the nonce), code (whether the address had contract code; value true or false), erc20_balance (balance of the ERC-20 token named in token). Nothing else is valid."
+          - name: token
+            type: string
+            intents: ["*"]
+            description: "Only for metric erc20_balance: the ERC-20 token contract address, 0x followed by exactly 40 hex characters, e.g. USDC 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48."
+
+semantics:
+  signal_mapping:
+    label_field: value
+  supported_intents:
+    - ONCHAIN_METRIC_VERIFY
+
+input_schema:
+  type: object
+  required: [address]
+  properties:
+    address:
+      type: string
+      description: Ethereum mainnet address, 0x-prefixed 40 hex characters.
+      pattern: "^0x[0-9a-fA-F]{40}$"
+      default: "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
+    block_number:
+      type: string
+      description: Decimal or hex block number, or latest.
+      default: "latest"
+    metric:
+      type: string
+      enum: [eth_balance, tx_count, code, erc20_balance]
+      default: eth_balance
+    token:
+      type: string
+      description: ERC-20 contract address for erc20_balance.
+      pattern: "^0x[0-9a-fA-F]{40}$"
+
+output_schema:
+  type: object
+  properties:
+    ok:
+      type: boolean
+    metric:
+      type: string
+    address:
+      type: string
+    block:
+      description: The requested block number, or the string latest.
+    block_number:
+      type: integer
+    value:
+      description: The answer, in unit.
+    unit:
+      type: string
+    balance_wei:
+      type: string
+    balance_eth:
+      type: string
+    source:
+      type: string
+
+cache_ttl_sec: 2
+rate_limit_per_sec: 5
+circuit_threshold: 5
+circuit_cooldown_seconds: 30

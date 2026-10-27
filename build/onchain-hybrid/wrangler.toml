@@ -1,0 +1,7 @@
+# Cloudflare Workers deploy config (free plan). Deploy: npx wrangler login && npx wrangler deploy
+name = "onchain-hybrid"
+main = "src/worker.mjs"
+compatibility_date = "2026-10-01"
+workers_dev = true
+# Optional paid/keyed archive RPC, tried before the public list:
+#   npx wrangler secret put ARCHIVE_RPC_URL

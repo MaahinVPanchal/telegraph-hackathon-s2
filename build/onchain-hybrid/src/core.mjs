@@ -98,7 +98,10 @@ const hex = (n) => "0x" + n.toString(16);
 // counters that go into the request log. Never stores URLs: only safe labels.
 export function makeCtx(env = {}, fetchImpl = globalThis.fetch) {
   return { start: Date.now(), deadline: Date.now() + (Number(env.REQUEST_DEADLINE_MS) || REQUEST_DEADLINE_MS),
-    attemptMs: Number(env.ATTEMPT_TIMEOUT_MS) || ATTEMPT_TIMEOUT_MS, fetch: fetchImpl, env,
+    attemptMs: Number(env.ATTEMPT_TIMEOUT_MS) || ATTEMPT_TIMEOUT_MS,
+    // Wrapped, not stored bare: ctx.fetch(...) would call fetch with this=ctx, which Workers
+    // rejects with "Illegal invocation" (Node tolerates it).
+    fetch: (url, init) => fetchImpl(url, init), env,
     attempts: 0, failures: [], sources: [] };
 }
 const remaining = (ctx) => ctx.deadline - Date.now();

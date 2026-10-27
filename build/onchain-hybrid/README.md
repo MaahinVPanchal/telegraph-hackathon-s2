@@ -1,6 +1,8 @@
 # onchain-hybrid — backend for the ONCHAIN_METRIC_VERIFY miner
 
-Prototype of the "hybrid" design from the onchain history brief. **Not deployed.** The live
+Prototype of the "hybrid" design from the onchain history brief. Deployed 27 Oct 2026 to
+`https://onchain-hybrid.panchalmaahin.workers.dev` (Workers free plan), but **not yet referenced by any
+registered YAML**. The live
 miner is still the Ethplorer YAML, latest state only (registration 4860 as of 27 Oct 2026 - resolve it again
 before signing, see below).
 
@@ -63,9 +65,14 @@ npm run test:mock  # 14 offline failover/deadline/secret-safety cases + local CP
 npm run test:live  # 15 cases against real upstreams, incl. Ethplorer fallback with RPCs forced down
 ```
 
-CPU: `test:mock` prints a local Node CPU-per-request figure as a proxy only. The Workers free-plan 10 ms
-CPU limit has **not** been measured on Cloudflare; after a real deploy check CPU time per invocation in
-the Workers dashboard (Metrics → CPU time) or Workers Logs before relying on it.
+CPU: `test:mock` prints a local Node CPU-per-request figure as a proxy only. Measured on Cloudflare
+(27 Oct 2026, 59 requests, `wrangler tail` cpuTime): p50 4 ms, p99/max 16 ms, all outcomes `ok`, no
+`exceededCpu`. Cache hits and 400s use 0-1 ms; uncached upstream reads use 3-8 ms, with the first
+requests on a fresh isolate reaching 10-16 ms. That is over the nominal 10 ms free-plan figure, but
+Cloudflare did not terminate any of them; recheck Metrics → CPU time if traffic grows.
+
+Workers note: `ctx.fetch` wraps the global `fetch` in an arrow function. Storing it bare and calling it as
+a method makes Workers throw `Illegal invocation` (every upstream then fails as `network`); Node tolerates it.
 
 ## Deploy (Cloudflare Workers, free plan)
 

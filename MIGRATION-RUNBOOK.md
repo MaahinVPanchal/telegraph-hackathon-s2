@@ -64,3 +64,7 @@ Same flow, new chain: `approve` + `depositUSDC` on the NEW Diamond with the NEW 
 ## Anjoman
 
 Anjoman reads the NEW deployment — which is why it rejected our Intents as non-canonical. Once the miners are re-registered here (with the `_GENERAL` names), they satisfy Anjoman's check too. Its registry mirror showed exactly the old-chain state (1,872 = pre-migration count).
+
+## ✅ Status (27 Oct ~00:15)
+
+Steps 1–3 executed and confirmed on-chain (mint, swap, bonds approved, 3 registrations: 4848/4849/4850). Node activation: pending — check `node build/check-leaderboard.mjs` in the morning; if still pending after several hours, report in Telegraph Discord (node-side re-index backlog).

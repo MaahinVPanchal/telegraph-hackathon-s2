@@ -66,3 +66,17 @@ Reusable by any agent we build.
   - `onchain-metric-publicnode`: first blocked by OUR OWN `limitations` block — the node's size_bytes checker misreads (63 B vs 1024 B declared → flagged as exceeding). Removed the MAX_BODY_SIZE limitation, `updateMiner` → **registration 4849, active**, tx `0x025e455f…0106c`. Re-test: HTTP 200, **zero warnings**, correct eth_getBalance answer, paid OURSELF 10000 μUSDC.
 - Conclusion: both miners are production-ready; the desk can now buy from our own supply (the 2% treasury fee is the only leakage).
 - Fourth node/miner-ecosystem bug catalogued: limitation-checker size_bytes evaluation.
+
+
+## M6 — Chain migration executed (27 Oct, ~00:15)
+
+The 0.0000 score + node index loss + Anjoman rejection all traced to ONE cause: **Telegraph migrated Base Sepolia → Ethereum Sepolia** (new Diamond `0x3624EB…b99b`, new MACHINA, bonded registration, `_GENERAL` intents).
+
+Executed per MIGRATION-RUNBOOK.md:
+1. ✅ Minted 10 test USDC on Ethereum Sepolia (permissionless)
+2. ✅ Swapped 4 USDC → 4.97 MACHINA (Uniswap SwapRouter02)
+3. ✅ Approved Diamond for bonds · verified all 6 intents canonical on the NEW Diamond
+4. ✅ Registered all three miners: **4848 (onchain), 4849 (weather), 4850 (fx)** — bonds taken at pool price (~$3.30, refundable)
+5. ⏳ Node activation pending (node busy re-indexing — was dropping 50 miners during migration)
+
+Balances after: 0.1 ETH gas · ~0.97 USDC · ~0.87 MACHINA. Stranded on old chain: 15 USDC + dust (testnet write-off). The 0.05 ETH mystery drop was Ethereum Sepolia all along — exactly the gas the migration needed.

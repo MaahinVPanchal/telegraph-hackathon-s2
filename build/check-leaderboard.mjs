@@ -10,7 +10,7 @@
 
 const API = "https://devnode.telegraphprotocol.com/api/miners";
 const OURS = ["onchain-metric-publicnode", "weather-verify-openmeteo", "fx-now-frankfurter"];
-const OUR_INTENTS = ["ONCHAIN_METRIC_VERIFY", "WEATHER_FORECAST", "WEATHER_FORECAST_VERIFY", "FX_NOW"];
+const OUR_INTENTS = ["ONCHAIN_METRIC_VERIFY_GENERAL", "WEATHER_FORECAST_GENERAL", "WEATHER_FORECAST_VERIFY_GENERAL", "FX_NOW_EUR", "FX_NOW_CAD", "FX_NOW_SEK"];
 
 const fmtAge = (iso) => {
   const t = Date.parse(iso);

@@ -25,7 +25,7 @@ endpoints:
       The token list is deliberately suppressed by the token and showETHTotals constants below, so
       this endpoint does not answer token-holding questions. The value is always the latest
       state; Ethplorer ignores any block height.
-    intents: [ONCHAIN_METRIC_VERIFY]
+    intents: [ONCHAIN_METRIC_VERIFY_GENERAL]
     params:
       path:
         required:

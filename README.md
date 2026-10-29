@@ -27,6 +27,12 @@
 
 ---
 
+## 🚨 READ FIRST — Telegraph migrated chains (27 Oct)
+
+**Base Sepolia → Ethereum Sepolia.** New Diamond (`0x3624EB…b99b`), new MACHINA, bonded registrations ($1 first intent, returned on deregister), `_GENERAL` intent names + per-currency FX (`FX_NOW_EUR`). Our Base Sepolia registrations and $5 escrow are stranded on the old chain (testnet write-off). **Full runbook: [MIGRATION-RUNBOOK.md](MIGRATION-RUNBOOK.md)** — mint test USDC → swap for MACHINA → re-register the three miners on the new chain. Our 0.05 ETH on Ethereum Sepolia (the mystery faucet drop) is exactly the gas we need.
+
+---
+
 ## ⚡ TL;DR — the 60-second version
 
 | | |

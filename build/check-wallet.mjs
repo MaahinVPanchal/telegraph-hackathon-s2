@@ -15,10 +15,10 @@ if (!address || !/^0x[0-9a-fA-F]{40}$/.test(address)) {
 }
 
 const RPCS = {
-  baseSepolia: "https://sepolia.base.org",
+  baseSepolia: "https://ethereum-sepolia-rpc.publicnode.com",
   ethMainnet: "https://ethereum-rpc.publicnode.com",
 };
-const USDC_BASE_SEPOLIA = "0x036CbD53842c5426634e7929541eC2318f3dCF7e";
+const USDC_BASE_SEPOLIA = "0xcc194e1a843B658526D0D5C431f670028582Ae17"; // test USDC on Ethereum Sepolia (Telegraph migrated chains 27 Oct)
 
 async function rpc(url, method, params) {
   const res = await fetch(url, {
@@ -41,10 +41,10 @@ let fail = 0;
 try {
   const b = await rpc(RPCS.baseSepolia, "eth_getBalance", [address, "latest"]);
   const v = eth(b);
-  console.log(`Base Sepolia ETH : ${fmt(v)} ${v > 0 ? "✅ (gas money present)" : "⚠️  empty — visit faucet.quicknode.com/base/sepolia"}`);
+  console.log(`Sepolia ETH : ${fmt(v)} ${v > 0 ? "✅ (gas money present)" : "⚠️  empty — visit faucet.quicknode.com/base/sepolia"}`);
   if (v <= 0) fail = 1;
 } catch (e) {
-  console.log(`Base Sepolia ETH : ✗ ${e.message}`);
+  console.log(`Sepolia ETH : ✗ ${e.message}`);
   fail = 1;
 }
 

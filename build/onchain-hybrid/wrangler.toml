@@ -1,0 +1,14 @@
+# Cloudflare Workers deploy config (free plan). Deploy: npx wrangler login && npx wrangler deploy
+name = "onchain-hybrid"
+main = "src/worker.mjs"
+compatibility_date = "2026-10-01"
+workers_dev = true
+
+# Workers Logs: every request writes one structured JSON line (see logLine in src/core.mjs).
+# Logs never contain ARCHIVE_RPC_URL (shown only as ARCHIVE_RPC_URL#1).
+[observability]
+enabled = true
+head_sampling_rate = 1   # log 100% of requests; lower (e.g. 0.1) if volume grows
+
+# Optional keyed archive RPC, tried before the public list:
+#   npx wrangler secret put ARCHIVE_RPC_URL

@@ -7,7 +7,7 @@ Three YAML miners, each targeting a ★ Season II priority Intent where the live
 | YAML | Intent | Why this one | Incumbent #1 score |
 |---|---|---|---|
 | `miners/onchain-metric-publicnode.yaml` | `ONCHAIN_METRIC_VERIFY` (4 missions, priority 10) | Active registration 4856 uses Ethplorer; `ETH.balance` returns the native balance in ETH units. `ocm-ethplorer-addr` scored **0.3967** in epoch 443; our new registration's score is pending. | 0.3967 |
-| `miners/weather-verify-openmeteo.yaml` | `WEATHER_FORECAST` + `WEATHER_FORECAST_VERIFY` (5 missions, priority 5) | Free keyless Open-Meteo pinned to the ICON model (the "different underlying models" independence lever). Current `WEATHER_FORECAST` #1 scores **0.001**. | 0.001 / 0.632 |
+| `miners/weather-verify-openmeteo.yaml` | `WEATHER_FORECAST` + `WEATHER_FORECAST_VERIFY` (5 missions, priority 5) | Free keyless Open-Meteo, default `best_match` model (ICON pin removed 27 Oct), `hourly` required from a fixed list, `past_days` 0-7 / `forecast_days` 1-7 so answers stay ~13 KB worst case. Current `WEATHER_FORECAST` #1 scores **0.001**. | 0.001 / 0.632 |
 | `miners/fx-now-frankfurter.yaml` | `FX_NOW` (4 missions, priority 8) | Frankfurter (ECB) is literally named a hub Intent in the catalogue. Great *learning* miner; note an `fx-frankfurter` miner already exists, so for competition add independence (different upstream or join FX data). | 0.791 |
 
 **Why it matters:** routing is 70 / 20 / 10 by leaderboard rank per Intent. Taking #1 on a
@@ -63,10 +63,13 @@ curl -s https://devnode.telegraphprotocol.com/api/miners/<registrationId> | jq '
 
 ## Honest notes / upgrade paths
 
-- `ONCHAIN_METRIC_VERIFY`: the active YAML calls Ethplorer's `/getAddressInfo/{address}` endpoint
-  and exposes `ETH.balance` in ETH units. The endpoint returned the expected shape in a live
-  read and tolerated an extra `block_number` parameter. Gateway parsing and the new registration's
-  score still need verification; the competitor's epoch 443 score is not our own result.
+- `ONCHAIN_METRIC_VERIFY`: the YAML calls Ethplorer's `/getAddressInfo/{address}` with constant
+  `token=0x000…0&showETHTotals=false`, which suppresses the token list (2.42 MB → 446 B for
+  vitalik.eth; epoch 444 failed with `miner_answer too large (223176 > 131072 bytes)`). Ethplorer
+  tolerates the `block_number` the node forwards (Blockscout 422'd on it in epoch 443) but serves
+  **latest state only** — historical-block questions get the current balance. The real fix is the
+  hybrid service (JSON-RPC archive for historical heights). `node smoke/run-smoke.mjs` now replays
+  each upstream with `block_number` added and fails any answer over 131072 bytes.
 - `FX_NOW`: fine to learn with; for the delivery-award angle ("distinct commercial missions
   enabled"), independence from `fx-frankfurter` matters — e.g. blend two sources or serve a
   related thin Intent instead.

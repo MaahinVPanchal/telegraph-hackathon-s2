@@ -23,39 +23,38 @@ const tests = [
     key: "onchain",
     yaml: "miners/onchain-metric-publicnode.yaml",
     intent: "ONCHAIN_METRIC_VERIFY",
+    // Ethplorer with the YAML's constant params; block_number is added because the node
+    // forwards it for block-anchored questions (Blockscout rejected it with 422 in epoch 443).
     request: {
-      base: "https://ethereum-rpc.publicnode.com/",
-      init: {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: 1,
-          method: "eth_getBalance",
-          params: ["0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045", "latest"],
-        }),
-      },
+      base:
+        "https://api.ethplorer.io/getAddressInfo/0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045?apiKey=freekey&token=0x0000000000000000000000000000000000000000&showETHTotals=false&block_number=21000000",
+      init: {},
     },
-    check: (j) => typeof j.result === "string" && /^0x[0-9a-f]+$/i.test(j.result),
-    explain: (j) => `vitalik.eth balance = ${BigInt(j.result)} wei (${Number(BigInt(j.result)) / 1e18} ETH)`,
+    check: (j) => j.ETH && typeof j.ETH.balance === "number" && typeof j.ETH.rawBalance === "string" && !j.tokens,
+    explain: (j) => `vitalik.eth ETH.balance = ${j.ETH.balance} ETH (rawBalance ${j.ETH.rawBalance} wei), token list suppressed`,
   },
   {
     key: "weather",
     yaml: "miners/weather-verify-openmeteo.yaml",
     intent: "WEATHER_FORECAST / WEATHER_FORECAST_VERIFY",
+    // Worst case the YAML allows: full hourly set + daily, past_days=7, forecast_days=7, plus block_number.
     request: {
       base:
-        "https://api.open-meteo.com/v1/forecast?latitude=51.5&longitude=-0.12&hourly=temperature_2m,wind_speed_10m,precipitation&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&forecast_days=2&models=icon_seamless",
+        "https://api.open-meteo.com/v1/forecast?latitude=51.5&longitude=-0.12&hourly=temperature_2m,precipitation,precipitation_probability,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max&past_days=7&forecast_days=7&models=best_match&block_number=21000000",
       init: {},
     },
-    check: (j) => j.hourly && Array.isArray(j.hourly.time) && j.hourly.time.length > 0,
+    check: (j) => j.hourly && Array.isArray(j.hourly.time) && j.hourly.time.length > 0 && Array.isArray(j.hourly.temperature_2m),
     explain: (j) =>
-      `London next hours: ${j.hourly.time
+      `London ${j.hourly.time.length} hours: ${j.hourly.time
         .slice(0, 3)
         .map((t, i) => `${t} ${j.hourly.temperature_2m[i]}°C`)
         .join(" | ")}`,
   },
 ];
+
+// The scoring runtime rejects answers over 131072 bytes ("wasm/runtime: miner_answer too large",
+// epoch 444). Not documented; known only from the failure string.
+const ANSWER_CAP = 131072;
 
 const which = process.argv[2];
 const run = tests.filter((t) => !which || t.key.startsWith(which.toLowerCase()) || t.intent.includes(which.toUpperCase()));
@@ -70,6 +69,8 @@ for (const t of run) {
   try {
     const res = await fetch(t.request.base, t.request.init);
     const text = await res.text();
+    const bytes = Buffer.byteLength(text);
+    if (bytes > ANSWER_CAP) throw new Error(`answer ${bytes} bytes exceeds the ${ANSWER_CAP}-byte miner_answer cap`);
     let json;
     try {
       json = JSON.parse(text);
@@ -79,7 +80,7 @@ for (const t of run) {
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${JSON.stringify(json).slice(0, 200)}`);
     if (json.error) throw new Error(`RPC error: ${JSON.stringify(json.error).slice(0, 200)}`);
     if (!t.check(json)) throw new Error(`unexpected shape: ${JSON.stringify(json).slice(0, 200)}`);
-    console.log("OK — " + t.explain(json));
+    console.log(`OK (${bytes} B) — ` + t.explain(json));
   } catch (e) {
     failed++;
     console.log("FAIL — " + e.message);

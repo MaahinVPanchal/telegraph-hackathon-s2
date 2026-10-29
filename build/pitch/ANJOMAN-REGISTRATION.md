@@ -11,7 +11,7 @@
 | Field | Value |
 |---|---|
 | YAML URL | `https://raw.githubusercontent.com/MaahinVPanchal/telegraph-miner-yaml/main/onchain-metric-publicnode.yaml` |
-| YAML hash (bytes32) | `0x4548cba9ff59771ab18639e24d64489e61f0e0a821d0f29eb11b12d04ed0c355` |
+| YAML hash (bytes32) | `0x6a822bf8c362db414205063861bbf6628c6c1fbe673ab932610911e8aa2b85e7` |
 | Requires API key | **UNCHECK** (worker needs no upstream key — tested keylessly ✅) |
 | Fee address | `0x5549286a1C71893816899BbEF8F4CE4d91f87821` |
 | Floor price (USDC) | `0.01` |
@@ -24,7 +24,7 @@
 | Field | Value |
 |---|---|
 | YAML URL | `https://raw.githubusercontent.com/MaahinVPanchal/telegraph-miner-yaml/main/weather-verify-openmeteo.yaml` |
-| YAML hash (bytes32) | `0xab7462d55cd9cdd5e8d6429bddca6916a7135a4e44cd4e1ac5b05036e94be74b` |
+| YAML hash (bytes32) | `0xbf6e92f630cf85b631bd15ae5ba617adfeca143ae40b91e5e66d75fbd3b583bb` |
 | Requires API key | **UNCHECK** (Open-Meteo is keyless) |
 | Fee address | `0x5549286a1C71893816899BbEF8F4CE4d91f87821` |
 | Floor price (USDC) | `0.01` |

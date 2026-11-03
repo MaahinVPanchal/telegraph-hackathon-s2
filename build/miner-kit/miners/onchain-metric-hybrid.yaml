@@ -4,7 +4,7 @@ id: 9602
 slug: onchain-metric-publicnode
 protocol: generic
 name: OnChain Metric Verify (Hybrid archive + Ethplorer)
-description: Reads Ethereum mainnet state at a stated block height or latest and returns one small JSON answer (under 4 KB). ETH balance, transaction count (nonce), contract-code presence and ERC-20 token balance of an address, read via archive JSON-RPC at any historical block or at latest (latest ETH balance falls back to Ethplorer if every RPC fails). Answers "at block 18000000, what was the ETH balance of 0x...", "how many transactions had 0x... sent by block N", "did 0x... have contract code at block N", "what was the USDC balance of 0x... at block N".
+description: Reads Ethereum mainnet state at a specified block height and returns one small JSON answer (under 4 KB). ETH balance, transaction count (nonce), contract-code presence and ERC-20 token balance are read via archive JSON-RPC at that exact historical block. Answers "at block 18000000, what was the ETH balance of 0x...", "how many transactions had 0x... sent by block N", "did 0x... have contract code at block N", "what was the USDC balance of 0x... at block N".
 base_url: https://onchain-hybrid.panchalmaahin.workers.dev
 
 docs:
@@ -16,16 +16,16 @@ endpoints:
     external_path: /query
     method: GET
     description: >
-      One on-chain value for intent ONCHAIN_METRIC_VERIFY, read at the block the question states.
-      Send address, block_number and metric. The response is compact JSON with ok, metric,
-      address, block (always an integer block number - for latest it is the chain head the
-      value was read at), block_tag (latest or number), value, unit and source; for eth_balance it also has
-      balance_wei (exact integer string) and balance_eth (exact decimal string, ETH units).
-      Answer with value in the stated unit - balance_eth when the question asks for ETH,
-      balance_wei when it asks for wei. For historical blocks the value is the state AT that block,
-      never the current state. A response with ok false and an error code means the question could
-      not be answered; it never contains a guessed value.
-    intents: [ONCHAIN_METRIC_VERIFY]
+      One on-chain value for intent ONCHAIN_METRIC_VERIFY_GENERAL, read at the specific block
+      stated in the question. Send address, block_number and optionally metric and token.
+      The response is compact JSON with ok, metric, address, block (the requested integer block),
+      block_tag (number), value, unit and source; for eth_balance it also has balance_wei
+      (exact integer string) and balance_eth (exact decimal string, ETH units). Use value together
+      with unit as the answer; Telegraph can compare unit aliases such as ETH and Gwei. For
+      eth_balance, balance_wei is available when an exact wei value is needed. The value is read
+      at the requested block, never substituted with latest state. A response with ok false and
+      an error code means the question could not be answered; it never contains a guessed value.
+    intents: [ONCHAIN_METRIC_VERIFY_GENERAL]
     params:
       query:
         required:
@@ -33,11 +33,11 @@ endpoints:
             type: string
             intents: ["*"]
             description: "Ethereum mainnet address, 0x followed by exactly 40 hex characters (42 characters total), e.g. 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045. Not an ENS name. For erc20_balance this is the holder, not the token."
-        optional:
           - name: block_number
             type: string
             intents: ["*"]
-            description: "Block height the question is anchored at: an integer such as 18000000 (hex such as 0x112a880 is also accepted) or the literal string latest. Defaults to latest when the question names no block. The response block field is always the integer block that was read."
+            description: "Required block height the question is anchored at: a decimal integer such as 18000000 or a 0x-prefixed hex integer such as 0x112a880. Do not send latest; this intent requires a specific block. The response block field is the integer block that was read."
+        optional:
           - name: metric
             type: string
             intents: ["*"]
@@ -51,11 +51,11 @@ semantics:
   signal_mapping:
     label_field: value
   supported_intents:
-    - ONCHAIN_METRIC_VERIFY
+    - ONCHAIN_METRIC_VERIFY_GENERAL
 
 input_schema:
   type: object
-  required: [address]
+  required: [address, block_number]
   properties:
     address:
       type: string
@@ -64,9 +64,8 @@ input_schema:
       default: "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
     block_number:
       type: string
-      description: Block height as a decimal integer string (e.g. 18000000), a 0x hex string (e.g. 0x112a880), or the literal latest. Defaults to latest.
-      pattern: "^(latest|0x[0-9a-fA-F]+|[0-9]+)$"
-      default: "latest"
+      description: Required specific block height as a decimal integer string (e.g. 18000000) or a 0x-prefixed hex string (e.g. 0x112a880). The latest alias is not accepted for this intent.
+      pattern: "^(0x[0-9a-fA-F]+|[0-9]+)$"
     metric:
       type: string
       enum: [eth_balance, tx_count, code, erc20_balance]
@@ -87,13 +86,13 @@ output_schema:
       type: string
     block:
       type: integer
-      description: Block number the value was read at. Always an integer; for latest it is the resolved chain head.
+      description: Integer block number the value was read at; matches the specified block height.
     block_tag:
       type: string
-      enum: [latest, number]
-      description: latest when the question asked for latest state, number when it named a block.
+      enum: [number]
+      description: The response is always for the specifically requested numbered block.
     value:
-      description: The answer, in unit. A decimal string for eth_balance, tx_count and erc20_balance; a boolean for code.
+      description: The answer in the adjacent unit field. For eth_balance this is a decimal ETH string; unit-aware evaluation can compare equivalent units such as ETH and Gwei. It is a decimal string for tx_count and erc20_balance, and a boolean for code.
     unit:
       type: string
     balance_wei:

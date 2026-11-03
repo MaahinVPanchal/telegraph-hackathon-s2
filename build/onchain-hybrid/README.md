@@ -18,13 +18,14 @@ the forwarded `block_number` (epoch 443 422); raw Ethplorer answers blew the 131
 | anything at a historical block | archive JSON-RPC at that exact block (`eth_getBalance`, `eth_getTransactionCount`, `eth_getCode`, `eth_call balanceOf`) | value at that block, never the current one |
 
 Response block fields: `block` is **always an integer** (the block actually read) and `block_tag` is
-`"latest"` or `"number"`. There is no `block_number: null` any more. Input `block_number` is an integer,
-hex, or the string `latest` (default). The draft YAML (`../miner-kit/miners/onchain-metric-hybrid.yaml`)
-declares the same: output `block: integer`, `block_tag: enum [latest, number]`, input `block_number`
-as `oneOf` integer / `"latest"` / decimal-or-hex string. Offline lint passes; the `oneOf` form has **not**
-been checked by Telegraph's live validator (public endpoint 404s), so run it through the
-integrate.telegraphprotocol.com register flow before publishing. If it is rejected, fall back to
-`type: string` plus the description.
+`"latest"` or `"number"`. There is no `block_number: null` any more. The Worker accepts an integer,
+hex, or the string `latest` (default); however, the Telegraph descriptor
+(`../miner-kit/miners/onchain-metric-hybrid.yaml`) requires a specific decimal or hex block for
+`ONCHAIN_METRIC_VERIFY_GENERAL`. Its output maps `value` with `unit`, allowing unit-aware comparison
+(for example, ETH and Gwei); ETH balances also include exact `balance_wei` and `balance_eth`.
+The descriptor's YAML has not been checked by Telegraph's live validator (the public endpoint
+currently returns 404), so validate it through the integrate.telegraphprotocol.com register flow
+before publishing.
 
 - One endpoint: `GET /query?address=0x..&block_number=18000000|0x112a880|latest&metric=eth_balance|tx_count|code|erc20_balance[&token=0x..]`
 - Unknown params ignored; block aliases accepted (`block`, `blockNumber`, `blockNo`, `block_height`, ...).

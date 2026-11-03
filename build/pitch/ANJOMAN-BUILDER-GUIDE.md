@@ -19,7 +19,7 @@
 | Protocol | **generic** |
 | Slug | `onchain-metric-publicnode` |
 | Name | `OnChain Metric Verify (Hybrid archive + Ethplorer)` |
-| Description | `Reads Ethereum mainnet state at a stated block height or latest and returns one small JSON answer (under 4 KB). ETH balance, transaction count (nonce), contract-code presence and ERC-20 token balance of an address, read via archive JSON-RPC at any historical block or at latest. Answers "at block 18000000, what was the ETH balance of 0x...", "how many transactions had 0x... sent by block N", "did 0x... have contract code at block N", "what was the USDC balance of 0x... at block N".` |
+| Description | `Reads Ethereum mainnet state at a specified block height and returns one small JSON answer (under 4 KB). ETH balance, transaction count (nonce), contract-code presence and ERC-20 token balance are read via archive JSON-RPC at that exact historical block. Answers "at block 18000000, what was the ETH balance of 0x...", "how many transactions had 0x... sent by block N", "did 0x... have contract code at block N", "what was the USDC balance of 0x... at block N".` |
 | Website / Documentation | `https://github.com/MaahinVPanchal/telegraph-miner-yaml` (both) |
 
 ## Section 2 · Connection
@@ -39,7 +39,7 @@
 | Field | Value |
 |---|---|
 | Intents* | select **`ONCHAIN_METRIC_VERIFY_GENERAL`** from the dropdown |
-| Description* | `One on-chain value read at the block the question states. Send address, and optionally block_number, metric and token. Returns compact JSON with ok, metric, address, block (integer), block_tag, value, unit and source; for eth_balance it also has balance_wei and balance_eth (ETH units). Answer with value in the stated unit - balance_eth for ETH questions, balance_wei for wei questions. Historical questions return the state AT that block. ok=false means the question could not be answered; no guessed values.` |
+| Description* | `One on-chain value read at the specific block the question states. Send address and required block_number, and optionally metric and token. Returns compact JSON with ok, metric, address, block (integer), block_tag, value, unit and source; for eth_balance it also has exact balance_wei and balance_eth (ETH units). Use value together with unit as the answer; unit-aware evaluation can compare equivalent units such as ETH and Gwei. Historical questions return the state AT that block. ok=false means the question could not be answered; no guessed values.` |
 | Price per call (USD)* | `0.01` |
 | Telegraph path* | `/query` |
 | API endpoint path* | `/query` |
@@ -51,10 +51,10 @@
 {
   "query": {
     "required": [
-      { "name": "address", "type": "string", "intents": ["*"], "description": "Ethereum mainnet address, 0x followed by exactly 40 hex characters (42 characters total), e.g. 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045. Not an ENS name. For erc20_balance this is the holder, not the token." }
+      { "name": "address", "type": "string", "intents": ["*"], "description": "Ethereum mainnet address, 0x followed by exactly 40 hex characters (42 characters total), e.g. 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045. Not an ENS name. For erc20_balance this is the holder, not the token." },
+      { "name": "block_number", "type": "string", "intents": ["*"], "description": "Required block height: a decimal integer such as 18000000 or a 0x-prefixed hex integer such as 0x112a880. Do not send latest; this intent requires a specific block." }
     ],
     "optional": [
-      { "name": "block_number", "type": "string", "intents": ["*"], "description": "Block height the question is anchored at: an integer such as 18000000 (hex like 0x112a880 also accepted) or the literal string latest. Defaults to latest." },
       { "name": "metric", "type": "string", "intents": ["*"], "description": "Which value to read. Send exactly one of: eth_balance (default), tx_count (transactions sent, i.e. nonce), code (contract-code presence, true/false), erc20_balance (balance of the token named in token). Nothing else is valid." },
       { "name": "token", "type": "string", "intents": ["*"], "description": "Only for metric erc20_balance: the ERC-20 token contract address, 0x + exactly 40 hex characters, e.g. USDC 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48." }
     ]
@@ -65,13 +65,13 @@
 **Request JSON:**
 
 ```json
-{ "address": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045", "metric": "eth_balance" }
+{ "address": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045", "block_number": "18000000", "metric": "eth_balance" }
 ```
 
 **Response JSON:**
 
 ```json
-{ "ok": true, "metric": "eth_balance", "address": "0xd8da6bf26964af9d7eed9e03e53415d37aa96045", "block": 26299920, "block_tag": "latest", "value": "5.777859622599202671", "unit": "ETH", "balance_wei": "5777859622599202671", "balance_eth": "5.777859622599202671", "source": "eth-mainnet.public.blastapi.io" }
+{ "ok": true, "metric": "eth_balance", "address": "0xd8da6bf26964af9d7eed9e03e53415d37aa96045", "block": 18000000, "block_tag": "number", "value": "3933.801546759391596841", "unit": "ETH", "balance_wei": "3933801546759391596841", "balance_eth": "3933.801546759391596841", "source": "eth.drpc.org" }
 ```
 
 Then click **Auto-configure from samples** → it generates Section 5's schemas.

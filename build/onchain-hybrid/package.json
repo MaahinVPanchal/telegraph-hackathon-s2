@@ -9,7 +9,9 @@
   },
   "scripts": {
     "start": "node src/server.mjs",
-    "test": "node test/failover.test.mjs && node test/live.test.mjs",
+    "test": "node test/failover.test.mjs && node test/live.test.mjs && node test/unit.test.mjs && node test/address-contract.test.mjs && node test/contract.test.mjs strict",
+    "test:contract": "node test/contract.test.mjs strict",
+    "test:unit": "node test/unit.test.mjs && node test/address-contract.test.mjs",
     "test:mock": "node test/failover.test.mjs",
     "test:live": "node test/live.test.mjs"
   }

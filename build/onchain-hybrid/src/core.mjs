@@ -58,8 +58,11 @@ function first(params, keys) {
 }
 export function parseAddress(v, label = "address") {
   if (!v) throw new ServiceError(400, "MISSING_ADDRESS", `${label} is required (0x + 40 hex characters)`);
-  if (!/^0x[0-9a-fA-F]{40}$/.test(v)) throw new ServiceError(400, "INVALID_ADDRESS", `${label} must be 0x followed by exactly 40 hex characters; ENS names are not supported`);
-  return v.toLowerCase();
+  let s = String(v).trim().replace(/^["'\s]+|["'\s]+$/g, "");
+  if (/^0X[0-9a-fA-F]{40}$/.test(s)) s = "0x" + s.slice(2);
+  else if (/^[0-9a-fA-F]{40}$/.test(s)) s = "0x" + s;
+  if (!/^0x[0-9a-fA-F]{40}$/.test(s)) throw new ServiceError(400, "INVALID_ADDRESS", `${label} must be 0x followed by exactly 40 hex characters; ENS names are not supported`);
+  return s.toLowerCase();
 }
 // Returns "latest" or a non-negative BigInt block number.
 export function parseBlock(v) {
@@ -85,6 +88,11 @@ export function weiToEth(wei) {
   const neg = wei < 0n; const w = neg ? -wei : wei;
   const whole = w / 10n ** 18n; const frac = (w % 10n ** 18n).toString().padStart(18, "0").replace(/0+$/, "");
   return (neg ? "-" : "") + whole.toString() + (frac ? "." + frac : "");
+}
+function weiToGwei(wei) {
+  const neg = wei < 0n; const w = neg ? -wei : wei;
+  const whole = w / 10n ** 9n; const frac6 = (w % 10n ** 9n).toString().padStart(9, "0").slice(0, 6);
+  return Number((neg ? "-" : "") + whole.toString() + "." + frac6);
 }
 function scale(raw, decimals) {
   const d = BigInt(decimals); const base = 10n ** d;
@@ -166,7 +174,10 @@ async function rpc(ctx, method, params) {
     function launch() {
       if (done) return;
       if (next >= list.length) {
-        if (inFlight === 0) finish(new ServiceError(504, "NO_ARCHIVE_SOURCE", `every RPC failed ${method}: ${ctx.failures.filter((f) => f.method === method).slice(-6).map((f) => `${f.rpc}=${f.reason}`).join(", ")}`));
+        if (inFlight === 0) {
+          const code = remaining(ctx) <= 0 ? "DEADLINE_EXCEEDED" : "NO_ARCHIVE_SOURCE";
+          finish(new ServiceError(504, code, `every RPC failed ${method}: ${ctx.failures.filter((f) => f.method === method).slice(-6).map((f) => `${f.rpc}=${f.reason}`).join(", ")}`));
+        }
         return;
       }
       if (remaining(ctx) <= 0) return;
@@ -227,8 +238,8 @@ export async function answer(params, ctx) {
       if (req.metric !== "eth_balance") throw e;
       const { wei, block } = await ethplorerLatest(ctx, req.address);
       ctx.blockNum = block;
-      return finalize({ metric: req.metric, address: req.address, block: Number(block), block_tag: tagName,
-        value: weiToEth(wei), unit: "ETH", balance_wei: wei.toString(), balance_eth: weiToEth(wei), source: "api.ethplorer.io",
+      return finalize({ metric: req.metric, address: req.address, block: Number(block), block_tag: tagName, chain: "ethereum",
+        value: weiToEth(wei), unit: "ETH", balance_wei: wei.toString(), balance_eth: weiToEth(wei), balance_gwei: weiToGwei(wei), source: "api.ethplorer.io",
         block_note: "RPCs unavailable; Ethplorer latest state, block from Ethplorer getLastBlock" }, null);
     }
   } else {
@@ -262,7 +273,7 @@ async function query(ctx, req, blockNum, isLatest, tagName, key) {
       const p = await ethplorerLatest(ctx, req.address); wei = p.wei; source = "api.ethplorer.io";
       out.block = Number(p.block); out.block_note = "RPC failed at head; Ethplorer latest state, block from Ethplorer getLastBlock";
     }
-    Object.assign(out, { value: weiToEth(wei), unit: "ETH", balance_wei: wei.toString(), balance_eth: weiToEth(wei), source });
+    Object.assign(out, { chain: "ethereum", value: weiToEth(wei), unit: "ETH", balance_wei: wei.toString(), balance_eth: weiToEth(wei), balance_gwei: weiToGwei(wei), source });
   } else if (req.metric === "tx_count") {
     const r = await rpc(ctx, "eth_getTransactionCount", [req.address, tag]);
     Object.assign(out, { value: BigInt(r.result).toString(), unit: "transactions (nonce)", source: r.source });
@@ -299,14 +310,30 @@ export function serialize(obj) {
   return s;
 }
 
-// One structured JSON line per request (Workers Logs / any log collector). No secrets:
-// only RPC labels, never URLs, and no query string beyond the parsed fields.
+function rawFirst(params, keys) {
+  for (const k of keys) {
+    const v = params.get(k);
+    if (v !== null && v !== undefined && String(v).trim() !== "") return String(v);
+  }
+  return undefined;
+}
+
+function boundedLogValue(value) {
+  if (value.length <= 128) return value;
+  return `${value.slice(0, 128)}...[truncated, len=${value.length}]`;
+}
+
+// One structured JSON line per request. Never log upstream URLs; invalid input fields are capped.
 function logLine(ctx, reqId, path, status, text, errCode) {
   const r = ctx.req || {};
+  const raw = ctx.raw || {};
   console.log(JSON.stringify({
     ts: new Date().toISOString(), req_id: reqId, path, status,
     error: errCode || undefined,
-    address: r.address, token: r.token, metric: r.metric,
+    address: r.address, raw_address: !r.address && raw.address !== undefined ? boundedLogValue(raw.address) : undefined,
+    token: r.token, raw_token: !r.token && raw.token !== undefined ? boundedLogValue(raw.token) : undefined,
+    metric: r.metric, raw_metric: !r.metric && raw.metric !== undefined ? boundedLogValue(raw.metric) : undefined,
+    raw_block: r.block === undefined && raw.block !== undefined ? boundedLogValue(raw.block) : undefined,
     block: ctx.blockNum !== undefined ? Number(ctx.blockNum) : undefined,
     block_tag: r.block === undefined ? undefined : (r.block === "latest" ? "latest" : "number"),
     source: ctx.sources.length ? ctx.sources[ctx.sources.length - 1] : undefined,
@@ -324,6 +351,12 @@ export async function handle(url, env = {}, opts = {}) {
   if (u.pathname === "/health") { status = 200; text = serialize({ ok: true }); }
   else if (u.pathname !== "/query") { status = 404; errCode = "NOT_FOUND"; text = serialize({ ok: false, error: "NOT_FOUND", message: "use GET /query?address=0x..&block_number=..&metric=eth_balance" }); }
   else {
+    ctx.raw = {
+      address: rawFirst(u.searchParams, ADDRESS_KEYS),
+      token: rawFirst(u.searchParams, ["token", "token_address", "contract"]),
+      block: rawFirst(u.searchParams, BLOCK_KEYS),
+      metric: rawFirst(u.searchParams, ["metric", "method", "what"]),
+    };
     try { status = 200; text = serialize(await answer(u.searchParams, ctx)); }
     catch (e) { const r = errorBody(e); status = r.status; errCode = r.body.error; text = serialize(r.body); }
   }

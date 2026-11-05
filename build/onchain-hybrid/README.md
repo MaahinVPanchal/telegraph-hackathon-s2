@@ -18,7 +18,10 @@ the forwarded `block_number` (epoch 443 422); raw Ethplorer answers blew the 131
 | anything at a historical block | archive JSON-RPC at that exact block (`eth_getBalance`, `eth_getTransactionCount`, `eth_getCode`, `eth_call balanceOf`) | value at that block, never the current one |
 
 Response block fields: `block` is **always an integer** (the block actually read) and `block_tag` is
-`"latest"` or `"number"`. There is no `block_number: null` any more. The Worker accepts an integer,
+`"latest"` or `"number"`. ETH balance responses include the scored `balance_gwei` number and the
+`chain` echo, alongside exact `balance_wei` and `balance_eth` strings. `balance_gwei` is truncated
+to six decimal places before conversion to a JSON number; large values may not retain all six decimals.
+There is no `block_number: null` any more. The Worker accepts an integer,
 hex, or the string `latest` (default); however, the Telegraph descriptor
 (`../miner-kit/miners/onchain-metric-hybrid.yaml`) requires a specific decimal or hex block for
 `ONCHAIN_METRIC_VERIFY_GENERAL`. Its output maps `value` with `unit`, allowing unit-aware comparison
@@ -29,7 +32,8 @@ before publishing.
 
 - One endpoint: `GET /query?address=0x..&block_number=18000000|0x112a880|latest&metric=eth_balance|tx_count|code|erc20_balance[&token=0x..]`
 - Unknown params ignored; block aliases accepted (`block`, `blockNumber`, `blockNo`, `block_height`, ...).
-- Exact units via BigInt (no float rounding). Bytecode is never returned (only `code_size_bytes`).
+- Exact wei/ETH values via BigInt; the scored Gwei value is a six-decimal truncation represented as
+  a JSON number. Bytecode is never returned (only `code_size_bytes`).
 - Every response is serialized with a hard cap of 4096 bytes (`MAX_BYTES`); over that it returns an explicit `ANSWER_TOO_LARGE` error, never a truncated answer.
 - **Deadline + hedged failover:** each request has an 8 s total budget (`REQUEST_DEADLINE_MS`). Each upstream
   attempt is aborted (AbortController) after 2.5 s or when the budget runs out. The first 2 RPCs are raced
@@ -38,9 +42,11 @@ before publishing.
   answer is then HTTP 504 `DEADLINE_EXCEEDED` (budget spent) or `NO_ARCHIVE_SOURCE` (every provider failed).
   For historical blocks the head check runs in parallel and is only awaited to turn a failure into
   `FUTURE_BLOCK`. Worst case measured: 8.0 s (mock: every upstream hangs). Max subrequests ≈ 16 (< 50).
-- **Request logs:** one JSON line per request via `console.log`: `ts, req_id, path, status, error, address,
-  token, metric, block, block_tag, source, cached, attempts, rpc_failures[{rpc, method, reason}],
-  latency_ms, bytes`. RPCs appear only as labels (public host, or `ARCHIVE_RPC_URL#n`); the
+- **Request logs:** one JSON line per request via `console.log`: `ts, req_id, path, status, error,
+  address, raw_address, token, raw_token, metric, raw_metric, raw_block, block, block_tag, source,
+  cached, attempts, rpc_failures[{rpc, method, reason}], latency_ms, bytes`. Invalid raw inputs are capped
+  at a 128-character prefix with an explicit truncation marker and original length. RPCs appear only
+  as labels (public host, or `ARCHIVE_RPC_URL#n`); the
   `ARCHIVE_RPC_URL` value / key is never logged or returned in error messages. On Workers these go to
   Workers Logs (`[observability] enabled = true`, `head_sampling_rate = 1` in `wrangler.toml`). The
   response carries the same id in `x-request-id` (cf-ray on Workers).
@@ -61,7 +67,9 @@ Ankr (key), Cloudflare-eth (internal error), Merkle (rate limit), BlockPI (key),
 
 ```bash
 npm start          # http://localhost:8787/query?address=0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045&block_number=18000000
-npm test           # mock failover tests, then live tests
+npm test           # failover, live, deterministic unit, address, and live contract tests
+npm run test:unit  # deterministic unit and address/score-response tests
+npm run test:contract # live contract tests against RPC oracles (strict mode)
 npm run test:mock  # 14 offline failover/deadline/secret-safety cases + local CPU proxy (~20 s, mostly deliberate hangs)
 npm run test:live  # 15 cases against real upstreams, incl. Ethplorer fallback with RPCs forced down
 ```

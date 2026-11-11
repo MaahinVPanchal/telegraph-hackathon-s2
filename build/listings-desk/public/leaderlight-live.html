@@ -1,0 +1,1119 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#09080e"><title>Telegraph Listings Desk</title>
+<style>
+:root {
+  color-scheme: dark;
+  --ld-page: #09080e;
+  --ld-surface: #121018;
+  --ld-surface-raised: #181420;
+  --ld-border: #302637;
+  --ld-primary: #ad7bea;
+  --ld-primary-strong: #c39af4;
+  --ld-text: #eae5f3;
+  --ld-secondary: #a89db8;
+  --ld-caution: #efc77e;
+  --ld-danger: #f09aab;
+  --ld-focus: #e2c6ff;
+}
+
+* { box-sizing: border-box; }
+html { background: var(--ld-page); scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background:
+    radial-gradient(ellipse at 82% 0%, rgba(87, 52, 112, .13), transparent 38rem),
+    var(--ld-page);
+  color: var(--ld-text);
+  font: 15px/1.55 system-ui, "Segoe UI", sans-serif;
+}
+button, input { font: inherit; }
+button, input, a, summary { -webkit-tap-highlight-color: transparent; }
+:focus-visible { outline: 3px solid var(--ld-focus); outline-offset: 3px; }
+.app-shell { width: min(100%, 1200px); margin: 0 auto; padding: 0 24px 42px; }
+.site-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 76px;
+  border-bottom: 1px solid var(--ld-border);
+}
+.header-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.brand-mark {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  background: var(--ld-border);
+  clip-path: polygon(50% 0, 94% 25%, 94% 75%, 50% 100%, 6% 75%, 6% 25%);
+}
+.brand-mark::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  background: var(--ld-surface);
+  clip-path: polygon(50% 0, 94% 25%, 94% 75%, 50% 100%, 6% 75%, 6% 25%);
+}
+.brand-mark span {
+  position: absolute;
+  z-index: 1;
+  inset: 11px;
+  background: var(--ld-primary);
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+.brand-name { display: block; font-size: .82rem; font-weight: 850; letter-spacing: .13em; }
+.brand-subtitle { display: block; color: var(--ld-secondary); font-size: .75rem; }
+.mode-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 5px 12px;
+  border: 1px solid rgba(173, 123, 234, .62);
+  border-radius: 999px;
+  background: rgba(173, 123, 234, .08);
+  color: var(--ld-primary-strong);
+  font-size: .68rem;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-align: center;
+}
+.mode-badge--real, .mode-badge--invalid { border-color: rgba(239, 199, 126, .62); color: var(--ld-caution); }
+.wallet-connect {
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px solid var(--ld-border);
+  border-radius: 8px;
+  background: var(--ld-surface-raised);
+  color: var(--ld-text);
+  cursor: pointer;
+  font-size: .82rem;
+  font-weight: 750;
+  overflow-wrap: anywhere;
+}
+.wallet-connect:hover:not(:disabled) { border-color: var(--ld-primary); background: rgba(173, 123, 234, .12); }
+.wallet-connect:disabled { cursor: progress; opacity: .7; }
+.wallet-status {
+  margin: 10px 0 0;
+  color: var(--ld-secondary);
+  font-size: .76rem;
+  overflow-wrap: anywhere;
+}
+.wallet-status--connected { color: var(--ld-primary-strong); }
+.wallet-status--pending { color: var(--ld-caution); }
+.wallet-status--error { color: var(--ld-danger); }
+.workspace-grid {
+  display: grid;
+  grid-template-columns: 176px minmax(0, 1fr);
+  align-items: stretch;
+  gap: 24px;
+  margin-top: 24px;
+}
+.workspace-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-self: stretch;
+  padding: 18px 12px;
+  border: 1px solid var(--ld-border);
+  border-radius: 14px;
+  background: var(--ld-surface);
+}
+.workspace-nav-label {
+  margin: 4px 8px 8px;
+  color: var(--ld-secondary);
+  font-size: .7rem;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.workspace-nav a {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--ld-secondary);
+  font-size: .83rem;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.workspace-nav a:hover, .workspace-nav a:focus-visible {
+  border-color: var(--ld-border);
+  background: rgba(173, 123, 234, .08);
+  color: var(--ld-primary-strong);
+}
+.workspace-nav a:first-of-type {
+  border-color: rgba(173, 123, 234, .24);
+  background: rgba(173, 123, 234, .12);
+  color: var(--ld-primary-strong);
+}
+.workspace-main { min-width: 0; }
+.hero { position: relative; max-width: 760px; padding: clamp(32px, 7vw, 66px) 0 28px; }
+.hero::before {
+  content: "";
+  display: block;
+  width: 58px;
+  height: 3px;
+  margin-bottom: 16px;
+  background: var(--ld-primary);
+}
+.eyebrow {
+  margin-bottom: 9px;
+  color: var(--ld-primary-strong);
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .17em;
+  text-transform: uppercase;
+}
+.hero h1 { max-width: 680px; margin: 0; font-size: clamp(2.15rem, 6vw, 3.9rem); line-height: 1.03; letter-spacing: -.045em; }
+.hero-copy { max-width: 650px; margin: 16px 0 0; color: var(--ld-secondary); font-size: 1rem; }
+.setup-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: 16px; }
+.panel {
+  min-width: 0;
+  padding: clamp(16px, 3vw, 24px);
+  border: 1px solid var(--ld-border);
+  border-radius: 15px;
+  background:
+    linear-gradient(140deg, rgba(173, 123, 234, .035), transparent 45%),
+    var(--ld-surface);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, .13);
+}
+.panel h2 { margin: 0 0 14px; font-size: 1.16rem; line-height: 1.3; }
+.field-label { display: block; margin: 14px 0 6px; font-size: .88rem; font-weight: 700; }
+.field-help { margin: 7px 0 13px; color: var(--ld-secondary); font-size: .82rem; }
+.token-input, .text-input {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid var(--ld-border);
+  border-radius: 8px;
+  background: #0c0a11;
+  color: var(--ld-text);
+}
+.token-input::placeholder, .text-input::placeholder { color: #81768f; opacity: 1; }
+.token-input:focus, .text-input:focus {
+  outline: none;
+  border-color: var(--ld-primary);
+  box-shadow: 0 0 0 3px rgba(173, 123, 234, .18);
+}
+.token-input[aria-invalid="true"], .token-input:invalid:not(:placeholder-shown) { border-color: var(--ld-caution); }
+.primary-action {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 5px;
+  padding: 10px 16px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: var(--ld-primary);
+  color: #170f20;
+  cursor: pointer;
+  font-weight: 850;
+  transition: background-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+.primary-action:hover:not(:disabled) { background: var(--ld-primary-strong); box-shadow: 0 0 22px rgba(173, 123, 234, .2); transform: translateY(-1px); }
+.primary-action:active:not(:disabled) { transform: translateY(0); box-shadow: 0 0 10px rgba(173, 123, 234, .16); }
+.primary-action:disabled { cursor: not-allowed; opacity: .45; box-shadow: none; transform: none; }
+.mode-help {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-left: 2px solid var(--ld-primary);
+  background: rgba(173, 123, 234, .07);
+  color: var(--ld-secondary);
+  font-size: .8rem;
+}
+.limit-list { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
+.limit-list li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid rgba(48, 38, 55, .8);
+  font-size: .82rem;
+}
+.limit-list li:first-child { border-top: 0; }
+.limit-list span { color: var(--ld-text); }
+.limit-list strong { color: var(--ld-secondary); font-size: .75rem; font-weight: 600; text-align: right; }
+.boundary-note { margin: 14px 0 0; color: var(--ld-secondary); font-size: .78rem; }
+.out-region { min-width: 0; margin-top: 16px; }
+.empty-state, .request-state, .request-error {
+  margin: 0;
+  padding: 16px 18px;
+  border: 1px dashed rgba(129, 118, 143, .45);
+  border-radius: 12px;
+  background: var(--ld-surface);
+  color: var(--ld-secondary);
+  overflow-wrap: anywhere;
+}
+.empty-state { text-align: center; font-size: .86rem; }
+.request-state { border-left: 3px solid var(--ld-primary); }
+.request-state--real { border-left-color: var(--ld-caution); }
+.request-error { border-left: 3px solid var(--ld-danger); color: var(--ld-danger); }
+.app-footer { margin-top: 24px; padding-top: 14px; border-top: 1px solid var(--ld-border); color: var(--ld-secondary); font-size: .74rem; }
+.app-footer p { margin: 4px 0; }
+@media (max-width: 760px) {
+  .app-shell { padding-right: 18px; padding-left: 18px; }
+  .workspace-grid { grid-template-columns: minmax(0, 1fr); gap: 14px; margin-top: 16px; }
+  .workspace-nav { padding: 12px; }
+  .workspace-nav a { justify-content: center; text-align: center; }
+  .flow-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .flow-steps li { padding-left: 30px; font-size: .72rem; }
+  .setup-grid { grid-template-columns: minmax(0, 1fr); }
+  .hero-chips { flex-wrap: wrap; }
+}
+@media (max-width: 420px) {
+  .app-shell { padding-right: 14px; padding-left: 14px; }
+  .site-header { flex-wrap: wrap; min-height: 68px; padding: 12px 0; }
+  .header-actions { width: 100%; justify-content: space-between; }
+  .mode-badge { max-width: 132px; padding: 5px 9px; font-size: .62rem; }
+  .hero { padding-top: 34px; }
+  .hero-copy { font-size: .94rem; }
+  .limit-list li { align-items: flex-start; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+}
+
+/* === UI polish layer: flow steps, chips, live card, live badge === */
+.workspace-nav a.nav-result { display: none; }
+body.has-result .workspace-nav a.nav-result { display: flex; }
+.flow-steps { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; counter-reset: step; }
+.flow-steps li {
+  counter-increment: step;
+  position: relative;
+  padding: 9px 10px 9px 34px;
+  border: 1px solid var(--ld-border);
+  border-radius: 8px;
+  color: var(--ld-secondary);
+  font-size: .78rem;
+}
+.flow-steps li::before {
+  content: counter(step);
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--ld-border);
+  color: var(--ld-text);
+  font-size: .66rem;
+  font-weight: 800;
+}
+.flow-steps li.done {
+  border-color: rgba(173, 123, 234, .4);
+  background: rgba(173, 123, 234, .08);
+  color: var(--ld-primary-strong);
+}
+.flow-steps li.done::before { content: "✓"; background: var(--ld-primary); color: #170f20; }
+.hero-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 4px 12px;
+  border: 1px solid var(--ld-border);
+  border-radius: 999px;
+  background: rgba(173, 123, 234, .06);
+  color: var(--ld-secondary);
+  font-size: .74rem;
+  font-weight: 700;
+}
+.live-block {
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid rgba(173, 123, 234, .28);
+  border-radius: 12px;
+  background: linear-gradient(140deg, rgba(173, 123, 234, .07), transparent 50%);
+}
+.live-block .primary-action { margin-top: 4px; }
+.action-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; }
+.action-row .action-button { margin-bottom: 0; }
+.mode-badge--live { border-color: rgba(126, 217, 163, .55); color: #7ed9a3; }
+.mode-badge--live::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: #7ed9a3;
+  animation: lb-pulse 1.6s ease-in-out infinite;
+}
+@keyframes lb-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+
+body.memo-page {
+  margin: 0;
+  padding: 24px;
+  background: var(--ld-page);
+  color: var(--ld-text);
+  font: 15px/1.55 system-ui, "Segoe UI", sans-serif;
+}
+.listings-memo, .listings-memo * { box-sizing: border-box; }
+.listings-memo {
+  width: min(100%, 1080px);
+  margin: 0 auto;
+  color: var(--ld-text);
+}
+.listings-memo h2, .listings-memo h3, .listings-memo p { margin-top: 0; }
+.listings-memo h2 { margin-bottom: 6px; font-size: clamp(1.3rem, 3vw, 1.8rem); line-height: 1.2; overflow-wrap: anywhere; }
+.listings-memo h3 { margin-bottom: 12px; font-size: 1rem; }
+.listings-memo code, .listings-memo pre { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
+.memo-result-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 24px;
+  border: 1px solid var(--ld-border);
+  border-radius: 16px;
+  background: linear-gradient(125deg, rgba(173,123,234,.09), transparent 58%), var(--ld-surface);
+}
+.memo-result-head > div { min-width: 0; }
+.memo-eyebrow, .memo-section-label {
+  margin-bottom: 10px;
+  color: var(--ld-primary-strong);
+  font-size: .72rem;
+  font-weight: 750;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+.memo-subline, .memo-muted { color: var(--ld-secondary); }
+.memo-subline { margin-bottom: 0; overflow-wrap: anywhere; }
+.memo-verdict, .memo-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 4px 11px;
+  border: 1px solid var(--ld-border);
+  border-radius: 999px;
+  font-size: .75rem;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.memo-verdict { min-width: 94px; min-height: 40px; font-size: .88rem; white-space: nowrap; }
+.status--go, .status--valid, .status--simulated, .status--receipt-valid {
+  border-color: rgba(173,123,234,.62);
+  background: rgba(173,123,234,.12);
+  color: var(--ld-primary-strong);
+}
+.status--review, .status--unknown, .status--missing, .status--unavailable,
+.status--unsupported, .status--incomplete, .status--definitive-unpaid,
+.status--unpaid-or-rejected {
+  border-color: rgba(239,199,126,.62);
+  background: rgba(239,199,126,.11);
+  color: var(--ld-caution);
+}
+.status--no-go, .status--invalid, .status--failed, .status--policy-rejected {
+  border-color: rgba(240,154,171,.62);
+  background: rgba(240,154,171,.11);
+  color: var(--ld-danger);
+}
+.memo-mode-note {
+  margin: 14px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--ld-border);
+  border-left: 3px solid var(--ld-primary);
+  border-radius: 8px;
+  background: var(--ld-surface-raised);
+}
+.memo-mode-note--real { border-left-color: var(--ld-caution); }
+.memo-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 14px 0;
+}
+.memo-stat {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--ld-border);
+  border-radius: 10px;
+  background: var(--ld-surface);
+}
+.memo-stat span { display: block; color: var(--ld-secondary); font-size: .76rem; }
+.memo-stat strong { display: block; margin-top: 5px; font-size: clamp(1.05rem, 2.4vw, 1.45rem); overflow-wrap: anywhere; }
+.memo-stat small { display: block; margin-top: 3px; color: var(--ld-secondary); overflow-wrap: anywhere; }
+.memo-critical {
+  margin: 14px 0;
+  padding: 14px 16px;
+  border: 1px solid rgba(239,199,126,.5);
+  border-radius: 10px;
+  background: rgba(239,199,126,.07);
+}
+.memo-critical p:last-child { margin-bottom: 0; }
+.memo-section {
+  margin-top: 16px;
+  padding: 20px;
+  border: 1px solid var(--ld-border);
+  border-radius: 14px;
+  background: var(--ld-surface);
+}
+.memo-section > p:last-child { margin-bottom: 0; }
+.memo-card-list { display: grid; gap: 10px; }
+.memo-card {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--ld-border);
+  border-radius: 10px;
+  background: rgba(9,8,14,.45);
+}
+.memo-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.memo-card-title { min-width: 0; font-weight: 750; overflow-wrap: break-word; }
+.memo-card-title code { color: var(--ld-primary-strong); }
+.memo-pill-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.memo-pill {
+  min-height: 26px;
+  padding: 3px 8px;
+  font-size: .68rem;
+  letter-spacing: .04em;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  flex: 0 0 auto;
+}
+.memo-receipt-details { margin-top: 12px; }
+.memo-receipt-details > summary {
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--ld-border);
+  border-radius: 8px;
+  color: var(--ld-primary-strong);
+  cursor: pointer;
+  font-weight: 700;
+}
+.memo-receipt-details > summary:focus-visible { outline: 3px solid var(--ld-focus); outline-offset: 2px; }
+.memo-reason { margin: 8px 0; overflow-wrap: anywhere; }
+.memo-source { margin: 8px 0 0; color: var(--ld-secondary); font-size: .84rem; overflow-wrap: anywhere; }
+.memo-finding {
+  margin: 8px 0;
+  padding: 10px 12px;
+  border-left: 3px solid var(--ld-border);
+  background: var(--ld-surface-raised);
+  overflow-wrap: anywhere;
+}
+.memo-finding--warn { border-left-color: var(--ld-caution); }
+.memo-finding--bad { border-left-color: var(--ld-danger); }
+.memo-finding--good { border-left-color: var(--ld-primary); }
+.memo-data-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0;
+  border: 1px solid var(--ld-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.memo-data-grid > div { min-width: 0; padding: 9px 10px; background: var(--ld-surface); }
+.memo-data-grid dt { color: var(--ld-secondary); font-size: .72rem; }
+.memo-data-grid dd { margin: 3px 0 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.memo-data-grid dd code { overflow-wrap: anywhere; }
+.memo-raw, .memo-ledger { margin-top: 12px; }
+.memo-raw summary, .memo-ledger summary {
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--ld-border);
+  border-radius: 8px;
+  color: var(--ld-primary-strong);
+  cursor: pointer;
+  font-weight: 700;
+}
+.memo-raw summary:focus-visible, .memo-ledger summary:focus-visible {
+  outline: 3px solid var(--ld-focus);
+  outline-offset: 2px;
+}
+.memo-raw pre {
+  max-width: 100%;
+  margin: 10px 0 0;
+  padding: 12px;
+  border: 1px solid var(--ld-border);
+  border-radius: 8px;
+  background: #0c0a11;
+  color: var(--ld-text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow-x: auto;
+}
+.memo-empty { color: var(--ld-secondary); }
+.memo-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 16px;
+  padding: 16px 2px 4px;
+  border-top: 1px solid var(--ld-border);
+}
+.memo-footer p { max-width: 650px; margin-bottom: 0; color: var(--ld-secondary); font-size: .82rem; overflow-wrap: anywhere; }
+@media (max-width: 700px) {
+  body.memo-page { padding: 14px; }
+  .memo-result-head { padding: 17px; }
+  .memo-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .memo-section { padding: 14px; }
+  .memo-data-grid { grid-template-columns: minmax(0, 1fr); }
+  .memo-card-head { flex-direction: column; align-items: flex-start; }
+}
+@media (max-width: 380px) {
+  body.memo-page { padding: 10px; }
+  .memo-result-head { flex-direction: column; gap: 12px; }
+  .memo-stat-grid { gap: 7px; }
+  .memo-stat { padding: 10px; }
+}
+  .secondary-action {
+    min-height: 44px; padding: 8px 14px; margin-top: 8px; width: 100%;
+    border: 1px solid var(--ld-caution); border-radius: 8px;
+    background: rgba(239,199,126,.08); color: var(--ld-caution);
+    cursor: pointer; font-size: .82rem; font-weight: 750;
+  }
+  .secondary-action:hover:not(:disabled) { background: rgba(239,199,126,.16); }
+  .secondary-action:disabled { cursor: progress; opacity: .7; }
+  .action-button {
+    min-height: 42px; padding: 8px 14px; width: 100%; margin-bottom: 8px;
+    border: 1px solid var(--ld-border); border-radius: 8px;
+    background: var(--ld-surface-raised); color: var(--ld-text);
+    cursor: pointer; font-size: .8rem; font-weight: 700; text-align: left;
+  }
+  .action-button:hover:not(:disabled) { border-color: var(--ld-primary); }
+  .action-button:disabled { cursor: progress; opacity: .7; }
+  .action-note { color: var(--ld-secondary); font-size: .76rem; overflow-wrap: anywhere; }
+  .live-block {
+    margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--ld-border);
+  }
+  .live-block .primary-action { margin-top: 4px; }
+  .leaderboard-panel {
+    margin-top: 24px; padding: 20px;
+    border: 1px solid var(--ld-border); border-radius: 14px;
+    background: var(--ld-surface);
+  }
+  .leaderboard-panel h2 { margin: 6px 0 12px; font-size: 1.1rem; }
+  .leaderboard-panel .action-button { width: auto; margin-bottom: 12px; }
+  .lb-row { display: flex; flex-wrap: wrap; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--ld-border); align-items: baseline; }
+  .lb-row:last-child { border-bottom: none; }
+  .lb-intent { color: var(--ld-primary-strong); font-size: .8rem; min-width: 240px; overflow-wrap: anywhere; }
+  .lb-rank { font-weight: 800; min-width: 64px; }
+  .lb-score { color: var(--ld-secondary); }
+  .lb-mine { color: var(--ld-caution); font-size: .72rem; letter-spacing: .08em; font-weight: 800; }
+  </style></head><body>
+<main class="app-shell">
+  <header class="site-header">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"><span></span></span>
+      <span><span class="brand-name">LISTINGS DESK</span><span class="brand-subtitle">Telegraph intelligence workspace</span></span>
+    </div>
+    <div class="header-actions">
+      <span class="mode-badge" id="mode-badge">SIMULATED / OFFLINE</span>
+      <button class="wallet-connect" id="wallet-connect" type="button">Connect MetaMask</button>
+    </div>
+  </header>
+  <p class="wallet-status" id="wallet-status" role="status" aria-live="polite" aria-atomic="true">Wallet not connected. Connect to unlock the live flow — signing happens only when you approve it.</p>
+  <div class="workspace-grid">
+    <nav class="workspace-nav" aria-label="Workspace sections">
+      <p class="workspace-nav-label">Workspace</p>
+      <a href="#candidate-form">Assessment</a>
+      <a id="nav-evidence" class="nav-result" href="#out">Evidence</a>
+      <a id="nav-receipts" class="nav-result" href="#out">Receipt details</a>
+      <p class="workspace-nav-label">Live flow</p>
+      <ol class="flow-steps" aria-label="Steps for a live assessment">
+        <li data-step="connect">Connect wallet</li>
+        <li data-step="fund">Mint &amp; fund escrow</li>
+        <li data-step="run">Run assessment</li>
+      </ol>
+    </nav>
+    <div class="workspace-main">
+      <section class="hero" aria-labelledby="hero-title">
+        <p class="eyebrow">Clarity before conviction</p>
+        <h1 id="hero-title">A sharper view of listing risk.</h1>
+        <p class="hero-copy">Check the candidate. Keep uncertainty visible. Review the evidence behind every recommendation.</p>
+        <div class="hero-chips" aria-label="Workspace facts">
+          <span class="chip">3 miners live</span>
+          <span class="chip"><span id="chip-miners">…</span> in network catalogue</span>
+          <span class="chip">asks from $0.01</span>
+        </div>
+      </section>
+      <section class="setup-grid" aria-label="Assessment setup">
+        <form class="panel" id="candidate-form" novalidate>
+          <p class="eyebrow">01 / Candidate · offline</p>
+          <h2>Run a local simulation</h2>
+          <label class="field-label" for="token">Token symbol or contract address</label>
+          <input class="token-input" id="token" name="token" type="text" placeholder="e.g. PEPE or 0x…" autocomplete="off" maxlength="120" required aria-describedby="token-help">
+          <p class="field-help" id="token-help">Token-only input. Treasury, deployer, social identities, chain and repository are not inferred.</p>
+          <button class="primary-action" id="run-button" type="submit">Run offline demo</button>
+          <p class="mode-help">Offline fixtures only. No Engine calls, payments, or signatures.</p>
+          <div class="live-block">
+            <p class="eyebrow">02 / Live · Ethereum Sepolia testnet</p>
+            <h2>Run a real paid assessment</h2>
+            <p class="field-help" id="live-state">Connect MetaMask (top right) to enable live actions. Payments sign in your browser from your own wallet.</p>
+            <div class="action-row">
+              <button class="action-button" id="mint-usdc" type="button" disabled>Mint 10 test USDC</button>
+              <button class="action-button" id="fund-escrow" type="button" disabled>Fund escrow · 3 USDC</button>
+            </div>
+            <p id="action-note" class="action-note" role="status"></p>
+            <label class="field-label" for="deployer-name">Sanctions: deployer entity name</label>
+            <input class="text-input" id="deployer-name" type="text" placeholder="e.g. MaaHin Digital Labs Ltd" autocomplete="off">
+            <label class="field-label" for="treasury-name">Sanctions: treasury entity name</label>
+            <input class="text-input" id="treasury-name" type="text" placeholder="e.g. Pepe Treasury Holdings SA" autocomplete="off">
+            <button class="primary-action" id="run-live" type="button" disabled>Run LIVE assessment (signs + pays)</button>
+            <p class="mode-help">Two $0.01 Engine calls routed by intent; settlement receipts shown below. Signed in your browser, paid from your own escrow.</p>
+          </div>
+        </form>
+        <aside class="panel" aria-labelledby="limits-title">
+          <p class="eyebrow">Evidence overview</p>
+          <h2 id="limits-title">What this desk can establish</h2>
+          <ul class="limit-list">
+            <li><span>Sanctions and social checks</span><strong>Explicit identities only</strong></li>
+            <li><span>On-chain checks</span><strong>Balance does not prove concentration</strong></li>
+            <li><span>Audit and repository history</span><strong>Unsupported by current contracts</strong></li>
+            <li><span>MetaMask connection</span><strong>Account access only</strong></li>
+          </ul>
+          <p class="boundary-note">Connecting a wallet requests account access. Live actions then sign with your wallet — nothing spends until you approve each MetaMask prompt.</p>
+        </aside>
+      </section>
+      <section class="out-region" id="out" aria-live="polite" aria-busy="false" aria-label="Assessment result">
+        <p class="empty-state">No receipt yet. Run the offline demo — no wallet needed — or connect above for a LIVE paid assessment. Results and settlement receipts land here.</p>
+      </section>
+    </div>
+  </div>
+    <section class="leaderboard-panel" aria-labelledby="lb-title">
+      <p class="eyebrow">Live boards</p>
+      <h2 id="lb-title">Your miners, ranked</h2>
+      <p class="field-help">Public leaderboard data from the Telegraph devnode — no wallet needed.</p>
+      <button class="action-button" id="lb-refresh" type="button">Refresh ranks</button>
+      <div id="lb-body" aria-live="polite">Loading ranks…</div>
+    </section>
+  <footer class="app-footer">
+    <p>Application policy and supplied evidence only; not an official Telegraph guarantee or ranking.</p>
+    <p>Abstract geometric styling is original and unaffiliated. Wallet connection does not authorize an assessment, signature, or payment.</p>
+  </footer>
+</main>
+<script>
+const form = document.getElementById("candidate-form");
+const input = document.getElementById("token");
+const output = document.getElementById("out");
+const button = document.getElementById("run-button");
+const mockMode = true;
+const defaultButtonText = "Run offline demo";
+
+function validateToken() {
+  const value = input.value.trim();
+  input.setCustomValidity(!value ? "Enter a token symbol or contract address." :
+    value.length > 120 ? "Token input must be 120 characters or fewer." : "");
+  if (input.validity.valid) input.removeAttribute("aria-invalid");
+  else input.setAttribute("aria-invalid", "true");
+}
+
+input.addEventListener("input", validateToken);
+form.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  validateToken();
+  if (!form.reportValidity()) return;
+
+  button.disabled = true;
+  button.textContent = mockMode ? "Running offline demo…" : "Running assessment…";
+  output.setAttribute("aria-busy", "true");
+  const loading = document.createElement("p");
+  loading.className = "request-state" + (mockMode ? "" : " request-state--real");
+  loading.setAttribute("role", "status");
+  loading.textContent = mockMode
+    ? "SIMULATED/OFFLINE — rendering local fixtures; no Engine calls, payments, or signatures."
+    : "REAL mode — checking the explicitly supplied token; required identities are not inferred.";
+  output.replaceChildren(loading);
+
+  try {
+    const response = await fetch("/memo?token=" + encodeURIComponent(input.value.trim()));
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      throw new Error(typeof payload?.error === "string" ? payload.error : "Request failed (HTTP " + response.status + ")");
+    }
+    const html = await response.text();
+    const parsed = new DOMParser().parseFromString(html, "text/html");
+    const memo = parsed.querySelector(".listings-memo");
+    if (!memo) throw new Error("The result memo could not be displayed.");
+    output.replaceChildren(document.importNode(memo, true));
+    document.getElementById("nav-evidence").href = "#evidence-section";
+    document.getElementById("nav-receipts").href = "#receipts-section";
+  } catch (error) {
+    const message = document.createElement("p");
+    message.className = "request-error";
+    message.setAttribute("role", "alert");
+    message.textContent = "Failed: " + String(error?.message ?? error);
+    output.replaceChildren(message);
+    document.getElementById("nav-evidence").href = "#out";
+    document.getElementById("nav-receipts").href = "#out";
+  } finally {
+    button.disabled = false;
+    button.textContent = defaultButtonText;
+    output.setAttribute("aria-busy", "false");
+  }
+});
+</script><script>
+const ETHEREUM_ADDRESS_PATTERN = /^0x[0-9a-fA-F]{40}$/;
+
+function isEthereumAddress(value) {
+  return typeof value === "string" && ETHEREUM_ADDRESS_PATTERN.test(value);
+}
+
+function isProvider(provider) {
+  return provider != null && typeof provider.request === "function";
+}
+
+function selectMetaMaskProvider(injectedProvider, announcedProviders = []) {
+  const announced = Array.isArray(announcedProviders)
+    ? announcedProviders.find((entry) =>
+      typeof entry?.info?.rdns === "string" &&
+      entry.info.rdns.toLowerCase() === "io.metamask" &&
+      isProvider(entry.provider)
+    )
+    : null;
+  if (announced) return announced.provider;
+
+  const injected = Array.isArray(injectedProvider?.providers)
+    ? injectedProvider.providers
+    : [injectedProvider];
+  return injected.find((provider) => provider?.isMetaMask === true && isProvider(provider)) ?? null;
+}
+
+async function requestMetaMaskAccounts(provider) {
+  if (!isProvider(provider)) throw new TypeError("MetaMask provider is unavailable.");
+  const accounts = await provider.request({ method: "eth_requestAccounts", params: [] });
+  if (!Array.isArray(accounts) || accounts.length === 0 || !accounts.every(isEthereumAddress)) {
+    throw new TypeError("MetaMask returned no valid Ethereum accounts.");
+  }
+  return [...accounts];
+}
+
+function formatProviderError(error) {
+  if (error?.code === 4001) return "Connection request rejected. No account was shared.";
+  if (error?.code === -32002) return "A MetaMask connection request is already pending.";
+  return error instanceof Error ? error.message : String(error);
+}
+
+function initializeWalletConnection() {
+  const button = document.getElementById("wallet-connect");
+  const status = document.getElementById("wallet-status");
+  if (!button || !status) return;
+
+  const announcedProviders = [];
+  let activeProvider = null;
+  let accountsChangedHandler = null;
+
+  window.addEventListener("eip6963:announceProvider", (event) => {
+    const detail = event.detail;
+    if (typeof detail?.info?.rdns !== "string" ||
+        detail.info.rdns.toLowerCase() !== "io.metamask" ||
+        !isProvider(detail.provider)) return;
+    if (!announcedProviders.some((entry) => entry.provider === detail.provider)) {
+      announcedProviders.push(detail);
+    }
+  });
+  window.dispatchEvent(new Event("eip6963:requestProvider"));
+
+  function showStatus(message, state = "idle") {
+    status.textContent = message;
+    status.className = `wallet-status wallet-status--${state}`;
+  }
+
+  function showAccounts(accounts) {
+    if (accounts.length === 0) {
+      window.__listingsWallet = null;
+      window.dispatchEvent(new CustomEvent("listings:wallet", { detail: { address: null } }));
+      button.textContent = "Connect MetaMask";
+      button.removeAttribute("aria-label");
+      showStatus("MetaMask account access was removed for this page.", "idle");
+      return;
+    }
+    const first = accounts[0];
+    window.__listingsWallet = { address: first, accounts };
+    window.dispatchEvent(new CustomEvent("listings:wallet", { detail: { address: first } }));
+    button.textContent = `Connected · ${first.slice(0, 6)}…${first.slice(-4)}`;
+    button.setAttribute("aria-label", `Connected MetaMask account ${first}`);
+    const additionalAccounts = accounts.length > 1 ? ` (${accounts.length} accounts)` : "";
+    showStatus(
+      `Account access only${additionalAccounts}: ${accounts.join(", ")}. This address is not sent to Listings Desk; no signature or payment was requested.`,
+      "connected"
+    );
+  }
+
+  function listenForAccountChanges(provider) {
+    if (activeProvider && accountsChangedHandler && typeof activeProvider.removeListener === "function") {
+      activeProvider.removeListener("accountsChanged", accountsChangedHandler);
+    }
+    activeProvider = provider;
+    accountsChangedHandler = (accounts) => {
+      if (!Array.isArray(accounts) || !accounts.every(isEthereumAddress)) {
+        window.__listingsWallet = null;
+        window.dispatchEvent(new CustomEvent("listings:wallet", { detail: { address: null } }));
+        button.textContent = "Connect MetaMask";
+        button.removeAttribute("aria-label");
+        showStatus("MetaMask returned an invalid account update.", "error");
+        return;
+      }
+      showAccounts(accounts);
+    };
+    if (typeof provider.on === "function") provider.on("accountsChanged", accountsChangedHandler);
+  }
+
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    button.textContent = "Waiting for MetaMask…";
+    button.setAttribute("aria-busy", "true");
+    showStatus("Approve account access in MetaMask. No signature or payment is requested.", "pending");
+
+    try {
+      window.dispatchEvent(new Event("eip6963:requestProvider"));
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      const provider = selectMetaMaskProvider(window.ethereum, announcedProviders);
+      if (!provider) {
+        throw new Error("MetaMask was not detected. Enable the MetaMask extension, then try again.");
+      }
+      const accounts = await requestMetaMaskAccounts(provider);
+      listenForAccountChanges(provider);
+      showAccounts(accounts);
+    } catch (error) {
+      button.textContent = "Connect MetaMask";
+      button.removeAttribute("aria-label");
+      showStatus(formatProviderError(error), error?.code === 4001 ? "idle" : "error");
+    } finally {
+      button.disabled = false;
+      button.removeAttribute("aria-busy");
+    }
+  });
+}
+
+if (typeof window !== "undefined" && typeof document !== "undefined") {
+  initializeWalletConnection();
+}
+
+// === Telegraph LIVE wiring (Ethereum Sepolia, post-migration) ===
+const DIAMOND = "0x3624EB012B5E998BB57B6bE6C9Cfc9c4bc5eb99b";
+const USDC = "0xcc194e1a843B658526D0D5C431f670028582Ae17";
+// Same-origin proxy (api/engine) → devnode. The node's CORS preflight omits
+// the Access-Control-Allow-* headers, which blocks browser fetches; the proxy
+// is dumb transport with no keys — signing stays in the visitor's browser.
+const ENGINE_BASE = "/api/engine";
+const TRUSTED_NETWORK = "eip155:11155111";
+const OUR_MINERS = ["9602", "9603", "9601"];
+
+function connectedWallet() { return window.__listingsWallet ?? null; }
+function connectedAddress() { return window.__listingsWallet?.address ?? null; }
+function providerRequest(params) { return window.ethereum.request(params); }
+function randomNonce() {
+  const b = new Uint8Array(16); crypto.getRandomValues(b);
+  return Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
+}
+
+async function mintTestUsdc(wallet) {
+  const data = "0x40c10f19" + wallet.toLowerCase().replace(/^0x/, "").padStart(64, "0") + (10_000_000).toString(16).padStart(64, "0");
+  return providerRequest({ method: "eth_sendTransaction", params: [{ from: wallet, to: USDC, data, gas: "0x186a0" }] });
+}
+async function fundEscrow(wallet) {
+  const approve = "0x095ea7b3" + DIAMOND.toLowerCase().replace(/^0x/, "").padStart(64, "0") + (3_000_000).toString(16).padStart(64, "0");
+  await providerRequest({ method: "eth_sendTransaction", params: [{ from: wallet, to: USDC, data: approve, gas: "0x186a0" }] });
+  const deposit = "0x6a761202" + (3_000_000).toString(16).padStart(64, "0");
+  return providerRequest({ method: "eth_sendTransaction", params: [{ from: wallet, to: DIAMOND, data: deposit, gas: "0x30d40" }] });
+}
+async function liveAssessment(wallet, intent, params) {
+  // Intent-routed ask (no miner ID): the Engine routes to the winning miner for
+  // the intent — the same proven pattern the desk's paid run uses.
+  const url = ENGINE_BASE + "/v1/ask";
+  const body = JSON.stringify(params ? { intent, params } : { query: params?.query ?? intent });
+  const first = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body });
+  if (first.status !== 402) {
+    if (first.ok) return { status: 200, data: await first.json().catch(() => ({})), settlement: null };
+    throw new Error("Engine HTTP " + first.status);
+  }
+  const challenge = await first.json().catch(() => ({}));
+  const entry = (challenge.accepts ?? []).find((a) => a?.scheme === "escrow");
+  if (!entry) throw new Error("no escrow scheme in the 402 challenge");
+  // Safety guard: never sign a challenge that routes payment anywhere but the
+  // Telegraph Diamond escrow.
+  if (String(entry.payTo ?? "").toLowerCase() !== DIAMOND.toLowerCase()) {
+    throw new Error("challenge payTo is not the Telegraph Diamond — aborting for safety");
+  }
+  const template = String(entry.extra?.message ?? "");
+  const now = Math.floor(Date.now() / 1000);
+  const authorization = {
+    from: wallet.toLowerCase(),
+    to: String(entry.payTo ?? DIAMOND).toLowerCase(),
+    value: (template.match(/Amount:\s*(\d+) uUSDC/) ?? [])[1] ?? "10000",
+    validAfter: String(now - 5),
+    validBefore: String(now + 100),
+    nonce: randomNonce(),
+  };
+  const message = String(entry.extra?.message ?? "")
+    .replace("{from}", authorization.from)
+    .replace("{nonce}", authorization.nonce)
+    .replace("{validAfter}", authorization.validAfter)
+    .replace("{validBefore}", authorization.validBefore);
+  const signature = await providerRequest({ method: "personal_sign", params: [message, wallet] });
+  const envelope = { x402Version: 2, scheme: "escrow", network: entry.network ?? TRUSTED_NETWORK, payload: { signature, authorization } };
+  const header = btoa(JSON.stringify(envelope));
+  const retry = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", "X-PAYMENT": header }, body });
+  const rawSettlement = retry.headers?.get("x-payment-response") ?? null;
+  let settlement = null;
+  if (rawSettlement) { try { settlement = JSON.parse(atob(rawSettlement)); } catch { settlement = { raw: rawSettlement }; } }
+  if (!retry.ok) throw new Error("Engine HTTP " + retry.status + " after payment");
+  return { status: 200, data: await retry.json().catch(() => ({})), settlement };
+}
+
+// The LIVE run: sanctions screening with explicit inputs (2 paid requests)
+const runLive = document.getElementById("run-live");
+const liveInputs = document.getElementById("live-inputs");
+const out = document.getElementById("out");
+
+function renderLiveMemo(list, wallet) {
+  const shell = document.createElement("div");
+  shell.className = "listings-memo";
+  const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  const totalMicro = list.reduce((sum, r) => sum + Number(r.settlement?.amount_uusdc ?? 10_000), 0n);
+  const rows = list.map((r) => {
+    const d = r.data ?? {};
+    return '<div class="memo-card"><div class="memo-card-head"><span class="memo-card-title"><code>' +
+      esc(d.intent ?? "SANCTIONS_SCREENING_MATCH_GENERAL") + '</code></span><span class="memo-pill status--receipt-valid">' +
+      (r.settlement ? "SETTLED · " + (r.settlement.amount_uusdc ?? "?") + " μUSDC" : "PENDING") + '</span></div>' +
+      '<dl class="memo-data-grid">' +
+      '<div><dt>Miner</dt><dd>' + esc(d.miner_name ?? "?") + " (#" + esc(d.miner_id ?? "?") + ')</dd></div>' +
+      '<div><dt>Cost</dt><dd>$' + (d.cost_usd ?? 0.01) + '</dd></div>' +
+      '<div><dt>Latency</dt><dd>' + (d.duration_ms ?? "?") + ' ms</dd></div>' +
+      '<div><dt>Signal</dt><dd><code>' + esc(d.signal_hash ?? "—") + '</code></dd></div>' +
+      '</dl><pre class="memo-raw">' + esc(JSON.stringify(d.result ?? {}, null, 1)) + '</pre></div>';
+  }).join("");
+  shell.innerHTML =
+    '<div class="memo-result-head"><div><p class="memo-eyebrow">LIVE sanctions assessment · real payments</p>' +
+    '<h2>' + esc(list[0]?.data?.input?.name ?? "candidate") + '</h2></div>' +
+    '<span class="memo-verdict status--receipt-valid">' + list.length + ' PAID</span></div>' +
+    '<p class="memo-mode-note memo-mode-note--real">LIVE mode — real Engine calls settled from your escrow. ' +
+    'Receipts: ' + list.filter((r) => r.settlement).length + ' of ' + list.length + '.</p>' +
+    '<div class="memo-section"><h3>Purchased intelligence</h3>' + rows + '</div>' +
+    '<p class="memo-footer">Cost line: ' + list.length + ' paid requests, $' +
+    (Number(totalMicro) / 1e6).toFixed(2) + ' total.</p>';
+  return shell;
+}
+
+if (runLive) runLive.addEventListener("click", async () => {
+  const wallet = connectedAddress();
+  if (!wallet) { alert("Connect MetaMask first — the LIVE assessment pays from your escrow."); return; }
+  const deployer = document.getElementById("deployer-name")?.value.trim() ?? "";
+  const treasury = document.getElementById("treasury-name")?.value.trim() ?? "";
+  if (!deployer || !treasury) { alert("Enter both the deployer and treasury entity names for the sanctions check."); return; }
+  runLive.disabled = true;
+  out.setAttribute("aria-busy", "true");
+  const state = Object.assign(document.createElement("p"), { className: "request-state request-state--real", role: "status" });
+  state.textContent = "LIVE — signing and paying via your connected wallet…";
+  out.replaceChildren(state);
+  try {
+    const jobs = [
+      { intent: "SANCTIONS_SCREENING_MATCH_GENERAL", params: { name: deployer } },
+      { intent: "SANCTIONS_SCREENING_MATCH_GENERAL", params: { name: treasury } },
+    ];
+    const list = [];
+    for (const job of jobs) {
+      const run = await liveAssessment(wallet, job.intent, job.params);
+      list.push(run);
+    }
+    out.replaceChildren(renderLiveMemo(list, wallet));
+  } catch (error) {
+    out.replaceChildren(Object.assign(document.createElement("p"), {
+      className: "request-error", role: "alert",
+      textContent: "LIVE failed: " + String(error?.message ?? error),
+    }));
+  } finally { runLive.disabled = false; }
+});
+
+// === Live UI state: enable the testnet actions once a wallet connects ===
+const liveState = document.getElementById("live-state");
+const modeBadge = document.getElementById("mode-badge");
+const mintBtn = document.getElementById("mint-usdc");
+const fundBtn = document.getElementById("fund-escrow");
+const actionNote = document.getElementById("action-note");
+const stepConnect = document.querySelector('.flow-steps [data-step="connect"]');
+const stepFund = document.querySelector('.flow-steps [data-step="fund"]');
+const stepRun = document.querySelector('.flow-steps [data-step="run"]');
+const liveControls = [runLive, mintBtn, fundBtn].filter(Boolean);
+
+function setLiveState(address) {
+  for (const c of liveControls) c.disabled = !address;
+  if (liveState) liveState.textContent = address
+    ? "Wallet " + address.slice(0, 6) + "…" + address.slice(-4) + " connected — live actions enabled. Signing happens in your browser; nothing spends until you approve it."
+    : "Connect MetaMask (top right) to enable live actions. Payments sign in your browser from your own wallet.";
+  if (modeBadge) {
+    modeBadge.textContent = address ? "TESTNET LIVE" : "SIMULATED / OFFLINE";
+    modeBadge.classList.toggle("mode-badge--live", Boolean(address));
+  }
+  if (stepConnect) stepConnect.classList.toggle("done", Boolean(address));
+}
+window.addEventListener("listings:wallet", (e) => setLiveState(e.detail?.address ?? null));
+setLiveState(window.__listingsWallet?.address ?? null);
+
+// Result-aware nav: Evidence / Receipt links only matter once a result exists.
+if (out) {
+  const syncOut = () => {
+    const hasContent = out.children.length > 0 && !out.querySelector(".empty-state");
+    document.body.classList.toggle("has-result", hasContent);
+    if (stepRun) stepRun.classList.toggle("done", !!out.querySelector(".listings-memo"));
+  };
+  new MutationObserver(syncOut).observe(out, { childList: true });
+  syncOut();
+}
+
+function requireWallet() {
+  const wallet = connectedAddress();
+  if (!wallet) { setLiveState(null); alert("Connect MetaMask first — live actions pay from your own wallet."); return null; }
+  return wallet;
+}
+
+async function walletAction(label, run) {
+  const wallet = requireWallet();
+  if (!wallet) return;
+  for (const c of liveControls) c.disabled = true;
+  if (actionNote) actionNote.textContent = label + " — approve in MetaMask…";
+  try {
+    const tx = await run(wallet);
+    if (actionNote) actionNote.textContent = label + " sent: " + String(tx);
+    if (label.startsWith("Escrow") && stepFund) stepFund.classList.add("done");
+  } catch (error) {
+    if (actionNote) actionNote.textContent = label + " failed: " + String(error?.message ?? error).slice(0, 160);
+  } finally { setLiveState(connectedAddress()); }
+}
+
+if (mintBtn) mintBtn.addEventListener("click", () => walletAction("Mint 10 test USDC", (w) => mintTestUsdc(w)));
+if (fundBtn) fundBtn.addEventListener("click", () => walletAction("Escrow funding", (w) => fundEscrow(w)));
+
+// The leaderboard panel
+const lbRefresh = document.getElementById("lb-refresh");
+const lbBody = document.getElementById("lb-body");
+async function lbLoad() {
+  if (lbRefresh) lbRefresh.disabled = true;
+  try {
+    const miners = await (await fetch("https://devnode.telegraphprotocol.com/api/miners")).json();
+    const chip = document.getElementById("chip-miners");
+    if (chip) chip.textContent = Number(miners.length).toLocaleString("en-US");
+    const ours = ["onchain-metric-publicnode", "weather-verify-openmeteo", "fx-now-frankfurter"];
+    lbBody.innerHTML = ours.map((slug) => {
+      const m = miners.find((x) => x.slug === slug);
+      if (!m) return '<div class="lb-row"><span class="lb-intent">' + slug + '</span><span class="lb-rank">absent</span></div>';
+      const rows = (m.scores ?? []).map((s) =>
+        '<div class="lb-row"><span class="lb-intent">' + s.intent_id + '</span><span class="lb-rank">#' +
+        (s.rank ?? "—") + '</span><span class="lb-score">' + (s.score != null ? (+s.score).toFixed(4) : "—") + '</span></div>'
+      ).join("") || '<div class="lb-row"><span class="lb-intent">no scores yet</span></div>';
+      return '<p class="eyebrow">' + slug + ' · ' + m.activation_status + '</p>' + rows;
+    }).join("<hr>");
+  } catch (error) { lbBody.textContent = "Failed: " + error.message; }
+  if (lbRefresh) lbRefresh.disabled = false;
+}
+if (lbRefresh) { lbRefresh.addEventListener("click", lbLoad); lbLoad(); }
+
+</script></body></html>

@@ -183,7 +183,7 @@ button, input, a, summary { -webkit-tap-highlight-color: transparent; }
 .panel h2 { margin: 0 0 14px; font-size: 1.16rem; line-height: 1.3; }
 .field-label { display: block; margin: 14px 0 6px; font-size: .88rem; font-weight: 700; }
 .field-help { margin: 7px 0 13px; color: var(--ld-secondary); font-size: .82rem; }
-.token-input {
+.token-input, .text-input {
   display: block;
   width: 100%;
   min-height: 48px;
@@ -193,7 +193,12 @@ button, input, a, summary { -webkit-tap-highlight-color: transparent; }
   background: #0c0a11;
   color: var(--ld-text);
 }
-.token-input::placeholder { color: #81768f; opacity: 1; }
+.token-input::placeholder, .text-input::placeholder { color: #81768f; opacity: 1; }
+.token-input:focus, .text-input:focus {
+  outline: none;
+  border-color: var(--ld-primary);
+  box-shadow: 0 0 0 3px rgba(173, 123, 234, .18);
+}
 .token-input[aria-invalid="true"], .token-input:invalid:not(:placeholder-shown) { border-color: var(--ld-caution); }
 .primary-action {
   width: 100%;
@@ -209,7 +214,8 @@ button, input, a, summary { -webkit-tap-highlight-color: transparent; }
   transition: background-color .15s ease, box-shadow .15s ease, transform .15s ease;
 }
 .primary-action:hover:not(:disabled) { background: var(--ld-primary-strong); box-shadow: 0 0 22px rgba(173, 123, 234, .2); transform: translateY(-1px); }
-.primary-action:disabled { cursor: progress; opacity: .7; }
+.primary-action:active:not(:disabled) { transform: translateY(0); box-shadow: 0 0 10px rgba(173, 123, 234, .16); }
+.primary-action:disabled { cursor: not-allowed; opacity: .45; box-shadow: none; transform: none; }
 .mode-help {
   margin: 12px 0 0;
   padding: 10px 12px;
@@ -235,13 +241,14 @@ button, input, a, summary { -webkit-tap-highlight-color: transparent; }
 .out-region { min-width: 0; margin-top: 16px; }
 .empty-state, .request-state, .request-error {
   margin: 0;
-  padding: 14px 16px;
-  border: 1px solid var(--ld-border);
-  border-radius: 10px;
+  padding: 16px 18px;
+  border: 1px dashed rgba(129, 118, 143, .45);
+  border-radius: 12px;
   background: var(--ld-surface);
   color: var(--ld-secondary);
   overflow-wrap: anywhere;
 }
+.empty-state { text-align: center; font-size: .86rem; }
 .request-state { border-left: 3px solid var(--ld-primary); }
 .request-state--real { border-left-color: var(--ld-caution); }
 .request-error { border-left: 3px solid var(--ld-danger); color: var(--ld-danger); }
@@ -250,10 +257,12 @@ button, input, a, summary { -webkit-tap-highlight-color: transparent; }
 @media (max-width: 760px) {
   .app-shell { padding-right: 18px; padding-left: 18px; }
   .workspace-grid { grid-template-columns: minmax(0, 1fr); gap: 14px; margin-top: 16px; }
-  .workspace-nav { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 8px; }
-  .workspace-nav-label { grid-column: 1 / -1; margin: 2px 6px 0; }
-  .workspace-nav a { justify-content: center; padding: 7px 5px; text-align: center; }
+  .workspace-nav { padding: 12px; }
+  .workspace-nav a { justify-content: center; text-align: center; }
+  .flow-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .flow-steps li { padding-left: 30px; font-size: .72rem; }
   .setup-grid { grid-template-columns: minmax(0, 1fr); }
+  .hero-chips { flex-wrap: wrap; }
 }
 @media (max-width: 420px) {
   .app-shell { padding-right: 14px; padding-left: 14px; }
@@ -268,6 +277,76 @@ button, input, a, summary { -webkit-tap-highlight-color: transparent; }
   html { scroll-behavior: auto; }
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
 }
+
+/* === UI polish layer: flow steps, chips, live card, live badge === */
+.workspace-nav a.nav-result { display: none; }
+body.has-result .workspace-nav a.nav-result { display: flex; }
+.flow-steps { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; counter-reset: step; }
+.flow-steps li {
+  counter-increment: step;
+  position: relative;
+  padding: 9px 10px 9px 34px;
+  border: 1px solid var(--ld-border);
+  border-radius: 8px;
+  color: var(--ld-secondary);
+  font-size: .78rem;
+}
+.flow-steps li::before {
+  content: counter(step);
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--ld-border);
+  color: var(--ld-text);
+  font-size: .66rem;
+  font-weight: 800;
+}
+.flow-steps li.done {
+  border-color: rgba(173, 123, 234, .4);
+  background: rgba(173, 123, 234, .08);
+  color: var(--ld-primary-strong);
+}
+.flow-steps li.done::before { content: "✓"; background: var(--ld-primary); color: #170f20; }
+.hero-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 4px 12px;
+  border: 1px solid var(--ld-border);
+  border-radius: 999px;
+  background: rgba(173, 123, 234, .06);
+  color: var(--ld-secondary);
+  font-size: .74rem;
+  font-weight: 700;
+}
+.live-block {
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid rgba(173, 123, 234, .28);
+  border-radius: 12px;
+  background: linear-gradient(140deg, rgba(173, 123, 234, .07), transparent 50%);
+}
+.live-block .primary-action { margin-top: 4px; }
+.action-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; }
+.action-row .action-button { margin-bottom: 0; }
+.mode-badge--live { border-color: rgba(126, 217, 163, .55); color: #7ed9a3; }
+.mode-badge--live::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: #7ed9a3;
+  animation: lb-pulse 1.6s ease-in-out infinite;
+}
+@keyframes lb-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
 
 body.memo-page {
   margin: 0;
@@ -511,6 +590,10 @@ body.memo-page {
   .action-button:hover:not(:disabled) { border-color: var(--ld-primary); }
   .action-button:disabled { cursor: progress; opacity: .7; }
   .action-note { color: var(--ld-secondary); font-size: .76rem; overflow-wrap: anywhere; }
+  .live-block {
+    margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--ld-border);
+  }
+  .live-block .primary-action { margin-top: 4px; }
   .leaderboard-panel {
     margin-top: 24px; padding: 20px;
     border: 1px solid var(--ld-border); border-radius: 14px;
@@ -536,36 +619,56 @@ body.memo-page {
       <button class="wallet-connect" id="wallet-connect" type="button">Connect MetaMask</button>
     </div>
   </header>
-  <p class="wallet-status" id="wallet-status" role="status" aria-live="polite" aria-atomic="true">Wallet not connected. Account access is optional and is not used by assessment requests.</p>
+  <p class="wallet-status" id="wallet-status" role="status" aria-live="polite" aria-atomic="true">Wallet not connected. Connect to unlock the live flow — signing happens only when you approve it.</p>
   <div class="workspace-grid">
     <nav class="workspace-nav" aria-label="Workspace sections">
       <p class="workspace-nav-label">Workspace</p>
       <a href="#candidate-form">Assessment</a>
-      <a id="nav-evidence" href="#out">Evidence</a>
-      <a id="nav-receipts" href="#out">Receipt details</a>
+      <a id="nav-evidence" class="nav-result" href="#out">Evidence</a>
+      <a id="nav-receipts" class="nav-result" href="#out">Receipt details</a>
+      <p class="workspace-nav-label">Live flow</p>
+      <ol class="flow-steps" aria-label="Steps for a live assessment">
+        <li data-step="connect">Connect wallet</li>
+        <li data-step="fund">Mint &amp; fund escrow</li>
+        <li data-step="run">Run assessment</li>
+      </ol>
     </nav>
     <div class="workspace-main">
       <section class="hero" aria-labelledby="hero-title">
         <p class="eyebrow">Clarity before conviction</p>
         <h1 id="hero-title">A sharper view of listing risk.</h1>
         <p class="hero-copy">Check the candidate. Keep uncertainty visible. Review the evidence behind every recommendation.</p>
+        <div class="hero-chips" aria-label="Workspace facts">
+          <span class="chip">3 miners live</span>
+          <span class="chip"><span id="chip-miners">…</span> in network catalogue</span>
+          <span class="chip">asks from $0.01</span>
+        </div>
       </section>
       <section class="setup-grid" aria-label="Assessment setup">
         <form class="panel" id="candidate-form" novalidate>
-          <p class="eyebrow">01 / Candidate</p>
+          <p class="eyebrow">01 / Candidate · offline</p>
           <h2>Run a local simulation</h2>
           <label class="field-label" for="token">Token symbol or contract address</label>
           <input class="token-input" id="token" name="token" type="text" placeholder="e.g. PEPE or 0x…" autocomplete="off" maxlength="120" required aria-describedby="token-help">
           <p class="field-help" id="token-help">Token-only input. Treasury, deployer, social identities, chain and repository are not inferred.</p>
           <button class="primary-action" id="run-button" type="submit">Run offline demo</button>
-          <button class="primary-action" id="run-live" type="button" hidden>Run LIVE assessment (signs + pays)</button>
-          <div id="live-inputs" hidden>
-            <label class="field-label" for="deployer-name">Sanctions: deployer entity name</label>
-            <input id="deployer-name" type="text" placeholder="e.g. MaaHin Digital Labs Ltd" autocomplete="off">
-            <label class="field-label" for="treasury-name">Sanctions: treasury entity name</label>
-            <input id="treasury-name" type="text" placeholder="e.g. Pepe Treasury Holdings SA" autocomplete="off">
-          </div>
           <p class="mode-help">Offline fixtures only. No Engine calls, payments, or signatures.</p>
+          <div class="live-block">
+            <p class="eyebrow">02 / Live · Ethereum Sepolia testnet</p>
+            <h2>Run a real paid assessment</h2>
+            <p class="field-help" id="live-state">Connect MetaMask (top right) to enable live actions. Payments sign in your browser from your own wallet.</p>
+            <div class="action-row">
+              <button class="action-button" id="mint-usdc" type="button" disabled>Mint 10 test USDC</button>
+              <button class="action-button" id="fund-escrow" type="button" disabled>Fund escrow · 3 USDC</button>
+            </div>
+            <p id="action-note" class="action-note" role="status"></p>
+            <label class="field-label" for="deployer-name">Sanctions: deployer entity name</label>
+            <input class="text-input" id="deployer-name" type="text" placeholder="e.g. MaaHin Digital Labs Ltd" autocomplete="off">
+            <label class="field-label" for="treasury-name">Sanctions: treasury entity name</label>
+            <input class="text-input" id="treasury-name" type="text" placeholder="e.g. Pepe Treasury Holdings SA" autocomplete="off">
+            <button class="primary-action" id="run-live" type="button" disabled>Run LIVE assessment (signs + pays)</button>
+            <p class="mode-help">Two $0.01 Engine calls routed by intent; settlement receipts shown below. Signed in your browser, paid from your own escrow.</p>
+          </div>
         </form>
         <aside class="panel" aria-labelledby="limits-title">
           <p class="eyebrow">Evidence overview</p>
@@ -576,24 +679,20 @@ body.memo-page {
             <li><span>Audit and repository history</span><strong>Unsupported by current contracts</strong></li>
             <li><span>MetaMask connection</span><strong>Account access only</strong></li>
           </ul>
-          <p class="boundary-note">Connecting a wallet requests account access only. It does not sign, pay, or send the address to this assessment.</p>
-          <div id="wallet-actions" hidden>
-            <button class="action-button" id="mint-usdc" type="button">Mint 10 test USDC (free)</button>
-            <button class="action-button" id="fund-escrow" type="button">Fund escrow: approve + deposit 3 USDC</button>
-            <p id="action-note" role="status"></p>
-          </div>
+          <p class="boundary-note">Connecting a wallet requests account access. Live actions then sign with your wallet — nothing spends until you approve each MetaMask prompt.</p>
         </aside>
       </section>
       <section class="out-region" id="out" aria-live="polite" aria-busy="false" aria-label="Assessment result">
-        <p class="empty-state">No result loaded. Run an offline demo or assessment to inspect the available evidence.</p>
+        <p class="empty-state">No receipt yet. Run the offline demo — no wallet needed — or connect above for a LIVE paid assessment. Results and settlement receipts land here.</p>
       </section>
     </div>
   </div>
-    <section class="leaderboard-panel" aria-labelledby="lb-title" hidden>
+    <section class="leaderboard-panel" aria-labelledby="lb-title">
       <p class="eyebrow">Live boards</p>
       <h2 id="lb-title">Your miners, ranked</h2>
+      <p class="field-help">Public leaderboard data from the Telegraph devnode — no wallet needed.</p>
       <button class="action-button" id="lb-refresh" type="button">Refresh ranks</button>
-      <div id="lb-body" aria-live="polite"></div>
+      <div id="lb-body" aria-live="polite">Loading ranks…</div>
     </section>
   <footer class="app-footer">
     <p>Application policy and supplied evidence only; not an official Telegraph guarantee or ranking.</p>
@@ -663,7 +762,7 @@ form.addEventListener("submit", async (event) => {
 </script><script>
 const ETHEREUM_ADDRESS_PATTERN = /^0x[0-9a-fA-F]{40}$/;
 
-export function isEthereumAddress(value) {
+function isEthereumAddress(value) {
   return typeof value === "string" && ETHEREUM_ADDRESS_PATTERN.test(value);
 }
 
@@ -671,7 +770,7 @@ function isProvider(provider) {
   return provider != null && typeof provider.request === "function";
 }
 
-export function selectMetaMaskProvider(injectedProvider, announcedProviders = []) {
+function selectMetaMaskProvider(injectedProvider, announcedProviders = []) {
   const announced = Array.isArray(announcedProviders)
     ? announcedProviders.find((entry) =>
       typeof entry?.info?.rdns === "string" &&
@@ -687,7 +786,7 @@ export function selectMetaMaskProvider(injectedProvider, announcedProviders = []
   return injected.find((provider) => provider?.isMetaMask === true && isProvider(provider)) ?? null;
 }
 
-export async function requestMetaMaskAccounts(provider) {
+async function requestMetaMaskAccounts(provider) {
   if (!isProvider(provider)) throw new TypeError("MetaMask provider is unavailable.");
   const accounts = await provider.request({ method: "eth_requestAccounts", params: [] });
   if (!Array.isArray(accounts) || accounts.length === 0 || !accounts.every(isEthereumAddress)) {
@@ -729,12 +828,16 @@ function initializeWalletConnection() {
 
   function showAccounts(accounts) {
     if (accounts.length === 0) {
+      window.__listingsWallet = null;
+      window.dispatchEvent(new CustomEvent("listings:wallet", { detail: { address: null } }));
       button.textContent = "Connect MetaMask";
       button.removeAttribute("aria-label");
       showStatus("MetaMask account access was removed for this page.", "idle");
       return;
     }
     const first = accounts[0];
+    window.__listingsWallet = { address: first, accounts };
+    window.dispatchEvent(new CustomEvent("listings:wallet", { detail: { address: first } }));
     button.textContent = `Connected · ${first.slice(0, 6)}…${first.slice(-4)}`;
     button.setAttribute("aria-label", `Connected MetaMask account ${first}`);
     const additionalAccounts = accounts.length > 1 ? ` (${accounts.length} accounts)` : "";
@@ -751,6 +854,8 @@ function initializeWalletConnection() {
     activeProvider = provider;
     accountsChangedHandler = (accounts) => {
       if (!Array.isArray(accounts) || !accounts.every(isEthereumAddress)) {
+        window.__listingsWallet = null;
+        window.dispatchEvent(new CustomEvent("listings:wallet", { detail: { address: null } }));
         button.textContent = "Connect MetaMask";
         button.removeAttribute("aria-label");
         showStatus("MetaMask returned an invalid account update.", "error");
@@ -795,7 +900,10 @@ if (typeof window !== "undefined" && typeof document !== "undefined") {
 // === Telegraph LIVE wiring (Ethereum Sepolia, post-migration) ===
 const DIAMOND = "0x3624EB012B5E998BB57B6bE6C9Cfc9c4bc5eb99b";
 const USDC = "0xcc194e1a843B658526D0D5C431f670028582Ae17";
-const ENGINE_BASE = "https://devnode.telegraphprotocol.com/engine";
+// Same-origin proxy (api/engine) → devnode. The node's CORS preflight omits
+// the Access-Control-Allow-* headers, which blocks browser fetches; the proxy
+// is dumb transport with no keys — signing stays in the visitor's browser.
+const ENGINE_BASE = "/api/engine";
 const TRUSTED_NETWORK = "eip155:11155111";
 const OUR_MINERS = ["9602", "9603", "9601"];
 
@@ -817,8 +925,10 @@ async function fundEscrow(wallet) {
   const deposit = "0x6a761202" + (3_000_000).toString(16).padStart(64, "0");
   return providerRequest({ method: "eth_sendTransaction", params: [{ from: wallet, to: DIAMOND, data: deposit, gas: "0x30d40" }] });
 }
-async function liveAssessment(wallet, intent, params, minerId) {
-  const url = ENGINE_BASE + "/v1/ask" + (minerId ? "/" + minerId : "");
+async function liveAssessment(wallet, intent, params) {
+  // Intent-routed ask (no miner ID): the Engine routes to the winning miner for
+  // the intent — the same proven pattern the desk's paid run uses.
+  const url = ENGINE_BASE + "/v1/ask";
   const body = JSON.stringify(params ? { intent, params } : { query: params?.query ?? intent });
   const first = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body });
   if (first.status !== 402) {
@@ -828,6 +938,11 @@ async function liveAssessment(wallet, intent, params, minerId) {
   const challenge = await first.json().catch(() => ({}));
   const entry = (challenge.accepts ?? []).find((a) => a?.scheme === "escrow");
   if (!entry) throw new Error("no escrow scheme in the 402 challenge");
+  // Safety guard: never sign a challenge that routes payment anywhere but the
+  // Telegraph Diamond escrow.
+  if (String(entry.payTo ?? "").toLowerCase() !== DIAMOND.toLowerCase()) {
+    throw new Error("challenge payTo is not the Telegraph Diamond — aborting for safety");
+  }
   const template = String(entry.extra?.message ?? "");
   const now = Math.floor(Date.now() / 1000);
   const authorization = {
@@ -906,7 +1021,7 @@ if (runLive) runLive.addEventListener("click", async () => {
     ];
     const list = [];
     for (const job of jobs) {
-      const run = await liveAssessment(wallet, job.intent, job.params, "9602");
+      const run = await liveAssessment(wallet, job.intent, job.params);
       list.push(run);
     }
     out.replaceChildren(renderLiveMemo(list, wallet));
@@ -918,13 +1033,74 @@ if (runLive) runLive.addEventListener("click", async () => {
   } finally { runLive.disabled = false; }
 });
 
+// === Live UI state: enable the testnet actions once a wallet connects ===
+const liveState = document.getElementById("live-state");
+const modeBadge = document.getElementById("mode-badge");
+const mintBtn = document.getElementById("mint-usdc");
+const fundBtn = document.getElementById("fund-escrow");
+const actionNote = document.getElementById("action-note");
+const stepConnect = document.querySelector('.flow-steps [data-step="connect"]');
+const stepFund = document.querySelector('.flow-steps [data-step="fund"]');
+const stepRun = document.querySelector('.flow-steps [data-step="run"]');
+const liveControls = [runLive, mintBtn, fundBtn].filter(Boolean);
+
+function setLiveState(address) {
+  for (const c of liveControls) c.disabled = !address;
+  if (liveState) liveState.textContent = address
+    ? "Wallet " + address.slice(0, 6) + "…" + address.slice(-4) + " connected — live actions enabled. Signing happens in your browser; nothing spends until you approve it."
+    : "Connect MetaMask (top right) to enable live actions. Payments sign in your browser from your own wallet.";
+  if (modeBadge) {
+    modeBadge.textContent = address ? "TESTNET LIVE" : "SIMULATED / OFFLINE";
+    modeBadge.classList.toggle("mode-badge--live", Boolean(address));
+  }
+  if (stepConnect) stepConnect.classList.toggle("done", Boolean(address));
+}
+window.addEventListener("listings:wallet", (e) => setLiveState(e.detail?.address ?? null));
+setLiveState(window.__listingsWallet?.address ?? null);
+
+// Result-aware nav: Evidence / Receipt links only matter once a result exists.
+if (out) {
+  const syncOut = () => {
+    const hasContent = out.children.length > 0 && !out.querySelector(".empty-state");
+    document.body.classList.toggle("has-result", hasContent);
+    if (stepRun) stepRun.classList.toggle("done", !!out.querySelector(".listings-memo"));
+  };
+  new MutationObserver(syncOut).observe(out, { childList: true });
+  syncOut();
+}
+
+function requireWallet() {
+  const wallet = connectedAddress();
+  if (!wallet) { setLiveState(null); alert("Connect MetaMask first — live actions pay from your own wallet."); return null; }
+  return wallet;
+}
+
+async function walletAction(label, run) {
+  const wallet = requireWallet();
+  if (!wallet) return;
+  for (const c of liveControls) c.disabled = true;
+  if (actionNote) actionNote.textContent = label + " — approve in MetaMask…";
+  try {
+    const tx = await run(wallet);
+    if (actionNote) actionNote.textContent = label + " sent: " + String(tx);
+    if (label.startsWith("Escrow") && stepFund) stepFund.classList.add("done");
+  } catch (error) {
+    if (actionNote) actionNote.textContent = label + " failed: " + String(error?.message ?? error).slice(0, 160);
+  } finally { setLiveState(connectedAddress()); }
+}
+
+if (mintBtn) mintBtn.addEventListener("click", () => walletAction("Mint 10 test USDC", (w) => mintTestUsdc(w)));
+if (fundBtn) fundBtn.addEventListener("click", () => walletAction("Escrow funding", (w) => fundEscrow(w)));
+
 // The leaderboard panel
 const lbRefresh = document.getElementById("lb-refresh");
 const lbBody = document.getElementById("lb-body");
-if (lbRefresh) lbRefresh.addEventListener("click", async function () {
-  this.disabled = true;
+async function lbLoad() {
+  if (lbRefresh) lbRefresh.disabled = true;
   try {
     const miners = await (await fetch("https://devnode.telegraphprotocol.com/api/miners")).json();
+    const chip = document.getElementById("chip-miners");
+    if (chip) chip.textContent = Number(miners.length).toLocaleString("en-US");
     const ours = ["onchain-metric-publicnode", "weather-verify-openmeteo", "fx-now-frankfurter"];
     lbBody.innerHTML = ours.map((slug) => {
       const m = miners.find((x) => x.slug === slug);
@@ -936,7 +1112,8 @@ if (lbRefresh) lbRefresh.addEventListener("click", async function () {
       return '<p class="eyebrow">' + slug + ' · ' + m.activation_status + '</p>' + rows;
     }).join("<hr>");
   } catch (error) { lbBody.textContent = "Failed: " + error.message; }
-  this.disabled = false;
-});
+  if (lbRefresh) lbRefresh.disabled = false;
+}
+if (lbRefresh) { lbRefresh.addEventListener("click", lbLoad); lbLoad(); }
 
 </script></body></html>

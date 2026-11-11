@@ -16,3 +16,11 @@ Thumbs.db
 .DS_Store
 *.log
 .wrangler/
+
+# debug/scratch leftovers
+*.bak
+*.bak2
+*.clean
+*.debug
+*.debug2
+debug-policy.mjs

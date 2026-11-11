@@ -92,3 +92,55 @@ The desk (post-rewrite) executed its first REAL paid assessments on the migrated
 - **Wired the standard x402 client** (@x402/fetch + @x402/evm exact scheme, browser-compatible) replacing the escrow-rail signer — the payment rail the migrated platform now offers
 - **Known cosmetic gaps:** paymentStatus \"unknown\" (the exact-rail settlement header is not exposed by the SDK wrapper) and actualMicro n/a (the policy ledger is not fed via the SDK path) — the payments themselves are proven by the receipts
 - Test suite: 44/0
+
+### M7-a — Receipt evidence re-captured and persisted (12 Nov, after external audit)
+
+The M7 run's console output (its 2 sanctions signal hashes) was never persisted — the claim rested on the milestone text alone. Re-ran both rails live and recorded the full proof:
+
+**Escrow-rail settlement (full receipt — our miner, hybrid worker 9602):**
+- receipt_hash `0xfaf3324ef8d5befc83a21d0516da17027fc0a747fb531974ec61dabc0abf35eb`
+- signal_hash `0xdbb7435895857345d1b5105032e8de2059bad931b6767a0631981499c651d87b`
+- payer `0x5549286a1c71893816899bbef8f4ce4d91f87821` → miner 5189 (miner_id mapping), intent ONCHAIN_METRIC_VERIFY_GENERAL, 10,000 μUSDC, epoch 2068, rail escrow, settlement epoch
+
+**x402 exact-rail sanctions payment (desk → third-party miner 731002 Counterproof Sanctions Screener):**
+- signal_hash `0xf5dee2c3100e8c75ea195c8ebe119a7f62dc869c6bbe39810a7eb767a8af3cb6` — subject \"MaaHin Digital Labs Ltd\", matched=false, $0.01, evidence VALID
+- The second subject's signal hash was not captured in that run's visible output; the desk's SDK path does not surface the settlement header (gap above).
+
+**Corrections from the audit (all verified):**
+- Signing was tested via CLI/Node only. NO browser signing has been tested. leaderlight.vercel.app still serves the SIMULATED/OFFLINE build (verified: no run-live button in the deployed HTML).
+- Network directory is 2,093 entries (earlier 1,872 was a stale snapshot).
+- The hybrid worker implements exactly three eth_call shapes: decimals (0x313ce567), balanceOf, totalSupply (0x18160ddd). No arbitrary contract-view calls, no storage-slot reads (eth_getStorageAt absent).
+- No evidence links the missing storage reads to the 0.3423 epoch-2067 score; cause unproven either way.
+
+### M7-b — Live app deployed; paid browser-equivalent flow proven through the deployed URL (12 Nov)
+
+- **Deployed the LIVE app** to leaderlight.vercel.app (`/` = live app, `/desk` = mock desk). The LIVE button had shipped hardwired to `/v1/ask/9602` with a sanctions body — that combination returns HTTP 500 (reproduced). Fixed to the desk's proven pattern: intent-routed `/v1/ask` (no miner ID).
+- **CORS gap found and fixed:** devnode's OPTIONS preflight returns 204 with no `Access-Control-Allow-*` headers, so browsers would block direct Engine calls. Added `api/engine.js`, a same-origin dumb-transport proxy (no keys, no signing; forwards the body and the X-PAYMENT header only). Page also gained a safety guard: it refuses to sign any 402 challenge whose `payTo` is not the Telegraph Diamond.
+- **Paid runs replicating the page's exact algorithm (EIP-191 personal-sign equivalent, escrow scheme):**
+  - Direct to devnode: routed to TxLens (9002), signal `0xbb07d566…159ef`, settlement receipt `0x120760df79b4d0206d19385c91b856a242644485f0992145099961462d4b6cb2`, 10,000 μUSDC, epoch 2068
+  - Through the deployed proxy (leaderlight.vercel.app/api/engine): routed to TxLens (9002), signal `0xf9f52d0a…5304`, settlement receipt `0xb98ce5989cb9a4172c4d262f8524a14bd9db53bbcc0c955946f57c35477dc5c8`, 10,000 μUSDC, epoch 2068
+- **Routing is per-intent and rotates:** the same sanctions intent routed to Counterproof (731002) in the desk run and TxLens (9002) in both of these — the Engine picks the epoch's winner, so the app serves "any miner" by routing rather than by direct selection.
+- Leaderboard panel's direct GET `/api/miners` verified browser-CORS-clean (`Access-Control-Allow-Origin: *`, simple request).
+- **Still unverified:** the MetaMask signing popup itself in a live browser (the signature scheme is identical — EIP-191 personal_sign — and the HTTP flow is fully proven; only the human click remains).
+
+### M7-c — Found and fixed the reason the live app "never changed" in a browser (12 Nov)
+
+External report: "UI/UX not changed" — the deployed page looked identical to the old desk. Browser-level verification (rendered DOM + screenshots, not grep) exposed three stacked defects, all fixed and deployed:
+
+1. **The merged inline script never executed — in any browser, ever.** The wallet module was inlined from an ES module into a classic `<script>`, keeping its three `export` keywords → `SyntaxError: Unexpected token 'export'` → the Connect button, live wiring, and leaderboard were all dead on every deployment of the live app since it was built. Exports stripped; both scripts now verified with classic-script parsing (`node --check` as `.js`, which correctly rejects `export` — the earlier `.mjs` check masked the bug).
+2. **The live controls shipped permanently `hidden`** with no unhide logic, and `window.__listingsWallet` was never assigned (the LIVE button could never see a connected wallet), and mint/fund buttons had no click listeners. All fixed: wallet state is now recorded and announced via a `listings:wallet` event; controls are visible and disable/enable with connection state; the mode badge flips SIMULATED / OFFLINE ↔ TESTNET LIVE.
+3. **The LIVE run was hardwired to `/v1/ask/9602` with a sanctions body** (HTTP 500; fixed to intent-routed `/v1/ask` in M7-b).
+
+Verified rendered-in-browser after the fix: the `02 / Live · Ethereum Sepolia testnet` section, disabled-until-connect buttons, connect-button click handler firing ("Waiting for MetaMask…" → graceful "MetaMask was not detected" in a wallet-less browser), and the leaderboard panel auto-loading real ranks — weather-verify-openmeteo #5 (0.9338) on WEATHER_FORECAST_VERIFY_GENERAL, fx-now-frankfurter #3/#4/#4 (1.0000) on FX_NOW_CAD/EUR/SEK, onchain-metric-publicnode #37 (0.0000) on ONCHAIN_METRIC_VERIFY_GENERAL.
+
+Remaining human step: connect MetaMask in a real browser → mint → fund escrow → Run LIVE assessment.
+
+### M7-d — UI/UX polish pass on the live app (12 Nov)
+
+External report: the landing page felt awkward — Evidence/Receipt nav links jumped to an empty panel before any run. Redesigned and deployed:
+
+- **Sidebar is now a live flow checklist** (1 Connect wallet → 2 Mint & fund escrow → 3 Run assessment) with auto-checking steps; Evidence/Receipt links appear only once a result exists (`body.has-result` via a MutationObserver on the results region).
+- **Mint / Fund escrow moved into the 02/Live card** — one coherent flow: connect → mint/fund → entity names → run. The aside is informational only.
+- **Hero chips**: "3 miners live · <live count> in network catalogue · asks from $0.01" (count filled from the devnode API — 2,093 at deploy time).
+- Badge flips to a pulsing green **TESTNET LIVE** on connect; disabled buttons are visually distinct; text inputs share the styled token-input look with focus rings; empty state has a proper "receipts land here" panel.
+- Verified in-browser: base state (Evidence hidden, steps uncheckd) and simulated-connected state (badge, enabled controls, step ✓). Deployed as leaderlight.vercel.app.

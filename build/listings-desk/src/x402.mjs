@@ -131,8 +131,9 @@ function validateChallenge(challenge, url, expected) {
       typeof origin !== "string" || typeof resource !== "string" || !resource.startsWith("/")) {
     throw new PaymentPolicyError("trusted escrow network, payee, origin and resource must be explicitly configured");
   }
+    console.log("POLICY DEBUG:", JSON.stringify({ requestOrigin: new URL(url).origin, actualResource: new URL(url).pathname }));
   const requestUrl = new URL(url);
-  const actualResource = requestUrl.pathname.replace(/^\/engine(?=\/)/, "");
+    const actualResource = requestUrl.pathname.replace(/^\/engine(?=\/)/, "");
   if (requestUrl.origin !== origin || actualResource !== resource) {
     throw new PaymentPolicyError("request origin/resource does not match trusted escrow configuration");
   }

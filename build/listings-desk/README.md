@@ -19,7 +19,7 @@ The local web UI can request account access after the user selects **Connect Met
 
 This connection does not request a signature, transaction, payment, chain switch, or chain default. It is account access only, not the full `@metamask/connect-evm` mobile QR/deep-link SDK flow. The SDK requires explicit supported-network RPC configuration; that is intentionally not added until the Engine/deployment network is confirmed. See [MetaMask's `eth_requestAccounts` reference](https://docs.metamask.io/metamask-connect/evm/reference/json-rpc-api/eth_requestAccounts) and [provider API](https://docs.metamask.io/metamask-connect/evm/reference/provider-api/).
 
-## Public Vercel mock preview
+## Public Vercel preview
 
 Live preview: [https://leaderlight.vercel.app](https://leaderlight.vercel.app)
 
@@ -27,9 +27,12 @@ Vercel project: `leaderlight`
 
 Vercel project root: `build/listings-desk`
 
-The `api/` handlers and `vercel.json` adapt the local UI to Vercel Functions. Both the page and memo endpoint explicitly force mock mode; setting `DESK_MODE=real` cannot enable Engine calls or payments on this deployment. The browser wallet remains account-access-only. The preview is public, reports **SIMULATED / OFFLINE**, and makes no Engine calls, payments, or signatures.
+Two apps ship on this deployment:
 
-Receipt/response diagnostics are collapsed by default on the memo, with an accessible toggle; recommendation, evidence status, payment status, and reasons remain visible. The local Node server binds to `127.0.0.1`. Do not expose its real mode publicly. A future real deployment requires authentication, persistent authorization accounting, confirmed Engine compatibility, and a separate security review.
+- `/` — the **Leaderlight live app** (`public/leaderlight-live.html`, a fully client-side single file). Its default state is SIMULATED / OFFLINE; after the visitor connects their own wallet it can mint test USDC, fund the visitor's own escrow on Ethereum Sepolia, and run paid Engine calls signed **in the visitor's browser with the visitor's wallet**. Engine calls go through `api/engine.js`, a same-origin dumb-transport proxy (devnode's CORS preflight omits the `Access-Control-Allow-*` headers, which blocks direct browser fetches). The proxy holds no keys and does no signing; the page refuses to sign any challenge whose `payTo` is not the Telegraph Diamond. Paid ask flow verified end-to-end through the deployed proxy (escrow rail, settlement receipts in the milestone log). The only unverified step is MetaMask's own signing popup in a live browser. No server-side keys exist; the page makes no requests that spend anything until the visitor explicitly acts.
+- `/desk` — the desk's **SIMULATED / OFFLINE** memo UI via `api/index.js` (unchanged). Both `/desk` and its `/memo` endpoint explicitly force mock mode; setting `DESK_MODE=real` cannot enable Engine calls or payments on this deployment. The local Node server's real mode is NOT deployed. A future server-side real deployment requires authentication, persistent authorization accounting, confirmed Engine compatibility, and a separate security review.
+
+Receipt/response diagnostics are collapsed by default on the desk memo, with an accessible toggle; recommendation, evidence status, payment status, and reasons remain visible. The local Node server binds to `127.0.0.1`. Do not expose its real mode publicly.
 
 This Vercel project currently uses direct CLI deployments rather than Git-based automatic deployment. After logging in with `npx vercel@latest login`, redeploy from this project directory with:
 

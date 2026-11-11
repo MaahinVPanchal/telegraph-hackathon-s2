@@ -117,7 +117,9 @@ export function parseBlock(v) {
 }
 function parseChain(params) {
   const values = all(params, CHAIN_KEYS);
-  if (!values.length) throw new ServiceError(400, "CHAIN_REQUIRED", "chain is required; choose ethereum, polygon or arbitrum-one");
+  // Default to Ethereum mainnet when the question doesn't name a chain --
+  // the Engine's request builder may omit the chain for simple balance queries.
+  if (!values.length) return { name: "ethereum", requested: "ethereum", config: CHAINS["ethereum"] };
   const aliases = new Map([
     ["ethereum", "ethereum"], ["ethereum-mainnet", "ethereum"], ["eth", "ethereum"], ["1", "ethereum"], ["0x1", "ethereum"],
     ["polygon", "polygon"], ["polygon-pos", "polygon"], ["matic", "polygon"], ["137", "polygon"], ["0x89", "polygon"],

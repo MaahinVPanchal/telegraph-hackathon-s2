@@ -11,7 +11,7 @@
 | Field | Value |
 |---|---|
 | YAML URL | `https://raw.githubusercontent.com/MaahinVPanchal/telegraph-miner-yaml/main/onchain-metric-publicnode.yaml` |
-| YAML hash (bytes32) | `0x6a822bf8c362db414205063861bbf6628c6c1fbe673ab932610911e8aa2b85e7` |
+| YAML hash (bytes32) | `0xeace09fdd5e66b5894953e81c71bfd435cfb7bf52140fa46b231e9cdd1c57c32` |
 | Requires API key | **UNCHECK** (worker needs no upstream key — tested keylessly ✅) |
 | Fee address | `0x5549286a1C71893816899BbEF8F4CE4d91f87821` |
 | Floor price (USDC) | `0.01` |

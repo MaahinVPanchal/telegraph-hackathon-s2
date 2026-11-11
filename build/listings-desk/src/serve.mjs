@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Minimal local web UI for the listings desk — no dependencies.
 //   node src/serve.mjs     → http://localhost:7788
-// Type a token, hit Run, get the rendered memo. Uses the same engine as the CLI.
+// Type a token, hit Run, get the rendered memo. Token-only runs cannot resolve other identities.
 
 import { createServer } from "node:http";
 import { runDesk } from "./desk.mjs";
@@ -19,16 +19,16 @@ const PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>Listings D
  .meta{color:#667;font-size:.9em}
  #out{margin-top:1.2rem}
 </style></head><body>
-<h1> Telegraph Listings Desk <span class="meta">· mode ${MODE}</span></h1>
-<p class="meta">Mission 01 (Exchange): an agent fires five parallel paid requests through the Telegraph Engine and returns a signed listing risk memo with a cost line. ${
-  MODE === "mock" ? "Currently in <b>mock</b> mode — nothing is purchased." : "<b>Real</b> mode — requests spend USDC."
+<h1> Telegraph Listings Desk <span class="meta">· ${MODE === "mock" ? "SIMULATED/OFFLINE" : "REAL"}</span></h1>
+<p class="meta">Token-only assessment. The listing policy requires explicit entity and account inputs; unsupported or missing evidence cannot produce GO. ${
+  MODE === "mock" ? "<b>SIMULATED / OFFLINE</b> — no Engine requests, payments or signatures." : "<b>REAL</b> mode — only supported checks with explicit inputs can request payment."
 }</p>
 <form id="f"><input id="token" placeholder="token symbol or 0x address" required> <button>Run desk</button></form>
 <div id="out"></div>
 <script>
 const f=document.getElementById('f'),out=document.getElementById('out'),btn=f.querySelector('button');
 f.onsubmit=async e=>{
-  e.preventDefault();btn.disabled=true;out.innerHTML='<p class="meta">Firing 5 parallel paid requests…</p>';
+  e.preventDefault();btn.disabled=true;out.innerHTML='<p class="meta">${MODE === "mock" ? "Rendering offline simulation…" : "Checking explicit inputs and supported adapters…"}</p>';
   try{
     const r=await fetch('/memo?token='+encodeURIComponent(document.getElementById('token').value));
     if(!r.ok) throw new Error((await r.json()).error||('HTTP '+r.status));
@@ -67,5 +67,5 @@ createServer(async (req, res) => {
   res.end("not found");
 }).listen(PORT, () => {
   console.log(`listings desk on http://localhost:${PORT} (mode: ${MODE})`);
-  console.log(MODE === "mock" ? "mock mode: no wallet, no payments — safe to click around." : "REAL mode: requests spend USDC up to the caps in config.mjs.");
+  console.log(MODE === "mock" ? "SIMULATED/OFFLINE mode: no Engine calls, payments or signatures." : "REAL mode: token-only requests remain blocked where required inputs are absent.");
 });

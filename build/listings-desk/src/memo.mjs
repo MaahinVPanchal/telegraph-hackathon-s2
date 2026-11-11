@@ -1,82 +1,89 @@
-// Renders the desk's decision as a signed-looking Markdown + HTML memo.
-// The last line is always the cost line — the mission's signature output.
-
-export function renderMarkdown(m) {
-  const L = [];
-  L.push(`# Listing Risk Memo — ${m.token}`);
-  L.push("");
-  L.push(`**Verdict: ${m.verdict}**${m.hardBlock ? " (hard block: sanctions)" : ""}`);
-  L.push("");
-  L.push(`Generated ${m.generatedAt} · mode \`${m.mode}\` · verification hash \`${m.verificationHash}\``);
-  L.push("");
-  L.push("## Findings");
-  for (const [kind, text] of m.signals) {
-    L.push(`- ${kind === "good" ? "✅" : kind === "bad" ? "❌" : "⚠️"} ${text}`);
-  }
-  L.push("");
-  L.push("## Purchased intelligence");
-  L.push("");
-  L.push("| Intent | Miner | Cost | Latency | Signal |");
-  L.push("|---|---|---|---|---|");
-  for (const r of m.receipts) {
-    L.push(`| \`${r.intent}\` | ${r.miner} | $${r.costUsd.toFixed(4)} | ${r.durationMs} ms | \`${r.signalHash}\` |`);
-  }
-  for (const f of m.failures ?? []) L.push(`| \`${f.intent}\` | — | — | — | FAILED: ${shortReason(f.error)} |`);
-  L.push("");
-  L.push("## How to reproduce");
-  L.push("");
-  L.push("```bash");
-  L.push(`node src/cli.mjs ${m.token} --mode ${m.mode}`);
-  L.push("```");
-  L.push("Every answer was purchased through the Telegraph Engine; the receipt above lists the");
-  L.push("serving miner, the price paid and the signal hash (look it up at `GET /engine/v1/signal/{hash}`).");
-  L.push("");
-  L.push("---");
-  L.push(`**Cost line: ${m.receipts.length} paid request${m.receipts.length === 1 ? "" : "s"}, $${m.totalUsd.toFixed(4)} total, ${m.wallMs} ms wall clock.**`);
-  return L.join("\n");
+function modeLabel(memo) {
+  return memo.modeLabel ?? (memo.mode === "mock" ? "SIMULATED/OFFLINE" : "REAL");
 }
 
-const shortReason = (err) => {
-  if (/504/.test(err)) return "upstream timeout (gateway 504)";
-  if (/upstream error 400/.test(err)) return "upstream miner rejected the request (400)";
-  if (/upstream error 404/.test(err)) return "upstream miner endpoint not found (404)";
-  if (/429|rate/i.test(err)) return "Engine router rate-limited (429) — retried";
-  return err.slice(0, 90);
-};
+function receiptLabel(receipt, mode) {
+  if (mode === "mock") return "SIMULATED receipt";
+  if (receipt.paymentStatus === "receipt_valid") return "Escrow receipt validated (epoch settlement pending)";
+  return `Unverified response (${receipt.paymentStatus})`;
+}
 
-export function renderHtml(m) {
-  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-  const badge =
-    m.verdict === "GO" ? "#0a7" : m.verdict === "REVIEW" ? "#e90" : "#d33";
-  const rows = m.receipts
-    .map(
-      (r) =>
-        `<tr><td><code>${esc(r.intent)}</code></td><td>${esc(r.miner)}</td><td>$${r.costUsd.toFixed(4)}</td><td>${r.durationMs} ms</td><td><code>${esc(r.signalHash)}</code></td></tr>`
-    )
-    .join("\n");
-  const fails = (m.failures ?? [])
-    .map((f) => `<tr class="fail"><td><code>${esc(f.intent)}</code></td><td colspan="4">FAILED — ${esc(shortReason(f.error))} <span class="meta">(raw error in the .json artifact)</span></td></tr>`)
-    .join("\n");
-  const signals = m.signals
-    .map(([k, t]) => `<li class="${k}">${esc(t)}</li>`)
-    .join("\n");
-  return `<!doctype html><html><head><meta charset="utf-8"><title>Listing memo — ${esc(m.token)}</title>
+export function renderMarkdown(memo) {
+  const lines = [
+    `# Listing Risk Memo — ${memo.token}`,
+    "",
+    `**Recommendation: ${memo.verdict}**${memo.hardBlock ? " (confirmed sanctions hard block)" : ""}`,
+    "",
+    `**Mode:** ${modeLabel(memo)}  `,
+    `**Evidence completeness:** ${memo.evidenceCompleteness.status}  `,
+    `**Run counts:** ${memo.runCounts.responses} responses · ${memo.runCounts.validEvidence} valid evidence · ${memo.runCounts.failed} failed · ${memo.runCounts.unknown} unknown  `,
+    `**Payment/proof status:** ${typeof memo.paymentStatus === "string" ? memo.paymentStatus : JSON.stringify(memo.paymentStatus)}  `,
+    `**${memo.actualSpendDescription}:** ${memo.actualSpentUsd} USD  `,
+    `**${memo.estimateDescription}:** ${memo.estimatedCostUsd} USD  `,
+    `**Policy:** ${memo.policyVersion}  `,
+    `**Content checksum:** \`${memo.contentDigest}\` (not a signature)`,
+    "",
+    "## Findings",
+    ...memo.signals.map(([kind, text]) => `- ${kind.toUpperCase()}: ${text}`),
+    "",
+    "## Evidence status",
+    "",
+    "| Check | Status | Reason | Source reference(s) |",
+    "|---|---|---|---|",
+    ...Object.entries(memo.evidence).map(([intent, evidence]) =>
+      `| \`${intent}\` | ${evidence.status} | ${evidence.reason.replace(/\|/g, "\\|")} | ${(evidence.sourceReferences ?? []).filter(Boolean).join(", ") || "—"} |`
+    ),
+    "",
+    "## Receipts and responses",
+    "",
+    "| Intent | Label | Cost | Miner | Signal hash |",
+    "|---|---|---|---|---|",
+    ...memo.receipts.map((receipt) =>
+      `| \`${receipt.intent}\` | ${receiptLabel(receipt, memo.mode)} | ${receipt.costUsd == null ? "unknown" : `$${Number(receipt.costUsd).toFixed(6)}`} | ${receipt.minerName ?? "unknown"} | ${receipt.signalHash ?? "unknown"} |`
+    ),
+    ...memo.failures.map((failure) =>
+      `| \`${failure.intent}\` | ${failure.paymentStatus} | — | — | ${failure.error.replace(/\|/g, "\\|")} |`
+    ),
+    "",
+    `Generated ${memo.generatedAt}; ${memo.wallMs} ms local wall time.`,
+    "",
+    "The content checksum covers candidate, policy, evidence, recommendation, signals, receipt/proof metadata, failures, spend labels and caps. It excludes only generatedAt and contentDigest. It is not a digital signature and does not prove answer accuracy.",
+  ];
+  return lines.join("\n");
+}
+
+export function renderHtml(memo) {
+  const escape = (value) => String(value).replace(/[&<>"]/g, (character) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;",
+  }[character]));
+  const badge = memo.verdict === "GO" ? "#087" : memo.verdict === "REVIEW" ? "#d80" : "#b33";
+  const evidenceRows = Object.entries(memo.evidence).map(([intent, item]) =>
+    `<tr><td><code>${escape(intent)}</code></td><td>${escape(item.status)}</td><td>${escape(item.reason)}</td><td>${escape((item.sourceReferences ?? []).filter(Boolean).join(", ") || "—")}</td></tr>`
+  ).join("");
+  const receiptRows = memo.receipts.map((receipt) =>
+    `<tr><td><code>${escape(receipt.intent)}</code></td><td>${escape(receiptLabel(receipt, memo.mode))}</td><td>${receipt.costUsd == null ? "unknown" : `$${Number(receipt.costUsd).toFixed(6)}`}</td><td>${escape(receipt.minerName ?? "unknown")}</td><td><code>${escape(receipt.signalHash ?? "unknown")}</code></td></tr>`
+  ).join("");
+  const failureRows = memo.failures.map((failure) =>
+    `<tr class="warn"><td><code>${escape(failure.intent)}</code></td><td>${escape(failure.paymentStatus)}</td><td colspan="3">${escape(failure.error)}</td></tr>`
+  ).join("");
+  const signals = memo.signals.map(([kind, text]) => `<li class="${escape(kind)}">${escape(text)}</li>`).join("");
+  const paymentStatus = typeof memo.paymentStatus === "string" ? memo.paymentStatus : JSON.stringify(memo.paymentStatus);
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Listing memo — ${escape(memo.token)}</title>
 <style>
- body{font:15px/1.55 system-ui,Segoe UI,sans-serif;max-width:860px;margin:2rem auto;padding:0 1rem;color:#122}
- h1{margin:.2rem 0} code{background:#f4f4f6;padding:.1em .35em;border-radius:4px;font-size:.9em}
- .verdict{display:inline-block;color:#fff;background:${badge};padding:.15rem .7rem;border-radius:999px;font-weight:700}
- table{border-collapse:collapse;width:100%;margin:.6rem 0} td,th{border:1px solid #ddd;padding:.35rem .55rem;text-align:left;font-size:.92em}
- li.good{color:#0a7} li.bad{color:#d33} li.warn{color:#b60}
- .costline{margin-top:1.2rem;padding:.7rem 1rem;background:#f0f4ff;border-left:4px solid #36f;font-weight:600}
- .meta{color:#667;font-size:.9em}
+body{font:15px/1.55 system-ui,Segoe UI,sans-serif;max-width:980px;margin:2rem auto;padding:0 1rem;color:#122}
+code{background:#f4f4f6;padding:.1em .35em;border-radius:4px;font-size:.9em}
+table{border-collapse:collapse;width:100%;margin:.6rem 0}td,th{border:1px solid #ddd;padding:.35rem .55rem;text-align:left;font-size:.9em}
+li.bad{color:#b33}li.warn{color:#a60}li.good{color:#087}.meta{color:#667}.summary{padding:.8rem;background:#f2f5fb;border-left:4px solid #36f}
 </style></head><body>
-<h1>Listing Risk Memo — ${esc(m.token)}</h1>
-<p><span class="verdict">${esc(m.verdict)}</span> <span class="meta">generated ${esc(m.generatedAt)} · mode ${esc(m.mode)} · hash <code>${esc(m.verificationHash)}</code></span></p>
-<h3>Findings</h3><ul>${signals}</ul>
-<h3>Purchased intelligence</h3>
-<table><tr><th>Intent</th><th>Miner</th><th>Cost</th><th>Latency</th><th>Signal</th></tr>
-${rows}${fails}</table>
-<p class="meta">Every answer was purchased through the Telegraph Engine; each receipt lists the serving miner, price paid and signal hash. Reproduce with <code>node src/cli.mjs ${esc(m.token)} --mode ${esc(m.mode)}</code>.</p>
-<div class="costline">Cost line: ${m.receipts.length} paid request${m.receipts.length === 1 ? "" : "s"}, $${m.totalUsd.toFixed(4)} total, ${m.wallMs} ms wall clock.</div>
+<h1>Listing Risk Memo — ${escape(memo.token)}</h1>
+<p><strong style="color:${badge}">Recommendation: ${escape(memo.verdict)}</strong></p>
+<div class="summary"><b>Mode:</b> ${modeLabel(memo)} · <b>Evidence:</b> ${escape(memo.evidenceCompleteness.status)} · <b>Payment/proof:</b> ${escape(paymentStatus)}<br>
+<b>Run counts:</b> ${memo.runCounts.responses} responses · ${memo.runCounts.validEvidence} valid evidence · ${memo.runCounts.failed} failed · ${memo.runCounts.unknown} unknown<br>
+<b>${escape(memo.actualSpendDescription)}:</b> ${escape(memo.actualSpentUsd)} USD · <b>${escape(memo.estimateDescription)}:</b> ${escape(memo.estimatedCostUsd)} USD<br>
+<b>Content checksum:</b> <code>${escape(memo.contentDigest)}</code> (not a signature)</div>
+<h2>Findings</h2><ul>${signals}</ul>
+<h2>Evidence status</h2><table><tr><th>Check</th><th>Status</th><th>Reason</th><th>Source reference(s)</th></tr>${evidenceRows}</table>
+<h2>Receipts and responses</h2><table><tr><th>Intent</th><th>Label</th><th>Cost</th><th>Miner</th><th>Signal hash</th></tr>${receiptRows}${failureRows}</table>
+<p class="meta">Generated ${escape(memo.generatedAt)} · ${memo.wallMs} ms local wall time. The checksum excludes only generatedAt and contentDigest; it is not a digital signature or proof of answer accuracy.</p>
 </body></html>`;
 }

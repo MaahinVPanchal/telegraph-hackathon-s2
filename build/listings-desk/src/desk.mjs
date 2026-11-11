@@ -1,208 +1,436 @@
-// The listings desk: fire the five paid requests in parallel, collect receipts,
-// score the listing, and assemble the memo. One app run = one complete,
-// reviewable mission result with a verification hash and a cost line.
-
 import { createHash } from "node:crypto";
-import { INTENT_ASKS, resolveCaps, ENGINE_BASE } from "./config.mjs";
+import {
+  INTENT_ASKS, MANDATORY_CHECKS, POLICY_VERSION, resolveCaps, formatUsd, usdToMicro, ENGINE_BASE,
+} from "./config.mjs";
 import { ask, makeMockAsk, PaymentRequiredError } from "./engine.mjs";
-import { EscrowSigner, fetchWithEscrow } from "./x402.mjs";
+import { EscrowSigner, fetchWithEscrow, PaymentPolicy } from "./x402.mjs";
 
-/**
- * Run the desk for one listing candidate.
- * @param {string} token  token symbol or address under review
- * @param {object} opts   { mode, maxUsdPerRun, maxUsdPerIntent, fetchImpl, askImpl }
- * @returns {{ memo: object, receipts: object[] }}  structured result (memo rendered separately)
- */
-export async function runDesk(token, opts = {}) {
+const UNSUPPORTED = {
+  SMART_CONTRACT_AUDIT: "published intent has no response format or active miner; audit evidence is unsupported",
+  ONCHAIN_METRIC_VERIFY: "published schema returns address balance only; it does not establish holder concentration, liquidity or age",
+  CODE_REVIEW: "published schema reviews supplied code; it does not establish repository history or contributor authenticity",
+};
+
+function normalizeCandidate(value) {
+  const candidate = typeof value === "string" ? { token: value } : value;
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new TypeError("candidate must be a token string or an object with a token");
+  }
+  const token = typeof candidate.token === "string" ? candidate.token.trim() : "";
+  if (!token || token.length > 120) throw new TypeError("candidate token is required and must be at most 120 characters");
+  const sanctionsKeys = ["deployerName", "treasuryName"];
+  const invalidSanctionsInput = sanctionsKeys.some((key) =>
+    Object.hasOwn(candidate, key) && (typeof candidate[key] !== "string" || !candidate[key].trim())
+  );
+  const names = sanctionsKeys.map((key) =>
+    typeof candidate[key] === "string" ? candidate[key].trim() : ""
+  ).filter(Boolean);
+  const sanctionsInputStatus = invalidSanctionsInput ? "invalid" : names.length === 2 ? "valid" : "missing";
+  const socialInputProvided = Object.hasOwn(candidate, "socialAccounts");
+  const invalidSocialInput = socialInputProvided &&
+    (!Array.isArray(candidate.socialAccounts) ||
+      candidate.socialAccounts.some((account) => typeof account !== "string" || !account.trim()));
+  const socialAccounts = Array.isArray(candidate.socialAccounts) && !invalidSocialInput
+    ? [...new Set(candidate.socialAccounts.map((account) => account.trim()))]
+    : [];
+  const socialInputStatus = invalidSocialInput ? "invalid" : socialAccounts.length ? "valid" : "missing";
+  if (candidate.chain != null && (typeof candidate.chain !== "string" || !candidate.chain.trim())) {
+    throw new TypeError("candidate chain, when supplied, must be a non-empty explicit string");
+  }
+  if (candidate.block != null &&
+      (!Number.isSafeInteger(candidate.block) || candidate.block < 0 || candidate.block > 1_000_000_000_000)) {
+    throw new TypeError("candidate block must be an integer from 0 to 1000000000000");
+  }
+  if (candidate.repositoryUrl != null &&
+      (typeof candidate.repositoryUrl !== "string" || !candidate.repositoryUrl.trim())) {
+    throw new TypeError("candidate repositoryUrl, when supplied, must be a non-empty explicit string");
+  }
+  return {
+    token,
+    deployerName: typeof candidate.deployerName === "string" ? candidate.deployerName.trim() : null,
+    treasuryName: typeof candidate.treasuryName === "string" ? candidate.treasuryName.trim() : null,
+    sanctionsSubjects: [...new Set(names)],
+    socialAccounts,
+    sanctionsInputStatus,
+    socialInputStatus,
+    chain: candidate.chain ?? null,
+    block: candidate.block ?? null,
+    repositoryUrl: candidate.repositoryUrl ?? null,
+  };
+}
+
+function buildRealJobs(candidate) {
+  const jobs = [];
+  for (const name of candidate.sanctionsInputStatus === "valid" ? candidate.sanctionsSubjects : []) {
+    jobs.push({
+      intent: "SANCTIONS_SCREENING_MATCH",
+      params: { name },
+      requestInput: { name },
+      query: null,
+    });
+  }
+  for (const account of candidate.socialInputStatus === "valid" ? candidate.socialAccounts : []) {
+    jobs.push({
+      intent: "SOCIAL_BOT_DETECTION",
+      params: { account },
+      requestInput: { account },
+      query: null,
+    });
+  }
+  return jobs;
+}
+
+/** Run one listing candidate. Real requests are only made for supported checks with explicit inputs. */
+export async function runDesk(candidateInput, opts = {}) {
+  const candidate = normalizeCandidate(candidateInput);
   const caps = resolveCaps(opts);
   const mode = opts.mode ?? caps.mode;
-
-  const estimated = INTENT_ASKS.length * caps.maxUsdPerIntent;
-  if (estimated > caps.maxUsdPerRun) {
-    throw new Error(
-      `run cap $${caps.maxUsdPerRun.toFixed(2)} cannot cover ${INTENT_ASKS.length} intents at $${caps.maxUsdPerIntent.toFixed(2)} each`
-    );
-  }
-
+  if (mode !== "mock" && mode !== "real") throw new TypeError(`unsupported desk mode: ${mode}`);
+  const now = opts.now ?? Date.now;
+  const started = now();
   const engineBase = opts.engineBase ?? ENGINE_BASE;
-  const askFn =
-    opts.askImpl ??
-    (mode === "mock" ? makeMockAsk({ seed: token }) : realAskFactory(caps));
+  const paymentPolicy = new PaymentPolicy(caps);
+  const jobs = opts.askImpl
+    ? INTENT_ASKS.map((check) => ({
+        intent: check.intent,
+        query: check.query.replaceAll("{token}", candidate.token),
+        params: null,
+        requestInput: null,
+      }))
+    : mode === "mock"
+      ? INTENT_ASKS.map((check) => ({
+          intent: check.intent,
+          query: check.query.replaceAll("{token}", candidate.token),
+          params: null,
+          requestInput: null,
+        }))
+      : buildRealJobs(candidate);
+  const askFn = opts.askImpl ?? (mode === "mock"
+    ? makeMockAsk({ seed: candidate.token, sleep: opts.sleep, now })
+    : jobs.length ? realAskFactory(paymentPolicy, opts) : null);
 
-  const started = Date.now();
-  // The heart of the Mission 01 example build: one request per intelligence need,
-  // all fired simultaneously, each routed by Telegraph to the best-ranked miner.
-  const settled = await Promise.allSettled(
-    INTENT_ASKS.map((a) =>
-      askFn(engineBase, {
-        intent: a.intent,
-        query: a.query.replaceAll("{token}", token),
-        context: { token, mission: "exchange-listings-desk" },
-        maxUsd: caps.maxUsdPerIntent,
-      })
-    )
-  );
-
+  const settled = await Promise.allSettled(jobs.map((job) => askFn(engineBase, {
+    intent: job.intent,
+    query: job.query,
+    params: job.params,
+    requestInput: job.requestInput,
+    maxUsd: caps.maxUsdPerIntent,
+    context: mode === "mock" ? { token: candidate.token } : undefined,
+    now,
+  })));
   const receipts = [];
   const failures = [];
-  settled.forEach((s, i) => {
-    if (s.status === "fulfilled") receipts.push(s.value);
-    else
-      failures.push({
-        intent: INTENT_ASKS[i].intent,
-        query: INTENT_ASKS[i].query.replaceAll("{token}", token),
-        error: String(s.reason?.message ?? s.reason),
-        isPaymentRequired: s.reason instanceof PaymentRequiredError,
+  settled.forEach((result, index) => {
+    const job = jobs[index];
+    if (result.status === "fulfilled") {
+      receipts.push({
+        ...result.value,
+        mode: mode === "mock" ? "mock" : result.value.mode,
+        minerId: mode === "mock" ? null : result.value.minerId,
+        minerName: mode === "mock" ? "SIMULATED" : result.value.minerName,
+        costUsd: mode === "mock" ? 0 : result.value.costUsd,
+        estimatedCostUsd: mode === "mock"
+          ? result.value.estimatedCostUsd ?? result.value.costUsd ?? 0
+          : result.value.estimatedCostUsd,
+        signalHash: mode === "mock" ? null : result.value.signalHash,
+        evidenceStatus: mode === "mock" ? "simulated" : result.value.evidenceStatus,
+        proofStatus: mode === "mock" ? "simulated" : result.value.proofStatus,
+        paymentStatus: mode === "mock" ? "simulated" : result.value.paymentStatus,
+        intent: result.value.intent ?? job.intent,
+        requestInput: result.value.requestInput ?? job.requestInput,
       });
+    } else {
+      failures.push({
+        intent: job.intent,
+        requestInput: job.requestInput,
+        error: String(result.reason?.message ?? result.reason),
+        isPaymentRequired: result.reason instanceof PaymentRequiredError || result.reason?.isPaymentRequired === true,
+        paymentStatus: mode === "mock" ? "simulated" :
+          result.reason?.paymentStatus ?? (result.reason?.paymentPolicyRejected ? "policy_rejected" : "unknown"),
+        proofStatus: mode === "mock" ? "simulated" : result.reason?.receiptValid ? "receipt_valid" : "incomplete",
+        settlement: mode === "mock" ? null : result.reason?.settlementReceipt ?? null,
+        authorizedAmountMicro: mode === "mock" ? null : result.reason?.authorizedAmountMicro ?? null,
+      });
+    }
   });
 
-  // Retry pass — sequential with backoff. The Engine's LLM router 429s under
-  // parallel bursts and some miner upstreams flap; failed requests are never
-  // billed, so a retry costs nothing unless it actually succeeds.
-  let spent = receipts.reduce((s, r) => s + r.costUsd, 0);
-  for (const f of failures.filter((x) => !x.isPaymentRequired)) {
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      if (spent + caps.maxUsdPerIntent > caps.maxUsdPerRun) break; // stay under the run cap
-      await new Promise((r) => setTimeout(r, 3000 * attempt));
-      try {
-        const r = await askFn(engineBase, {
-          intent: f.intent,
-          query: f.query,
-          context: { token, mission: "exchange-listings-desk", retry: attempt },
-          maxUsd: caps.maxUsdPerIntent,
-        });
-        spent += r.costUsd;
-        receipts.push(r);
-        f.retried = true;
-        f.recovered = true;
-        break;
-      } catch (e) {
-        f.error = String(e?.message ?? e);
-        f.isPaymentRequired = e instanceof PaymentRequiredError;
-        if (f.isPaymentRequired) break;
-      }
-    }
-  }
-  const recovered = failures.filter((f) => f.recovered);
-  for (const f of recovered) failures.splice(failures.indexOf(f), 1);
-  for (const f of recovered) f.error = null;
-
-  if (!receipts.length) {
-    const pr = failures.find((f) => f.isPaymentRequired);
-    throw new Error(
-      pr
-        ? `no intelligence could be purchased — the Engine returned 402 Payment Required.\n` +
-          `In REAL mode you need USDC on Base and a funded wallet (see README "Going real").\n` +
-          `Run with --mode mock to exercise the pipeline without payments.`
-        : `all requests failed: ${failures.map((f) => `${f.intent}: ${f.error}`).join("; ")}`
-    );
-  }
-
-  const totalUsd = receipts.reduce((s, r) => s + r.costUsd, 0);
-  if (totalUsd > caps.maxUsdPerRun) {
-    throw new Error(`spending cap breach: run total $${totalUsd.toFixed(4)} > cap $${caps.maxUsdPerRun.toFixed(2)}`);
-  }
-
-  const memo = assess(token, receipts, failures, {
-    totalUsd,
-    wallMs: Date.now() - started,
+  const paymentLedger = paymentPolicy.snapshot();
+  const actualMicro = paymentLedger.reservations
+    .filter((reservation) => reservation.status === "settled")
+    .reduce((sum, reservation) => sum + BigInt(reservation.amountMicro), 0n);
+  const estimateMicro = receipts.reduce((sum, receipt) => {
+    if (receipt.mode !== "mock" || typeof receipt.estimatedCostUsd !== "number" || !Number.isFinite(receipt.estimatedCostUsd)) return sum;
+    return sum + usdFloatToMicro(receipt.estimatedCostUsd);
+  }, 0n);
+  const memo = assess(candidate, receipts, failures, {
+    actualMicro,
+    estimateMicro,
+    wallMs: now() - started,
     caps,
     mode,
+    paymentLedger,
+    now,
   });
   return { memo, receipts, failures };
 }
 
-/** Real mode: plain fetch, upgraded to the escrow x402 flow when a wallet key is present. */
-function realAskFactory(caps) {
-  const key = process.env.WALLET_PRIVATE_KEY;
-  const signer = key ? new EscrowSigner(key) : null;
-  if (!signer) {
-    console.error(
-      "[real mode] WALLET_PRIVATE_KEY not set — requests will reach the Engine but stop at the 402 challenge.\n" +
-      "            Fund the escrow once (EscrowFacet.depositUSDC) and set WALLET_PRIVATE_KEY to pay automatically."
-    );
-  }
+function usdFloatToMicro(value) {
+  return value === 0 ? 0n : usdToMicro(value, "demonstration estimate");
+}
+
+function realAskFactory(paymentPolicy, opts) {
+  const signer = opts.signer ?? (process.env.WALLET_PRIVATE_KEY ? new EscrowSigner(process.env.WALLET_PRIVATE_KEY) : null);
   return async (base, args) => {
     const fetchImpl = signer
       ? async (url, init) => {
-          const { res } = await fetchWithEscrow(fetch, signer, url, init);
-          return res; // carries settlementReceipt when the node returned one
+          const result = await fetchWithEscrow(opts.fetchImpl ?? fetch, signer, url, init, {
+            policy: paymentPolicy,
+            intent: args.intent,
+            expected: opts.escrowExpected ?? {
+              network: process.env.ESCROW_EXPECTED_NETWORK,
+              payTo: process.env.ESCROW_EXPECTED_PAYTO,
+              origin: process.env.ESCROW_EXPECTED_ORIGIN,
+              resource: process.env.ESCROW_EXPECTED_RESOURCE,
+            },
+            now: opts.now,
+            nonceFactory: opts.nonceFactory,
+          });
+          return result.res;
         }
-      : fetch;
+      : opts.fetchImpl ?? fetch;
     return ask(base, args, fetchImpl);
   };
 }
 
-/**
- * Turn five purchases into a decision. Deterministic and explainable:
- * every line of the verdict points at a receipt.
- */
-function assess(token, receipts, failures, { totalUsd, wallMs, caps, mode }) {
-  const byIntent = Object.fromEntries(receipts.map((r) => [r.intent, r]));
-
-  const audit = byIntent.SMART_CONTRACT_AUDIT?.result ?? {};
-  const onchain = byIntent.ONCHAIN_METRIC_VERIFY?.result ?? {};
-  const sanctions = byIntent.SANCTIONS_SCREENING_MATCH?.result ?? {};
-  const social = byIntent.SOCIAL_BOT_DETECTION?.result ?? {};
-  const code = byIntent.CODE_REVIEW?.result ?? {};
-
-  const riskScore = num(audit.risk_score);
-  const botShare = num(social.bot_share_estimate);
-  const authenticity = num(code.authenticity_score);
-  const concentration = num(onchain.top10_concentration_pct);
-  const sanctioned = sanctions.clean === false || (sanctions.matches?.length ?? 0) > 0;
-
+export function assess(candidate, receipts, failures, {
+  actualMicro, estimateMicro, wallMs, caps, mode, paymentLedger, now = Date.now,
+}) {
+  const evidence = {};
   const signals = [];
-  if (riskScore != null) signals.push(riskScore <= 0.35 ? ["good", `contract risk score ${riskScore} (≤ 0.35)`] : ["bad", `contract risk score ${riskScore} (> 0.35)`]);
-  if (concentration != null) signals.push(concentration <= 40 ? ["good", `top-10 holders hold ${concentration}% (≤ 40%)`] : ["bad", `top-10 holders hold ${concentration}% (> 40%) — concentration risk`]);
-  signals.push(sanctioned ? ["bad", "sanctions match found on deployer/treasury"] : ["good", `no sanctions matches (${sanctions.lists_checked?.join(", ") ?? "lists per miner"})`]);
-  if (botShare != null) signals.push(botShare <= 0.25 ? ["good", `social bot share ${(botShare * 100).toFixed(1)}% (≤ 25%)`] : ["bad", `social bot share ${(botShare * 100).toFixed(1)}% (> 25%) — purchased following`]);
-  if (authenticity != null) signals.push(authenticity >= 0.7 ? ["good", `repo authenticity ${authenticity} (≥ 0.7)`] : ["bad", `repo authenticity ${authenticity} (< 0.7)`]);
-  for (const f of failures) signals.push(["warn", `${f.intent} unavailable: ${f.error.slice(0, 120)}`]);
+  const failedFor = (intent) => failures.filter((failure) => failure.intent === intent);
+  const receiptsFor = (intent) => receipts.filter((receipt) => receipt.intent === intent);
 
-  const hardBlock = sanctioned;
-  const badCount = signals.filter((s) => s[0] === "bad").length;
-  // Confidence gate: a GO on partial intelligence is overclaiming — cap at REVIEW
-  // when fewer than 4 of 5 Intents answered. NO-GO (sanctions) is never upgraded.
-  let verdict = hardBlock ? "NO-GO" : badCount === 0 ? "GO" : badCount === 1 ? "REVIEW" : "NO-GO";
-  if (verdict === "GO" && receipts.length < INTENT_ASKS.length - 1) verdict = "REVIEW";
+  for (const intent of MANDATORY_CHECKS) {
+    const responseReceipts = receiptsFor(intent);
+    if (mode === "mock") {
+      const failed = failedFor(intent);
+      evidence[intent] = {
+        status: responseReceipts.length ? "simulated" : failed.length ? "unavailable" : "missing",
+        reason: responseReceipts.length
+          ? "offline demonstration only; simulation is not decision evidence"
+          : failed.map((failure) => failure.error).join("; ") || "no simulated response was produced",
+        sourceReferences: [
+          ...responseReceipts.map(sourceReference),
+          ...failed.map(failureSourceReference),
+        ],
+      };
+      continue;
+    }
+    if (UNSUPPORTED[intent]) {
+      evidence[intent] = {
+        status: "unsupported",
+        reason: UNSUPPORTED[intent],
+        sourceReferences: responseReceipts.map(sourceReference),
+      };
+      continue;
+    }
+    const inputStatus = intent === "SANCTIONS_SCREENING_MATCH"
+      ? candidate.sanctionsInputStatus
+      : candidate.socialInputStatus;
+    const expectedInputs = intent === "SANCTIONS_SCREENING_MATCH"
+      ? candidate.sanctionsSubjects.map((name) => ({ name }))
+      : candidate.socialAccounts.map((account) => ({ account }));
+    if (inputStatus !== "valid") {
+      evidence[intent] = {
+        status: inputStatus,
+        reason: intent === "SANCTIONS_SCREENING_MATCH"
+          ? inputStatus === "invalid"
+            ? "deployerName and treasuryName must be non-empty strings"
+            : "explicit deployerName and treasuryName inputs are both required; addresses are not guessed"
+          : inputStatus === "invalid"
+            ? "socialAccounts must contain only non-empty strings"
+            : "explicit socialAccounts input is required; channels are not guessed",
+        sourceReferences: [],
+      };
+      continue;
+    }
+    const selected = expectedInputs.map((input) =>
+      responseReceipts.find((receipt) => sameInput(receipt.requestInput ?? receipt.returnedInput, input))
+    );
+    const failed = failedFor(intent);
+    if (selected.some((receipt) => !receipt)) {
+      const sourceFailures = failedFor(intent);
+      evidence[intent] = {
+        status: failed.length ? "unavailable" : "missing",
+        reason: failed.map((failure) => failure.error).join("; ") || "required subject receipt is missing",
+        sourceReferences: [
+          ...responseReceipts.map(sourceReference),
+          ...sourceFailures.map(failureSourceReference),
+        ],
+      };
+      continue;
+    }
+    const invalid = selected.find((receipt) => receipt.evidenceStatus !== "valid");
+    if (invalid) {
+      evidence[intent] = {
+        status: ["missing", "unavailable", "unsupported", "invalid"].includes(invalid.evidenceStatus)
+          ? invalid.evidenceStatus
+          : "invalid",
+        reason: (invalid.evidenceIssues ?? []).join("; ") || "receipt is not validated for this check",
+        sourceReferences: selected.map(sourceReference),
+      };
+      continue;
+    }
+    evidence[intent] = {
+      status: "valid",
+      reason: `validated ${selected.length} explicit subject${selected.length === 1 ? "" : "s"} against the published response shape`,
+      sourceReferences: selected.map(sourceReference),
+      results: selected.map((receipt) => receipt.result),
+    };
+  }
 
-  return {
-    token,
+  const sanctions = evidence.SANCTIONS_SCREENING_MATCH;
+  const confirmedMatch = receiptsFor("SANCTIONS_SCREENING_MATCH").some((receipt) => {
+    const result = receipt.result;
+    const name = receipt.requestInput?.name;
+    return typeof name === "string" && candidate.sanctionsSubjects.includes(name) &&
+      receipt.resultShape === "intent" &&
+      receipt.matchedIntent === "SANCTIONS_SCREENING_MATCH" &&
+      receipt.fieldStatus?.matched === "ok" &&
+      result?.name === name && result.matched === true;
+  });
+  const validChecks = MANDATORY_CHECKS.filter((intent) => evidence[intent]?.status === "valid");
+  const missingChecks = MANDATORY_CHECKS.filter((intent) => evidence[intent]?.status !== "valid");
+  const hardBlock = confirmedMatch;
+  if (confirmedMatch) {
+    signals.push(["bad", "confirmed sanctions match for an explicitly supplied entity"]);
+  } else if (sanctions?.status === "valid") {
+    signals.push(["good", "no sanctions match for the explicitly supplied entities; returned list coverage is present"]);
+  }
+  for (const intent of MANDATORY_CHECKS) {
+    const item = evidence[intent];
+    if (item.status !== "valid") signals.push(["warn", `${intent} ${item.status}: ${item.reason}`]);
+    else if (intent === "SOCIAL_BOT_DETECTION") {
+      const risky = item.results.some((result) => result.bot_score > 0.25);
+      signals.push([risky ? "bad" : "good", `social bot score checked using app threshold 0.25${risky ? " (above threshold)" : " (at or below threshold)"}`]);
+    }
+  }
+  for (const failure of failures) {
+    signals.push(["warn", `${failure.intent} request ${failure.paymentStatus}: ${failure.error.slice(0, 120)}`]);
+  }
+  const badCount = signals.filter(([kind]) => kind === "bad").length;
+  const verdict = hardBlock ? "NO-GO" :
+    missingChecks.length > 0 ? (validChecks.length === 0 ? "UNKNOWN" : "REVIEW") :
+      badCount === 0 ? "GO" : badCount === 1 ? "REVIEW" : "NO-GO";
+  const completeness = {
+    status: missingChecks.length === 0 ? "complete" : "incomplete",
+    validChecks,
+    missingChecks,
+    unsupportedChecks: MANDATORY_CHECKS.filter((intent) => evidence[intent]?.status === "unsupported"),
+    invalidChecks: MANDATORY_CHECKS.filter((intent) => evidence[intent]?.status === "invalid"),
+    unavailableChecks: MANDATORY_CHECKS.filter((intent) => evidence[intent]?.status === "unavailable"),
+  };
+  const runCounts = {
+    responses: receipts.length,
+    validEvidence: receipts.filter((receipt) => receipt.evidenceStatus === "valid").length,
+    failed: failures.length,
+    unknown: receipts.filter((receipt) => receipt.paymentStatus === "unknown").length +
+      failures.filter((failure) => failure.paymentStatus === "unknown").length,
+  };
+  const paymentStatus = mode === "mock"
+    ? { status: "simulated", simulatedReceiptCount: receipts.length, failedCount: failures.length, unknownCount: 0 }
+    : summarizePayments(receipts, failures);
+  const memo = {
+    policyVersion: POLICY_VERSION,
+    candidate,
+    token: candidate.token,
     verdict,
-    signals,
     hardBlock,
-    inputs: { audit, onchain, sanctions, social, code },
+    signals,
+    evidence,
+    evidenceCompleteness: completeness,
+    paymentStatus,
+    runCounts,
+    actualSpentUsd: formatUsd(actualMicro),
+    estimatedCostUsd: formatUsd(estimateMicro),
+    actualSpendDescription: mode === "mock" ? "actual spent" : "receipt-backed amount",
+    estimateDescription: "demonstration estimate; not spent",
     receipts: receipts.map(minimalReceipt),
     failures,
-    totalUsd: round4(totalUsd),
     wallMs,
     mode,
-    caps: { maxUsdPerRun: caps.maxUsdPerRun, maxUsdPerIntent: caps.maxUsdPerIntent },
-    verificationHash: verificationHash(token, receipts, failures),
-    generatedAt: new Date().toISOString(),
+    modeLabel: mode === "mock" ? "SIMULATED/OFFLINE" : "REAL",
+    caps: {
+      maxUsdPerRun: caps.maxUsdPerRun,
+      maxUsdPerIntent: caps.maxUsdPerIntent,
+    },
+    paymentLedger,
+    generatedAt: new Date(now()).toISOString(),
   };
+  memo.contentDigest = contentDigest(memo);
+  return memo;
 }
 
-function minimalReceipt(r) {
+function sameInput(actual, expected) {
+  return actual && Object.keys(expected).every((key) => actual[key] === expected[key]);
+}
+
+function sourceReference(receipt) {
+  if (receipt.settlement?.receipt_hash) return `escrow-receipt:${receipt.settlement.receipt_hash}`;
+  if (receipt.signalHash) return `engine-signal:${receipt.signalHash}`;
+  return null;
+}
+
+function failureSourceReference(failure) {
+  return failure.settlement?.receipt_hash
+    ? `escrow-receipt:${failure.settlement.receipt_hash}`
+    : null;
+}
+
+function summarizePayments(receipts, failures) {
+  const receiptValid = receipts.filter((receipt) => receipt.paymentStatus === "receipt_valid").length +
+    failures.filter((failure) => failure.proofStatus === "receipt_valid").length;
+  const unknown = receipts.filter((receipt) => receipt.paymentStatus === "unknown").length +
+    failures.filter((failure) => failure.paymentStatus === "unknown").length;
+  const failed = failures.filter((failure) => ["definitive_unpaid", "policy_rejected"].includes(failure.paymentStatus)).length;
+  return { status: unknown ? "unknown" : receiptValid ? "receipt-backed" : failed ? "unpaid-or-rejected" : "not-paid", receiptValid, unknown, failed };
+}
+
+function minimalReceipt(receipt) {
   return {
-    intent: r.intent,
-    miner: `${r.minerName ?? "?"} (#${r.minerId ?? "?"})`,
-    costUsd: round4(r.costUsd),
-    durationMs: r.durationMs,
-    signalHash: r.signalHash,
-    mode: r.mode,
+    intent: receipt.intent,
+    requestInput: receipt.requestInput ?? null,
+    minerId: receipt.minerId ?? null,
+    minerName: receipt.minerName ?? null,
+    costUsd: receipt.costUsd ?? null,
+    estimatedCostUsd: receipt.estimatedCostUsd ?? null,
+    durationMs: receipt.durationMs ?? null,
+    signalHash: receipt.signalHash ?? null,
+    resultShape: receipt.resultShape ?? null,
+    matchedIntent: receipt.matchedIntent ?? null,
+    returnedInput: receipt.returnedInput ?? null,
+    fieldStatus: receipt.fieldStatus ?? null,
+    evidenceStatus: receipt.evidenceStatus ?? "simulated-or-unverified",
+    evidenceIssues: receipt.evidenceIssues ?? [],
+    proofStatus: receipt.proofStatus ?? "incomplete",
+    proofGaps: receipt.proofGaps ?? [],
+    paymentStatus: receipt.paymentStatus ?? "unknown",
+    authorizedAmountMicro: receipt.authorizedAmountMicro ?? null,
+    settlement: receipt.settlement ?? null,
+    rawResponse: receipt.rawResponse ?? null,
+    timestamp: receipt.timestamp ?? null,
   };
 }
 
-export function verificationHash(token, receipts, failures) {
-  const canonical = JSON.stringify({
-    token,
-    receipts: receipts.map((r) => [r.intent, r.minerId, r.costUsd, r.signalHash]).sort(),
-    failures: failures.map((f) => [f.intent, f.error]).sort(),
-  });
-  return "0x" + createHash("sha256").update(canonical).digest("hex");
+function canonicalize(value) {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalize(value[key])]));
+  }
+  return value;
 }
 
-const num = (v) => (typeof v === "number" && Number.isFinite(v) ? v : null);
-const round4 = (v) => Math.round(v * 10_000) / 10_000;
+export function contentDigest(artifact) {
+  const { contentDigest: _excludedDigest, generatedAt: _excludedGeneratedAt, ...content } = artifact;
+  return `sha256-v1:${createHash("sha256").update(JSON.stringify(canonicalize(content))).digest("hex")}`;
+}

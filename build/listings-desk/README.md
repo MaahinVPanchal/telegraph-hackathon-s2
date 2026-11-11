@@ -1,78 +1,58 @@
 # Telegraph Listings Desk
 
-**Mission 01 (Exchange)** — the autonomous listings desk: a token-listing application arrives, an agent has ninety seconds to decide if the venue should touch it. This desk fires **five parallel paid requests** through the Telegraph Engine, collects **receipts** for every purchase, and returns a **signed listing risk memo with a cost line**.
+The local desk produces a recommendation with explicit evidence, payment and proof statuses. Its five-check listing policy is an application policy, not an official Telegraph guarantee or ranking.
 
-```
-Intents bought per run (all in parallel, routed by rank — we never pick miners):
-  SMART_CONTRACT_AUDIT · ONCHAIN_METRIC_VERIFY · SANCTIONS_SCREENING_MATCH
-  SOCIAL_BOT_DETECTION · CODE_REVIEW
-```
-
-## Quickstart (no wallet needed)
+## Offline demo
 
 ```bash
-npm run demo        # full pipeline in mock mode: 5 "purchases", receipts, memo, cost line
-npm run web         # or point a browser at http://localhost:7788 and click Run
-npm test            # 8 unit tests, engine fully mocked
-node src/cli.mjs PEPE --mode mock --cap 0.10
+npm run demo
+npm test
+node src/cli.mjs PEPE --mode mock
+npm run web   # local SIMULATED/OFFLINE UI at http://localhost:7788
 ```
 
-Outputs land in `memos/`: `.md` (readable), `.html` (the demo artifact), `.json` (raw receipts for reviewers). Every memo carries a **verification hash** over the canonical receipt set — same token in, same hash out (mock mode is deterministic).
+Mock mode is **SIMULATED / OFFLINE**. It makes no Engine calls, payments or signatures. Each simulated receipt has a $0 actual-spend value; the demonstration estimate is reported separately. A simulation is never eligible decision evidence.
 
-Mock mode is labelled on every receipt; nothing is purchased, nothing touches the chain.
+## Candidate inputs
 
-## Going real (real mode)
+The CLI accepts an optional JSON file with candidate-specific identifiers:
 
-Real mode is implemented against the **live testnet Engine** and its actual 402 challenge (captured 26 Oct 2026, see `../reports/engine-402-challenge.json`):
+```json
+{
+  "token": "0xCandidate",
+  "deployerName": "Explicit entity name",
+  "treasuryName": "Explicit treasury entity name",
+  "socialAccounts": ["@explicit-account"],
+  "chain": "explicit-chain",
+  "block": 123456,
+  "repositoryUrl": "https://example.invalid/repository"
+}
+```
 
 ```bash
-# 1. One-time: fund the escrow so payments settle without per-request on-chain calls.
-#    EscrowFacet.depositUSDC(amount) on the Diamond (Base Sepolia):
-#    0x5a2324aA18613FAD4e44bDF0d6c73Ec1f6D87ff8   — e.g. deposit 1 USDC = 1_000_000 (6 decimals)
-#    Needs: a wallet with testnet USDC on Base Sepolia + a little ETH for gas.
-
-# 2. Configure (copy .env.example → .env):
-#    WALLET_PRIVATE_KEY=0x...     (the desk signs escrow authorizations with it)
-#    MAX_USD_PER_RUN=0.10         (hard spending cap, enforced twice: before dispatch and after)
-#    MAX_USD_PER_INTENT=0.02
-
-# 3. Run:
-node src/cli.mjs 0xTokenAddress --mode real
+node src/cli.mjs 0xCandidate --mode mock --candidate-json candidate.json
 ```
 
-**What happens under the hood** (`src/x402.mjs`, `src/engine.mjs`):
+No deployer, treasury, social account, chain, block or repository is inferred. Real mode currently requests only the published sanctions-name and social-account shapes when their explicit inputs are supplied; those endpoints reported `miner_count: 0`, so provider availability is unverified. Audit, holder concentration/liquidity/age, and repository-history checks are unsupported by the retrieved Engine contracts and remain mandatory; therefore the current contract cannot produce a GO. A balance or price is not substituted for concentration or an audit.
 
-1. First call gets `HTTP 402` with `accepts[]`. We use the **`escrow` scheme** (the docs recommend it over per-call x402 settlement): no facilitator round trip, no per-request chain tx.
-2. The desk fills the challenge's message template — `{from}` **lowercased** (the node rejects checksummed addresses), fresh `nonce`, `validAfter`/`validBefore` unix seconds — and signs it with `personal_sign` via Foundry `cast` (`cast wallet sign`).
-3. Retry with `X-PAYMENT: base64(JSON envelope)` — `{x402Version:2, scheme:"escrow", network:"eip155:84532", payload:{signature, authorization}}`.
-4. Success carries `X-PAYMENT-RESPONSE` (base64 JSON settlement proof) — folded into each receipt as `receipt.settlement`.
-5. A failed request is **never billed** (docs guarantee; 402/4xx = no charge). Retries always use a fresh nonce.
+The prior app thresholds are application policy only: contract risk `<= 0.35`, top-10 concentration `<= 40%`, social bot score/share `<= 0.25`, and repository authenticity `>= 0.7`. The prior recommendation rule was 0 adverse signals = GO, 1 = REVIEW, and 2 or more = NO-GO, with a sanctions match always NO-GO. The current published response shapes do not provide matching inputs and outputs for three of those checks, so those thresholds are not evaluated. None is an official Telegraph guarantee.
 
-The x402 `exact` scheme (EIP-3009 over USDC, facilitator-verified) is intentionally *not* hand-rolled — the docs recommend the `@x402/fetch` client for that; escrow is simpler and sufficient.
+## Real-mode payment guard
 
-## Design notes (why this matches the rubric)
+Real mode requires explicit `ESCROW_EXPECTED_NETWORK`, `ESCROW_EXPECTED_PAYTO`, `ESCROW_EXPECTED_ORIGIN`, and `ESCROW_EXPECTED_RESOURCE` configuration before any signing is permitted. Values must be checked against the live challenge and trusted deployment configuration; the challenge itself is not trusted to define the expected payee or network. No network/payee is silently selected by this app.
 
-- **Technical (35 pts):** one goal, five Intents bought *while running*, parallel dispatch via `Promise.allSettled`, per-intent failure isolation — the app degrades to 4/5 intelligence pieces and says so in the memo.
-- **Commercial (30 pts):** the output is the exchange's own artifact: a risk memo a listings committee can act on, with per-item cost — "a few dollars and ninety seconds, against weeks of analyst time."
-- **Adoption (15 pts):** the desk is a callable library (`runDesk()` in `src/desk.mjs`) — a second agent can drive it; the `serve.mjs` endpoint exposes it over HTTP.
-- **Integration quality (10 pts):** receipts carry miner id, cost, latency and `signal_hash` (look up at `GET /engine/v1/signal/{hash}`); settlement proofs kept for audit.
-- **Proof (10 pts):** `npm run demo` is the repeatable demo; memos include a "How to reproduce" block with the exact command.
-- **Safe handling:** hard spending caps (run + per-intent, reconciled against each other in `config.mjs`), keys only via env, no key material ever written to memos/logs.
+USD caps accept decimal strings/numbers with at most six fractional digits and convert exactly to integer micro-USDC (`1 USD = 1,000,000 micro-USDC`). Zero, negative, nonfinite, malformed, and unrepresentable caps are rejected. The run and per-intent ledger reserves challenge amounts before signing and retains unknown post-authorization outcomes; there is no automatic new-charge retry.
 
-## Layout
+An escrow receipt can establish a per-request protocol receipt and epoch commitment without a per-request `tx_hash`. It does not by itself prove final epoch settlement or answer accuracy. The app preserves receipt/proof gaps and distinguishes them from decision evidence.
 
-```
-src/config.mjs   intents + spending caps (the "what intelligence do we need" layer)
-src/engine.mjs   Engine client: ask() real, makeMockAsk() deterministic offline sim
-src/x402.mjs     escrow payment adapter (402 → personal_sign via cast → X-PAYMENT retry)
-src/desk.mjs     orchestration: parallel buys, cap enforcement, risk assessment, hash
-src/memo.mjs     markdown + html rendering (the cost line is the last line, always)
-src/cli.mjs      command line entry        src/serve.mjs  local web UI
-test/            node:test suite, network-free
-```
+Evidence source references identify an escrow receipt when available, otherwise an Engine signal hash; a signal hash alone is not settlement or answer proof.
 
-## Next steps for the hackathon (Nov 1+)
+## Published contract snapshot
 
-1. Swap mock → real after funding; run against 2–3 real pending-listing candidates and keep every receipt.
-2. Add the second Mission 01 example build ("surveillance that only bills when it finds something" — continuous `WASH_TRADING_DETECTION` buys) for the multi-mission delivery-award path.
-3. At the **Nov 14 milestone**, show this memo with real receipts — that's the "first working Telegraph purchase" the milestone asks for.
+The safe schema snapshot and retrieval timestamp are in [`docs/engine-contract-snapshot-2026-11-11.md`](./docs/engine-contract-snapshot-2026-11-11.md). It records why this app cannot currently claim compatibility with the whole five-check policy. Recheck the live Engine contracts before enabling a real run.
+
+The on-chain provider deployment gate remains blocked until Engine confirms acceptance of `chain`/`chain_id` and the proposed operation inputs. Do not infer a chain default or replace an explicitly requested historical block with latest.
+
+## Artifact integrity
+
+Memos carry a versioned SHA-256 content checksum over candidate, inputs/evidence, recommendation, signals, receipt/proof metadata, failures, spend labels and caps. The volatile `generatedAt` and the checksum field itself are excluded. This checksum is not a digital signature and does not prove that an answer is accurate.

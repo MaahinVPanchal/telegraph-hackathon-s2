@@ -1,38 +1,82 @@
-// x402 / escrow payment adapter for REAL mode.
-//
-// Implements the "escrow" scheme from Telegraph's 402 challenge:
-//   1. no payment header → 402, body.accepts[] lists schemes
-//   2. pick scheme "escrow", fill extra.message template ({from} lowercased,
-//      {nonce} any unique string, {validAfter}/{validBefore} unix seconds)
-//   3. sign the message with personal_sign (EIP-191) — via Foundry `cast`
-//   4. retry with header `X-PAYMENT: base64(JSON envelope)`
-//
-// Before first use, fund the escrow once: EscrowFacet.depositUSDC(amount) on the
-// Diamond (docs.telegraphprotocol.com/docs/using/escrow-inference).
-// A failed request is never billed — treat 402/4xx as "not charged", retry with a
-// FRESH nonce.
-//
-// The x402 "exact" scheme (EIP-3009 transferWithAuthorization, facilitator-verified)
-// needs a real x402 client — the docs recommend @x402/fetch; we deliberately do not
-// hand-roll EIP-712 over USDC here. Escrow is simpler, needs one deposit, and is
-// what the docs recommend for anything more than occasional calls.
-
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { randomUUID } from "node:crypto";
+import { usdToMicro } from "./config.mjs";
 
 const pExecFile = promisify(execFile);
 
+export class PaymentPolicyError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "PaymentPolicyError";
+    this.paymentPolicyRejected = true;
+  }
+}
+
+export class PaymentPolicy {
+  constructor({ maxUsdPerRunMicros, maxUsdPerIntentMicros }) {
+    if (typeof maxUsdPerRunMicros !== "bigint" || typeof maxUsdPerIntentMicros !== "bigint" ||
+        maxUsdPerRunMicros <= 0n || maxUsdPerIntentMicros <= 0n) {
+      throw new PaymentPolicyError("payment caps must be positive integer micro-USDC values");
+    }
+    this.maxUsdPerRunMicros = maxUsdPerRunMicros;
+    this.maxUsdPerIntentMicros = maxUsdPerIntentMicros;
+    this.reservations = new Map();
+    this.sequence = 0;
+  }
+
+  reserve(intent, amount) {
+    if (typeof intent !== "string" || !intent) throw new PaymentPolicyError("payment intent is required");
+    if (typeof amount !== "bigint" || amount <= 0n) throw new PaymentPolicyError("challenge amount must be positive integer micro-USDC");
+    const active = [...this.reservations.values()].filter((r) => r.status !== "failed");
+    const runTotal = active.reduce((sum, r) => sum + r.amount, 0n);
+    const intentTotal = active.filter((r) => r.intent === intent).reduce((sum, r) => sum + r.amount, 0n);
+    if (intentTotal + amount > this.maxUsdPerIntentMicros) {
+      throw new PaymentPolicyError(`intent cap exceeded for ${intent}`);
+    }
+    if (runTotal + amount > this.maxUsdPerRunMicros) {
+      throw new PaymentPolicyError("run cap exceeded");
+    }
+    const id = `reservation-${++this.sequence}`;
+    this.reservations.set(id, { id, intent, amount, status: "reserved" });
+    return id;
+  }
+
+  transition(id, status) {
+    const reservation = this.reservations.get(id);
+    if (!reservation) throw new PaymentPolicyError(`unknown reservation: ${id}`);
+    const allowed = {
+      reserved: ["in_flight", "failed"],
+      in_flight: ["settled", "failed", "unknown"],
+      unknown: ["settled", "failed"],
+      settled: [],
+      failed: [],
+    };
+    if (!allowed[reservation.status].includes(status)) {
+      throw new PaymentPolicyError(`invalid reservation transition ${reservation.status} -> ${status}`);
+    }
+    reservation.status = status;
+  }
+
+  snapshot() {
+    const active = [...this.reservations.values()].filter((r) => r.status !== "failed");
+    return {
+      maxRunMicro: String(this.maxUsdPerRunMicros),
+      maxIntentMicro: String(this.maxUsdPerIntentMicros),
+      reservedOrAuthorizedMicro: String(active.reduce((sum, r) => sum + r.amount, 0n)),
+      reservations: [...this.reservations.values()].map((r) => ({
+        id: r.id, intent: r.intent, amountMicro: String(r.amount), status: r.status,
+      })),
+    };
+  }
+}
+
 export class EscrowSigner {
-  /**
-   * @param {string} privateKey  funded wallet key (env: WALLET_PRIVATE_KEY)
-   * @param {string} castPath    optional path to cast binary
-   */
   constructor(privateKey, castPath = "cast") {
     if (!privateKey) throw new Error("WALLET_PRIVATE_KEY is required for real mode");
     this.privateKey = privateKey;
     this.castPath = castPath;
-    this.address = null; // derived lazily
+    this.address = null;
   }
 
   async walletAddress() {
@@ -43,73 +87,193 @@ export class EscrowSigner {
     return this.address;
   }
 
-  /** personal_sign (EIP-191) via cast. */
   async personalSign(message) {
     const { stdout } = await pExecFile(this.castPath, [
       "wallet", "sign", "--private-key", this.privateKey, message,
     ]);
     return stdout.trim();
   }
+}
 
-  /**
-   * Build the X-PAYMENT header value for a 402 challenge body.
-   * @returns {string} base64 envelope
-   */
-  async buildEscrowHeader(challenge) {
-    const entry = (challenge.accepts ?? []).find((a) => a.scheme === "escrow");
-    if (!entry) {
-      throw new Error(
-        `no escrow scheme in challenge (got: ${(challenge.accepts ?? []).map((a) => a.scheme).join(", ") || "none"}) — ` +
-        `the exact scheme needs an x402 client (@x402/fetch), see README "Going real"`
-      );
+function oneLine(message, name) {
+  const lines = message.split(/\r?\n/).filter((line) => line.startsWith(`${name}:`));
+  if (lines.length !== 1) throw new PaymentPolicyError(`challenge template must contain exactly one ${name} line`);
+  return lines[0].slice(name.length + 1).trim();
+}
+
+function amountFromTemplate(message) {
+  const amountText = oneLine(message, "Amount");
+  const match = /^(\d+) uUSDC$/.exec(amountText);
+  if (!match) throw new PaymentPolicyError("challenge template has a missing or malformed Amount");
+  const amount = BigInt(match[1]);
+  if (amount <= 0n) throw new PaymentPolicyError("challenge amount must be positive");
+  return amount;
+}
+
+function validateChallenge(challenge, url, expected) {
+  if (!expected || typeof expected !== "object") {
+    throw new PaymentPolicyError("trusted escrow expectations are required before signing");
+  }
+  const { network, payTo, origin, resource } = expected;
+  if (typeof network !== "string" || !/^eip155:\d+$/.test(network) ||
+      typeof payTo !== "string" || !/^0x[0-9a-f]{40}$/i.test(payTo) ||
+      typeof origin !== "string" || typeof resource !== "string" || !resource.startsWith("/")) {
+    throw new PaymentPolicyError("trusted escrow network, payee, origin and resource must be explicitly configured");
+  }
+  const requestUrl = new URL(url);
+  const actualResource = requestUrl.pathname.replace(/^\/engine(?=\/)/, "");
+  if (requestUrl.origin !== origin || actualResource !== resource) {
+    throw new PaymentPolicyError("request origin/resource does not match trusted escrow configuration");
+  }
+  if (!challenge || !Array.isArray(challenge.accepts)) throw new PaymentPolicyError("malformed 402 challenge");
+  const entries = challenge.accepts.filter((entry) => entry?.scheme === "escrow");
+  if (entries.length !== 1) throw new PaymentPolicyError("challenge must contain exactly one escrow scheme");
+  const entry = entries[0];
+  if (entry.network !== network || typeof entry.payTo !== "string" ||
+      entry.payTo.toLowerCase() !== payTo.toLowerCase()) {
+    throw new PaymentPolicyError("challenge network or payee does not match trusted configuration");
+  }
+  const template = entry.extra?.message;
+  if (typeof template !== "string" || !template) throw new PaymentPolicyError("challenge message template is missing");
+  if (entry.extra?.resource !== resource ||
+      oneLine(template, "Network") !== network ||
+      oneLine(template, "Resource") !== resource ||
+      oneLine(template, "Pay To").toLowerCase() !== payTo.toLowerCase()) {
+    throw new PaymentPolicyError("challenge template does not match its envelope or trusted configuration");
+  }
+  for (const placeholder of ["{from}", "{nonce}", "{validAfter}", "{validBefore}"]) {
+    if (template.split(placeholder).length !== 2) {
+      throw new PaymentPolicyError(`challenge template must contain exactly one ${placeholder}`);
     }
-    const from = await this.walletAddress();
-    const now = Math.floor(Date.now() / 1000);
-    const auth = {
-      from, // MUST be lowercase — the node lowercases before verifying
-      to: String(entry.payTo).toLowerCase(),
-      value: (String(entry.extra?.message).match(/Amount:\s*(\d+)\s*uUSDC/) ?? [])[1] ?? "10000",
-      // node enforces a max 2-minute authorization window — keep it at ~110s
-      validAfter: String(now - 10),
-      validBefore: String(now + 100),
-      nonce: randomUUID(),
+  }
+  return { entry, template, amount: amountFromTemplate(template) };
+}
+
+async function signChallenge(signer, challenge, { url, expected, policy, intent, now, nonceFactory }) {
+  const validated = validateChallenge(challenge, url, expected);
+  const reservationId = policy.reserve(intent, validated.amount);
+  try {
+    const from = (await signer.walletAddress()).toLowerCase();
+    if (!/^0x[0-9a-f]{40}$/.test(from)) throw new PaymentPolicyError("signer returned an invalid wallet address");
+    const nowMs = now();
+    if (!Number.isSafeInteger(nowMs) || nowMs <= 0) throw new PaymentPolicyError("clock did not return a valid millisecond timestamp");
+    const timestamp = Math.floor(nowMs / 1000);
+    const nonce = nonceFactory();
+    if (typeof nonce !== "string" || !/^[A-Za-z0-9._-]{1,128}$/.test(nonce)) {
+      throw new PaymentPolicyError("nonce factory returned an invalid nonce");
+    }
+    const authorization = {
+      from,
+      to: validated.entry.payTo,
+      value: String(validated.amount),
+      validAfter: String(timestamp - 5),
+      validBefore: String(timestamp + 100),
+      nonce,
     };
-    if (!auth.value) throw new Error("could not read the Amount line from the escrow message template");
-
-    const message = String(entry.extra.message)
-      .replaceAll("{from}", from)
-      .replaceAll("{nonce}", auth.nonce)
-      .replaceAll("{validAfter}", auth.validAfter)
-      .replaceAll("{validBefore}", auth.validBefore);
-
-    const signature = await this.personalSign(message);
+    const message = validated.template
+      .replace("{from}", authorization.from)
+      .replace("{nonce}", authorization.nonce)
+      .replace("{validAfter}", authorization.validAfter)
+      .replace("{validBefore}", authorization.validBefore);
+    const signature = await signer.personalSign(message);
+    if (typeof signature !== "string" || !/^0x(?:[0-9a-f]{2})+$/i.test(signature)) {
+      throw new PaymentPolicyError("signer returned a malformed signature");
+    }
     const envelope = {
       x402Version: 2,
       scheme: "escrow",
-      network: entry.network ?? "eip155:84532",
-      payload: { signature, authorization: auth },
+      network: validated.entry.network,
+      payload: { signature, authorization },
     };
-    return Buffer.from(JSON.stringify(envelope), "utf8").toString("base64");
+    policy.transition(reservationId, "in_flight");
+    return {
+      header: Buffer.from(JSON.stringify(envelope), "utf8").toString("base64"),
+      reservationId,
+      amount: validated.amount,
+      authorization,
+    };
+  } catch (error) {
+    policy.transition(reservationId, "failed");
+    throw error;
   }
 }
 
-/**
- * Wrap fetch with the 402 → sign → retry loop.
- * Returns { res, receipt } — receipt decoded from X-PAYMENT-RESPONSE when present.
- */
-export async function fetchWithEscrow(fetchImpl, signer, url, init) {
-  let res = await fetchImpl(url, init);
-  if (res.status !== 402) return { res, receipt: null };
+export function validateEscrowReceipt(receipt, { intent, amount, payer }) {
+  if (!receipt || typeof receipt !== "object" || Array.isArray(receipt)) return false;
+  return /^0x[0-9a-f]{64}$/i.test(receipt.receipt_hash ?? "") &&
+    receipt.rail === "escrow" &&
+    typeof receipt.payer === "string" && receipt.payer.toLowerCase() === payer.toLowerCase() &&
+    ((typeof receipt.miner === "string" && receipt.miner.trim()) || Number.isSafeInteger(receipt.miner)) &&
+    String(receipt.intent) === intent &&
+    typeof receipt.amount_uusdc === "string" && /^\d+$/.test(receipt.amount_uusdc) &&
+    BigInt(receipt.amount_uusdc) === amount &&
+    Number.isSafeInteger(receipt.epoch_id) && receipt.epoch_id >= 0 &&
+    receipt.settlement === "epoch" && receipt.chain === "telegraph" &&
+    Number.isSafeInteger(receipt.timestamp) && receipt.timestamp >= 0;
+}
 
-  const challenge = await res.json().catch(() => ({}));
-  const header = await signer.buildEscrowHeader(challenge);
-
-  res = await fetchImpl(url, {
-    ...init,
-    headers: { ...(init.headers ?? {}), "X-PAYMENT": header },
+export async function fetchWithEscrow(fetchImpl, signer, url, init, options = {}) {
+  const first = await fetchImpl(url, init);
+  if (first.status !== 402) return { res: first, receipt: null, paymentStatus: "not_authorized" };
+  if (!signer) return { res: first, receipt: null, paymentStatus: "unavailable" };
+  let challenge;
+  try {
+    challenge = await first.json();
+  } catch {
+    throw new PaymentPolicyError("402 challenge body is not valid JSON");
+  }
+  const authorization = await signChallenge(signer, challenge, {
+    ...options,
+    url,
+    policy: options.policy,
+    now: options.now ?? Date.now,
+    nonceFactory: options.nonceFactory ?? randomUUID,
   });
-  const raw = res.headers.get("x-payment-response");
-  // attach for engine.ask() to fold into the receipt
-  res.settlementReceipt = raw ? JSON.parse(Buffer.from(raw, "base64").toString("utf8")) : null;
-  return { res, receipt: res.settlementReceipt };
+  let res;
+  try {
+    res = await fetchImpl(url, {
+      ...init,
+      headers: { ...(init.headers ?? {}), "X-PAYMENT": authorization.header },
+    });
+  } catch (error) {
+    options.policy.transition(authorization.reservationId, "unknown");
+    if (error && typeof error === "object") error.paymentStatus = "unknown";
+    throw error;
+  }
+  let receipt = null;
+  let receiptValid = false;
+  let headerRead = true;
+  let rawHeader = null;
+  try {
+    rawHeader = res.headers?.get?.("x-payment-response") ?? null;
+    if (rawHeader) {
+      receipt = JSON.parse(Buffer.from(rawHeader, "base64").toString("utf8"));
+      receiptValid = validateEscrowReceipt(receipt, {
+        intent: options.intent,
+        amount: authorization.amount,
+        payer: authorization.authorization.from,
+      });
+    }
+  } catch {
+    headerRead = false;
+    receipt = null;
+  }
+  if (receiptValid) {
+    options.policy.transition(authorization.reservationId, "settled");
+  } else if (headerRead && res.status === 402 && !rawHeader) {
+    options.policy.transition(authorization.reservationId, "failed");
+  } else {
+    options.policy.transition(authorization.reservationId, "unknown");
+  }
+  res.settlementReceipt = receipt;
+  res.receiptValid = receiptValid;
+  res.paymentStatus = receiptValid ? "receipt_valid" : res.status === 402 ? "definitive_unpaid" : "unknown";
+  res.reservationId = authorization.reservationId;
+  res.authorizedAmountMicro = String(authorization.amount);
+  return { res, receipt, paymentStatus: res.paymentStatus };
+}
+
+export function usdCostToMicro(value) {
+  if (value === 0 || value === "0") return 0n;
+  return usdToMicro(value, "cost_usd");
 }

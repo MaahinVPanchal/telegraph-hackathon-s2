@@ -1,53 +1,64 @@
 #!/usr/bin/env node
-// CLI entry: run the listings desk for one token.
-//   node src/cli.mjs <token> [--mode mock|real] [--cap 0.10] [--per-intent 0.02]
-// Writes memos/<token>-<timestamp>.md and .html, prints the memo to stdout.
-
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { runDesk } from "./desk.mjs";
 import { renderMarkdown, renderHtml } from "./memo.mjs";
 
 const args = process.argv.slice(2);
-const flag = (name, dflt) => {
-  const i = args.indexOf(`--${name}`);
-  return i >= 0 ? args[i + 1] : dflt;
+const flag = (name, fallback) => {
+  const index = args.indexOf(`--${name}`);
+  if (index < 0) return fallback;
+  if (!args[index + 1] || args[index + 1].startsWith("--")) {
+    throw new TypeError(`--${name} requires a value`);
+  }
+  return args[index + 1];
 };
-const token = args.find((a) => !a.startsWith("--"));
+const valueFlags = new Set(["--mode", "--candidate-json", "--cap", "--per-intent"]);
+const positional = args.find((argument, index) =>
+  !argument.startsWith("--") && !valueFlags.has(args[index - 1])
+);
 const mode = flag("mode", "mock");
-const maxUsdPerRun = Number(flag("cap", 0.1));
-const maxUsdPerIntent = Number(flag("per-intent", 0.02));
-
-if (!token) {
-  console.error("usage: node src/cli.mjs <token-symbol-or-address> [--mode mock|real] [--cap USD] [--per-intent USD]");
+let candidatePath;
+let candidate;
+try {
+  candidatePath = flag("candidate-json", null);
+  candidate = candidatePath
+    ? JSON.parse(readFileSync(candidatePath, "utf8"))
+    : { token: positional };
+} catch (error) {
+  console.error(`candidate input could not be read: ${error.message}`);
+  process.exit(2);
+}
+if (candidatePath && (!candidate || typeof candidate !== "object" || Array.isArray(candidate))) {
+  console.error("candidate input must be a JSON object");
+  process.exit(2);
+}
+if (positional && candidatePath && !candidate.token) candidate.token = positional;
+if (!candidate?.token) {
+  console.error("usage: node src/cli.mjs <token> [--mode mock|real] [--candidate-json path] [--cap USD] [--per-intent USD]");
   process.exit(2);
 }
 
-console.error(`listings desk — token ${token}, mode ${mode}, run cap $${maxUsdPerRun.toFixed(2)} (${maxUsdPerIntent.toFixed(2)}/intent)`);
-console.error("firing 5 parallel paid requests through Telegraph...\n");
+const maxUsdPerRun = flag("cap", "0.10");
+const maxUsdPerIntent = flag("per-intent", "0.02");
+console.error(`listings desk — token ${candidate.token}, mode ${mode}`);
+console.error(mode === "mock"
+  ? "SIMULATED/OFFLINE demo; no Engine calls, payments or signatures.\n"
+  : "REAL mode; only explicitly supplied inputs with supported adapters may be requested.\n");
 
 try {
-  const { memo, receipts } = await runDesk(token, { mode, maxUsdPerRun, maxUsdPerIntent });
-
-  const md = renderMarkdown(memo);
+  const { memo } = await runDesk(candidate, { mode, maxUsdPerRun, maxUsdPerIntent });
+  const markdown = renderMarkdown(memo);
   const html = renderHtml(memo);
   const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
   mkdirSync("memos", { recursive: true });
-  const base = `memos/${token.replace(/[^a-zA-Z0-9.-]/g, "_")}-${stamp}`;
-  writeFileSync(`${base}.md`, md);
+  const base = `memos/${candidate.token.replace(/[^a-zA-Z0-9.-]/g, "_")}-${stamp}`;
+  writeFileSync(`${base}.md`, markdown);
   writeFileSync(`${base}.html`, html);
-  writeFileSync(`${base}.json`, JSON.stringify({ memo, receipts }, null, 2));
-
-  console.log(md);
-  console.error(`\nsaved: ${base}.md | ${base}.html | ${base}.json`);
-  console.error(`verdict: ${memo.verdict} · cost $${memo.totalUsd.toFixed(4)} · hash ${memo.verificationHash}`);
-} catch (e) {
-  console.error(`\nrun failed: ${e.message}`);
-  if (/402/.test(e.message)) {
-    console.error(
-      "\nReal mode needs a funded wallet (USDC on Base). Two options:\n" +
-        "  1. Exercise the full pipeline risk-free: node src/cli.mjs <token> --mode mock\n" +
-        "  2. Fund the desk, then retry — see README.md, section 'Going real'."
-    );
-  }
+  writeFileSync(`${base}.json`, JSON.stringify({ memo }, null, 2));
+  console.log(markdown);
+  console.error(`\nSaved: ${base}.md | ${base}.html | ${base}.json`);
+  console.error(`recommendation: ${memo.verdict} · ${memo.actualSpendDescription} ${memo.actualSpentUsd} USD · estimate ${memo.estimatedCostUsd} USD`);
+} catch (error) {
+  console.error(`\nrun failed: ${error.message}`);
   process.exit(1);
 }

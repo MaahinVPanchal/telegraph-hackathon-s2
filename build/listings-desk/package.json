@@ -1,7 +1,7 @@
 {
   "name": "telegraph-listings-desk",
   "version": "0.1.0",
-  "description": "Mission 01 (Exchange): autonomous listings desk — buys contract audit, on-chain metrics, sanctions screening, social bot detection and code review through Telegraph, and returns a signed listing risk memo with a cost line.",
+  "description": "Local listing-risk desk with fail-closed evidence, payment guards, and honest simulated/real output labels.",
   "type": "module",
   "private": true,
   "engines": { "node": ">=22" },

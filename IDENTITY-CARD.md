@@ -12,7 +12,7 @@
 |---|---|---|
 | **Our app** | **"the Listings Desk"** | `listings-desk` (Mission 01 entry) |
 | **Miner #1** | **"On-Chain Metric Verify — Ethplorer edition"** | name: `OnChain Metric Verify (Ethplorer Ethereum)` · slug: `onchain-metric-publicnode` · ID **9602** · registration **4856** (active; `ETH.balance` in ETH units) |
-| **Miner #2** | **"Weather Forecast Verify — Open Meteo ICON"** (say: "open-MEH-teh-oh") | name: `Weather Forecast Verify (Open-Meteo ICON)` · slug: `weather-verify-openmeteo` · ID **9603** · registration **4853** (label_field: hourly — scoring-optimized) |
+| **Miner #2** | **"Weather Forecast Verify — Open Meteo ICON"** (say: "open-MEH-teh-oh") | name: `Weather Forecast Verify (Open-Meteo ICON)` · slug: `weather-verify-openmeteo` · ID **9603** · registration **4855** (label_field: hourly — via Anjoman dashboard) |
 | **Miner #3** | **"FX Now — Frankfurter"** | name: `FX Now (Frankfurter ECB)` · slug: `fx-now-frankfurter` · ID **9601** · registration **4854** |
 
 One-liner if asked "what do you run?":

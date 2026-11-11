@@ -591,6 +591,100 @@ test("definitive unpaid response releases reservation without retrying", async (
   assert.equal(p.snapshot().reservations[0].status, "failed");
 });
 
+test("failed then unknown retry blocks a third authorization for the same request", async () => {
+  const p = policy("0.03", "0.03");
+  const { signer, state } = fakeSigner();
+  const init = { method: "POST", body: JSON.stringify({ intent: SANCTIONS_INTENT, params: { name: "Example Entity" } }) };
+  const options = { policy: p, intent: SANCTIONS_INTENT, expected };
+  let paidRetryCalls = 0;
+  const fetchImpl = async (_url, request) => {
+    if (request.headers?.["X-PAYMENT"]) {
+      paidRetryCalls++;
+      if (paidRetryCalls === 1) return settlementResponse(402, null);
+      if (paidRetryCalls === 2) throw new Error("connection lost after authorization");
+      assert.fail("duplicate request reached another paid retry");
+    }
+    return response(402, escrowChallenge());
+  };
+
+  assert.equal((await fetchWithEscrow(fetchImpl, signer, "https://engine.test/engine/v1/ask", init, options)).paymentStatus, "definitive_unpaid");
+  await assert.rejects(
+    () => fetchWithEscrow(fetchImpl, signer, "https://engine.test/engine/v1/ask", init, options),
+    (error) => error.paymentStatus === "unknown"
+  );
+  await assert.rejects(
+    () => fetchWithEscrow(fetchImpl, signer, "https://engine.test/engine/v1/ask", init, options),
+    /duplicate payment request ID is unknown/i
+  );
+
+  assert.equal(state.signCalls, 2);
+  assert.equal(paidRetryCalls, 2);
+  assert.deepEqual(p.snapshot().reservations.map(({ status }) => status), ["failed", "unknown"]);
+  assert.equal(p.snapshot().reservedOrAuthorizedMicro, "10000");
+});
+
+test("failed then settled retry blocks a third authorization for the same request", async () => {
+  const p = policy("0.03", "0.03");
+  const { signer, state } = fakeSigner();
+  const init = { method: "POST", body: JSON.stringify({ intent: SANCTIONS_INTENT, params: { name: "Example Entity" } }) };
+  const options = { policy: p, intent: SANCTIONS_INTENT, expected };
+  let paidRetryCalls = 0;
+  const fetchImpl = async (_url, request) => {
+    if (request.headers?.["X-PAYMENT"]) {
+      paidRetryCalls++;
+      return paidRetryCalls === 1 ? settlementResponse(402, null) : settlementResponse(200);
+    }
+    return response(402, escrowChallenge());
+  };
+
+  assert.equal((await fetchWithEscrow(fetchImpl, signer, "https://engine.test/engine/v1/ask", init, options)).paymentStatus, "definitive_unpaid");
+  assert.equal((await fetchWithEscrow(fetchImpl, signer, "https://engine.test/engine/v1/ask", init, options)).paymentStatus, "receipt_valid");
+  await assert.rejects(
+    () => fetchWithEscrow(fetchImpl, signer, "https://engine.test/engine/v1/ask", init, options),
+    /duplicate payment request ID is settled/i
+  );
+
+  assert.equal(state.signCalls, 2);
+  assert.equal(paidRetryCalls, 2);
+  assert.deepEqual(p.snapshot().reservations.map(({ status }) => status), ["failed", "settled"]);
+  assert.equal(p.snapshot().reservedOrAuthorizedMicro, "10000");
+});
+
+test("concurrent retries after definitive unpaid authorize the same request only once", async () => {
+  const p = policy("0.03", "0.03");
+  const { signer, state } = fakeSigner();
+  const init = { method: "POST", body: JSON.stringify({ intent: SANCTIONS_INTENT, params: { name: "Example Entity" } }) };
+  const options = { policy: p, intent: SANCTIONS_INTENT, expected };
+  let initialRequests = 0;
+  let paidRetryCalls = 0;
+  let openBarrier;
+  const barrier = new Promise((resolve) => { openBarrier = resolve; });
+  const fetchImpl = async (_url, request) => {
+    if (request.headers?.["X-PAYMENT"]) {
+      paidRetryCalls++;
+      return paidRetryCalls === 1 ? settlementResponse(402, null) : settlementResponse(200);
+    }
+    initialRequests++;
+    if (initialRequests === 1) return response(402, escrowChallenge());
+    if (initialRequests === 3) openBarrier();
+    await barrier;
+    return response(402, escrowChallenge());
+  };
+
+  assert.equal((await fetchWithEscrow(fetchImpl, signer, "https://engine.test/engine/v1/ask", init, options)).paymentStatus, "definitive_unpaid");
+  const retries = await Promise.allSettled([
+    fetchWithEscrow(fetchImpl, signer, "https://engine.test/engine/v1/ask", init, options),
+    fetchWithEscrow(fetchImpl, signer, "https://engine.test/engine/v1/ask", init, options),
+  ]);
+  assert.equal(retries.filter((result) => result.status === "fulfilled").length, 1);
+  assert.equal(retries.filter((result) => result.status === "rejected").length, 1);
+  assert.match(retries.find((result) => result.status === "rejected").reason.message, /duplicate payment request ID/i);
+  assert.equal(state.signCalls, 2);
+  assert.equal(paidRetryCalls, 2);
+  assert.deepEqual(p.snapshot().reservations.map(({ status }) => status), ["failed", "settled"]);
+  assert.equal(p.snapshot().reservedOrAuthorizedMicro, "10000");
+});
+
 test("unknown post-sign outcome retains reservation and blocks duplicate authorization", async () => {
   const p = policy("0.02", "0.02");
   const firstBody = JSON.stringify({ intent: SANCTIONS_INTENT, params: { name: "Example Entity" } });

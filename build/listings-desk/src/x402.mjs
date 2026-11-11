@@ -31,12 +31,13 @@ export class PaymentPolicy {
     if (typeof requestId !== "string" || !/^sha256:[0-9a-f]{64}$/.test(requestId)) {
       throw new PaymentPolicyError("stable payment request ID is required");
     }
-    const previous = [...this.reservations.values()].find((reservation) => reservation.requestId === requestId);
-    if (previous && previous.intent !== intent) {
+    const matchingReservations = [...this.reservations.values()].filter((reservation) => reservation.requestId === requestId);
+    if (matchingReservations.some((reservation) => reservation.intent !== intent)) {
       throw new PaymentPolicyError("payment request ID cannot be reused for a different intent");
     }
-    if (previous && previous.status !== "failed") {
-      throw new PaymentPolicyError(`duplicate payment request ID is ${previous.status}`);
+    const activeDuplicate = matchingReservations.find((reservation) => reservation.status !== "failed");
+    if (activeDuplicate) {
+      throw new PaymentPolicyError(`duplicate payment request ID is ${activeDuplicate.status}`);
     }
     const active = [...this.reservations.values()].filter((r) => r.status !== "failed");
     const runTotal = active.reduce((sum, r) => sum + r.amount, 0n);

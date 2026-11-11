@@ -8,7 +8,9 @@ const USDT = "0xdAC17F958D2ee523a2206206994597C13D831ec7";
 const USDC = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48";
 
 const server = http.createServer(async (req, res) => {
-  const { status, text } = await handle(`http://localhost${req.url}`, process.env, { quiet: true });
+  const url = new URL(req.url, "http://localhost");
+  if (!url.searchParams.has("chain")) url.searchParams.set("chain", "ethereum");
+  const { status, text } = await handle(url, {}, { quiet: true });
   res.writeHead(status, { "content-type": "application/json" }); res.end(text);
 }).listen(0);
 const base = `http://localhost:${server.address().port}`;
@@ -27,7 +29,7 @@ const cases = [
   ["cache hit on repeat", `/query?address=${VITALIK}&block_number=18000000`, 200, (j) => j.cached === true],
   ["invalid address -> 400", `/query?address=vitalik.eth`, 400, (j) => j.error === "INVALID_ADDRESS"],
   ["future block -> 400", `/query?address=${VITALIK}&block_number=999999999`, 400, (j) => j.error === "FUTURE_BLOCK"],
-  ["unsupported metric -> 400", `/query?address=${VITALIK}&metric=logs`, 400, (j) => j.error === "UNSUPPORTED_METRIC"],
+  ["unsupported metric -> 400", `/query?address=${VITALIK}&metric=unsupported`, 400, (j) => j.error === "UNSUPPORTED_METRIC"],
 ];
 
 let failed = 0;
@@ -44,7 +46,7 @@ for (const [name, path, wantStatus, check] of cases) {
   clearCache();
   const t0 = Date.now();
   const rpcDown = (url, init) => (String(url).includes("api.ethplorer.io") ? fetch(url, init) : Promise.resolve(new Response("busy", { status: 503 })));
-  const { status, text } = await handle(`http://x/query?address=${VITALIK}`, {}, { fetch: rpcDown, quiet: true });
+  const { status, text } = await handle(`http://x/query?address=${VITALIK}&chain=ethereum`, {}, { fetch: rpcDown, quiet: true });
   const j = JSON.parse(text); const ms = Date.now() - t0;
   const ok = status === 200 && j.source === "api.ethplorer.io" && Number.isInteger(j.block) && j.block > 23000000 && j.block_tag === "latest";
   if (!ok) failed++;

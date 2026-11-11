@@ -7,7 +7,12 @@ const env = mode === "soft" ? { SOFT_ERRORS: "1" } : {};
 const errStatus = mode === "soft" ? 200 : 400;
 let pass = 0, fail = 0;
 const check = (n, c, d) => { c ? pass++ : fail++; console.log(c ? "PASS" : "FAIL", n, d ?? ""); };
-const q = async (qs) => { const r = await handle("https://x/query?" + qs, env, { quiet: true }); return { status: r.status, body: JSON.parse(r.text), bytes: new TextEncoder().encode(r.text).length }; };
+const q = async (qs) => {
+  const url = new URL("https://x/query?" + qs);
+  if (!url.searchParams.has("chain")) url.searchParams.set("chain", "ethereum");
+  const r = await handle(url, env, { quiet: true });
+  return { status: r.status, body: JSON.parse(r.text), bytes: new TextEncoder().encode(r.text).length };
+};
 const ulp = (v) => 2 ** (Math.floor(Math.log2(Math.abs(v))) - 52);
 const ORACLES = [
   "https://eth-mainnet.public.blastapi.io",
@@ -70,7 +75,7 @@ r = await q(`block=21000000`);
 check(`missing address (HTTP ${errStatus}) MISSING_ADDRESS`, r.status === errStatus && r.body.error === "MISSING_ADDRESS");
 r = await q(`address=${V}&block=99999999999`);
 check(`future block (HTTP ${errStatus}) FUTURE_BLOCK`, r.status === errStatus && r.body.error === "FUTURE_BLOCK" && !("balance_wei" in r.body));
-r = await q(`address=${V}&block=21000000&metric=logs`);
+r = await q(`address=${V}&block=21000000&metric=unsupported`);
 check(`bad metric (HTTP ${errStatus}) UNSUPPORTED_METRIC`, r.status === errStatus && r.body.error === "UNSUPPORTED_METRIC");
 
 const SAMPLE_ADDR = "0x1234567890123456789012345678901234567890";

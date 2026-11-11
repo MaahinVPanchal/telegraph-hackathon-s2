@@ -2,7 +2,8 @@ import { handle, clearCache } from "../src/core.mjs";
 
 const V = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045".toLowerCase();
 let pass = 0, fail = 0;
-const check = (n, c, d) => { c ? pass++ : fail++; console.log(c ? "PASS" : "FAIL", n, d ?? ""); };
+const failedChecks = [];
+const check = (n, c, d) => { if (c) pass++; else { fail++; failedChecks.push(n); } console.log(c ? "PASS" : "FAIL", n, d ?? ""); };
 const ulp = (v) => { if (!Number.isFinite(v) || v === 0) return 0; return 2 ** (Math.floor(Math.log2(Math.abs(v))) - 52); };
 
 function mockRpc(o = {}) {
@@ -14,6 +15,7 @@ function mockRpc(o = {}) {
     if (String(url).includes("ethplorer")) return new Response("no", { status: 503 });
     if (badJson) return new Response("<html>not json</html>", { status: 200 });
     const b = JSON.parse(init.body);
+    if (b.method === "eth_chainId") return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, result: "0x1" }), { status: 200 });
     if (failMethods.includes(b.method)) return new Response("method down", { status: 503 });
     if (rpcError) return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, error: { code: -32602, message: rpcError } }), { status: 200 });
     if (nullResult) return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, result: null }), { status: 200 });
@@ -33,7 +35,9 @@ function mockRpc(o = {}) {
 }
 async function q(qs, opts = {}) {
   clearCache();
-  const r = await handle("https://x/query?" + qs, opts.env || {}, { fetch: mockRpc(opts), quiet: true });
+  const url = new URL("https://x/query?" + qs);
+  if (!url.searchParams.has("chain")) url.searchParams.set("chain", "ethereum");
+  const r = await handle(url, opts.env || {}, { fetch: mockRpc(opts), quiet: true });
   return { status: r.status, body: JSON.parse(r.text), bytes: new TextEncoder().encode(r.text).length };
 }
 const noBalance = (b) => b.ok === false && !("balance_wei" in b) && !("balance_gwei" in b) && !("value" in b);
@@ -109,11 +113,13 @@ check("null result from all: 504, no balance", r.status === 504 && noBalance(r.b
   clearCache();
   const logs = [];
   const orig = console.log; console.log = (s) => logs.push(String(s));
+  let secretSafe;
   try {
-    const r2 = await handle("https://x/query?address=" + V + "&block=18000000", { ARCHIVE_RPC_URL: "https://SECRETKEY123.example-rpc.com" }, { fetch: mockRpc({ failAll: true }), quiet: false });
+    const r2 = await handle("https://x/query?address=" + V + "&block=18000000&chain=ethereum", { ARCHIVE_RPC_URL: "https://SECRETKEY123.example-rpc.com" }, { fetch: mockRpc({ failAll: true }), quiet: false });
     const blob = r2.text + logs.join("\n");
-    check("keyed RPC URL never in response or logs", !blob.includes("SECRETKEY123") && !blob.includes("example-rpc.com"));
+    secretSafe = !blob.includes("SECRETKEY123") && !blob.includes("example-rpc.com");
   } finally { console.log = orig; }
+  check("keyed RPC URL never in response or logs", secretSafe);
 }
 
 r = await q(`address=${V}&block=21000000&metric=erc20_balance&token=0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`, { callResult: "0x" + (690075n).toString(16).padStart(64, "0"), decimals: "6" });
@@ -138,7 +144,7 @@ check("chain echo on success", r.body.chain === "ethereum");
   const orig = console.log; console.log = (s) => logs.push(String(s));
   try {
     const bad = "x".repeat(10000);
-    const res = await handle(`https://x/query?address=${bad}&block=21000000`, {}, { fetch: mockRpc(), quiet: false });
+    const res = await handle(`https://x/query?address=${bad}&block=21000000&chain=ethereum`, {}, { fetch: mockRpc(), quiet: false });
     const event = JSON.parse(logs[0]);
     check("10,000-char address rejected with INVALID_ADDRESS", res.status === 400 && JSON.parse(res.text).error === "INVALID_ADDRESS");
     check("10,000-char address diagnostic is bounded with length marker",
@@ -146,5 +152,5 @@ check("chain echo on success", r.body.chain === "ethereum");
   } finally { console.log = orig; }
 }
 
-console.log(`\nunit: ${pass} passed, ${fail} failed`);
+console.log(`\nunit: ${pass} passed, ${fail} failed${failedChecks.length ? ` (${failedChecks.join(", ")})` : ""}`);
 process.exit(fail ? 1 : 0);

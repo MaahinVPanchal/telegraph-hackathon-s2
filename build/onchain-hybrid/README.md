@@ -1,132 +1,102 @@
-# onchain-hybrid — backend for the ONCHAIN_METRIC_VERIFY miner
+# onchain-hybrid local patch
 
-Prototype of the "hybrid" design from the onchain history brief. Deployed 27 Oct 2026 to
-`https://onchain-hybrid.panchalmaahin.workers.dev` (Workers free plan), but **not yet referenced by any
-registered YAML**. The live
-miner is still the Ethplorer YAML, latest state only (registration 4860 as of 27 Oct 2026 - resolve it again
-before signing, see below).
+This directory is a local proposal for `onchain-metric-publicnode`. Nothing in this patch is deployed,
+published, registered, paid for, or signed. The remote Worker revision was not inspected; do not assume
+it matches this checkout. The associated public YAML staging copy is intentionally unchanged.
 
-`ONCHAIN_METRIC_VERIFY` questions are anchored at a block height or "latest". Ethplorer only
-serves latest state; free PublicNode refuses archive reads (epoch 442 403); Blockscout rejects
-the forwarded `block_number` (epoch 443 422); raw Ethplorer answers blew the 131072-byte cap
-(epoch 444). This service fixes all three:
+## Supported-operation matrix
 
-| Question | Route | Answer |
+| Metric | Required inputs | Output and limits |
 |---|---|---|
-| anything at `latest` | `eth_blockNumber` first, then JSON-RPC at that exact head block | value + the integer head `block` |
-| `eth_balance` at `latest`, all RPCs down | Ethplorer `getAddressInfo` (`token=0x0..0&showETHTotals=false`) + `getLastBlock` | value + Ethplorer's last block, `block_note` says so |
-| anything at a historical block | archive JSON-RPC at that exact block (`eth_getBalance`, `eth_getTransactionCount`, `eth_getCode`, `eth_call balanceOf`) | value at that block, never the current one |
+| `eth_balance` | `chain`, `address`, optional `block_number` | Exact raw wei and decimal native amount; `balance_gwei` is emitted for ETH-native chains, not Polygon POL |
+| `tx_count` | `chain`, `address`, optional `block_number` | Account nonce only; it is not total transaction activity |
+| `code` | `chain`, `address`, optional `block_number` | `has_code` and byte count; bytecode is not returned |
+| `erc20_balance` | `chain`, holder `address`, `token`, optional `block_number` | Exact raw token units; decimal token value only when `decimals()` is readable |
+| `tx_receipt` | `chain`, `tx_hash` | Pending or mined state, receipt status, `gas_used`, `effective_gas_price_wei`, and exact fee when available; missing transaction is HTTP 404 |
+| `logs` | `chain`, `from_block`, `to_block`, plus contract `address` and/or `topic0`–`topic3` | Filtered logs over at most 2,001 inclusive blocks; at most 100 records and 4,096 serialized bytes |
+| `total_supply` | `chain`, token contract, numbered `block_number` | ERC-20 `totalSupply`, raw and decimal-scaled when decimals are readable; never circulating supply |
 
-Response block fields: `block` is **always an integer** (the block actually read) and `block_tag` is
-`"latest"` or `"number"`. ETH balance responses include the scored `balance_gwei` number and the
-`chain` echo, alongside exact `balance_wei` and `balance_eth` strings. `balance_gwei` is truncated
-to six decimal places before conversion to a JSON number; large values may not retain all six decimals.
-There is no `block_number: null` any more. The Worker accepts an integer,
-hex, or the string `latest` (default); however, the Telegraph descriptor
-(`../miner-kit/miners/onchain-metric-hybrid.yaml`) requires a specific decimal or hex block for
-`ONCHAIN_METRIC_VERIFY_GENERAL`. Its output maps `value` with `unit`, allowing unit-aware comparison
-(for example, ETH and Gwei); ETH balances also include exact `balance_wei` and `balance_eth`.
-The descriptor's YAML has not been checked by Telegraph's live validator (the public endpoint
-currently returns 404), so validate it through the integrate.telegraphprotocol.com register flow
-before publishing.
+Supported explicit chains are Ethereum mainnet (1), Polygon PoS (137, native POL; see
+[Polygon network details](https://docs.polygon.technology/pos/reference/rpc-endpoints/)), and Arbitrum One
+(42161, native ETH; see [Arbitrum chain info](https://docs.arbitrum.io/chain-info)). Each RPC provider must
+return the expected `eth_chainId` before its result is trusted. Caller-supplied RPC URLs are rejected.
+`ARCHIVE_RPC_URL`, when configured by an operator, is not a request parameter and is still chain-ID checked.
 
-- One endpoint: `GET /query?address=0x..&block_number=18000000|0x112a880|latest&metric=eth_balance|tx_count|code|erc20_balance[&token=0x..]`
-- Unknown params ignored; block aliases accepted (`block`, `blockNumber`, `blockNo`, `block_height`, ...).
-- Exact wei/ETH values via BigInt; the scored Gwei value is a six-decimal truncation represented as
-  a JSON number. Bytecode is never returned (only `code_size_bytes`).
-- Every response is serialized with a hard cap of 4096 bytes (`MAX_BYTES`); over that it returns an explicit `ANSWER_TOO_LARGE` error, never a truncated answer.
-- **Deadline + hedged failover:** each request has an 8 s total budget (`REQUEST_DEADLINE_MS`). Each upstream
-  attempt is aborted (AbortController) after 2.5 s or when the budget runs out. The first 2 RPCs are raced
-  in parallel; every failure (timeout, HTTP 429/5xx, JSON-RPC error such as pruned state) starts the next
-  provider; the first valid answer wins and the others are aborted. Nothing runs past the deadline: the
-  answer is then HTTP 504 `DEADLINE_EXCEEDED` (budget spent) or `NO_ARCHIVE_SOURCE` (every provider failed).
-  For historical blocks the head check runs in parallel and is only awaited to turn a failure into
-  `FUTURE_BLOCK`. Worst case measured: 8.0 s (mock: every upstream hangs). Max subrequests ≈ 16 (< 50).
-- **Request logs:** one JSON line per request via `console.log`: `ts, req_id, path, status, error,
-  address, raw_address, token, raw_token, metric, raw_metric, raw_block, block, block_tag, source,
-  cached, attempts, rpc_failures[{rpc, method, reason}], latency_ms, bytes`. Invalid raw inputs are capped
-  at a 128-character prefix with an explicit truncation marker and original length. RPCs appear only
-  as labels (public host, or `ARCHIVE_RPC_URL#n`); the
-  `ARCHIVE_RPC_URL` value / key is never logged or returned in error messages. On Workers these go to
-  Workers Logs (`[observability] enabled = true`, `head_sampling_rate = 1` in `wrangler.toml`). The
-  response carries the same id in `x-request-id` (cf-ray on Workers).
-- Cache: historical answers forever (LRU 500), latest 15 s, chain head 6 s.
-- Errors are HTTP 400/502/504 with `{"ok":false,"error":CODE,"message":...}` and never contain a guessed value. Future blocks are refused.
+An explicit `chain` or `chain_id` is required; omitting both returns `CHAIN_REQUIRED`. This intentionally
+avoids silently selecting a network, but requires Engine-contract review before any publication. A
+`question` parameter is rejected
+as `QUESTION_UNSUPPORTED`; there is no LLM or heuristic question parser. Generic `gas` is deliberately
+unsupported: a receipt exposes gas used, effective gas price, and fee as separate fields. Token supply
+means only ERC-20 `totalSupply()`, not circulating supply.
 
-## Archive RPCs
+## Chain, block, cache, and provenance behavior
 
-Free keyless endpoints that answered `eth_getBalance`/`eth_getTransactionCount` at blocks 1,000,000 and
-18,000,000 on 27 Oct 2026, tried in order: blastapi, nodies (POKT), tatum, mevblocker, drpc, tenderly.
-Public endpoints change without notice. For reliability set `ARCHIVE_RPC_URL` (comma-separated; e.g. an
-Alchemy or Infura free-tier key URL); it is tried first.
+- State metrics resolve `latest` to the selected chain's head or use the exact requested numbered block.
+  Historical reads are never replaced with latest state or clamped to head.
+- The future-block check uses the selected chain's `eth_blockNumber` and rejects any requested block
+  above that exact head.
+- Responses include requested and resolved chain/block, chain ID, source label(s), units, and exact
+  integer strings where applicable. A decimal-scaled amount is never substituted for its raw integer.
+- Head cache keys include chain. Result keys include canonical chain, operation, every relevant argument,
+  and requested block; fallback results share the same chain/argument partitioning.
+- Ethplorer is an Ethereum-only fallback for `eth_balance` at `latest`. It cannot answer Polygon or
+  Arbitrum requests, historical requests, or other operations.
+- JSON-RPC attempts have per-attempt and total deadlines. Upstream bodies are bounded; answers over
+  4,096 bytes and log sets over 100 entries fail with HTTP 413, without truncation.
+- Failures use real HTTP status codes and `ok:false`; there are no success-shaped fallback values.
 
-Refused archive reads in the same test: PublicNode (personal token), 1rpc, Flashbots (pruned), bloXroute,
-Ankr (key), Cloudflare-eth (internal error), Merkle (rate limit), BlockPI (key), OnFinality (rate limit).
+## Engine and mission contract caveat
 
-## Run / test locally (Node >= 19, no dependencies)
+Mission 14 describes logs, gas consumption, token balances, and wallet transaction states as use cases:
+[Web3 Native and DeFi mission](https://hackathon.telegraphprotocol.com/missions/web3-defi). That mission
+description is not an input/output schema.
 
-```bash
-npm start          # http://localhost:8787/query?address=0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045&block_number=18000000
-npm test           # failover, live, deterministic unit, address, and live contract tests
-npm run test:unit  # deterministic unit and address/score-response tests
-npm run test:contract # live contract tests against RPC oracles (strict mode)
-npm run test:mock  # 14 offline failover/deadline/secret-safety cases + local CPU proxy (~20 s, mostly deliberate hangs)
-npm run test:live  # 15 cases against real upstreams, incl. Ethplorer fallback with RPCs forced down
+The live [`ONCHAIN_METRIC_VERIFY_GENERAL` intent](https://devnode.telegraphprotocol.com/engine/v1/intents/ONCHAIN_METRIC_VERIFY_GENERAL)
+was re-fetched for this patch. Its request declares `address` and `block`; its scored response is
+`balance_gwei`. `chain` appears only as off-chain response evidence, not as a declared request parameter.
+It does not declare `metric`, `tx_hash`, log filters, or token-contract inputs. This local descriptor
+documents proposed worker inputs only; neither its `input_schema` nor YAML parameter descriptions prove
+the Engine router accepts those inputs. No extra operation is claimed as scored, and none is mapped into
+`balance_gwei`.
+
+The [miner YAML guide](https://anjoman.ai/docs/miners/yaml-config) describes `input_schema` as top-level
+metadata surfaced to callers; it does not establish that it performs router validation. This patch uses
+actual HTTP failures rather than HTTP 200 failures, so no `errors.status_path`/`success_values` mapping is
+used to disguise errors.
+
+## Local run and tests
+
+Node.js >= 19; no added package dependencies.
+
+```powershell
+npm start
+npm run test:unit
+npm run test:mock
+npm run test:live
+npm run test:contract
 ```
 
-CPU: `test:mock` prints a local Node CPU-per-request figure as a proxy only. Measured on Cloudflare
-(27 Oct 2026, 59 requests, `wrangler tail` cpuTime): p50 4 ms, p99/max 16 ms, all outcomes `ok`, no
-`exceededCpu`. Cache hits and 400s use 0-1 ms; uncached upstream reads use 3-8 ms, with the first
-requests on a fresh isolate reaching 10-16 ms. That is over the nominal 10 ms free-plan figure, but
-Cloudflare did not terminate any of them; recheck Metrics → CPU time if traffic grows.
+`test:unit` includes synthetic chain-ID, chain/cache isolation, future-block, input-validation, transaction,
+log-size, token-decimal, timeout, and response-provenance cases. Synthetic fixtures are not live-chain
+evidence. The latest local validation passed 83 deterministic checks, 14 mock failover/deadline checks,
+15 live checks, and 22 strict contract checks. The measured worst-case mock request was 8,009 ms against
+the configured 8,000 ms deadline (the test allows 500 ms for timer scheduling overhead).
 
-Workers note: `ctx.fetch` wraps the global `fetch` in an arrow function. Storing it bare and calling it as
-a method makes Workers throw `Illegal invocation` (every upstream then fails as `network`); Node tolerates it.
+Read-only same-block comparisons also matched exact wei values across independent providers: Ethereum at
+block 21,000,000 (`ethereum-mainnet.gateway.tatum.io` and `eth.drpc.org`); Polygon at block 97,130,176
+(`polygon.publicnode.com` and `1rpc.io`); and Arbitrum One at block 523,279,362
+(`arbitrum.publicnode.com` and `arbitrum.drpc.org`). The Polygon and Arbitrum probes verified chain IDs
+137 and 42161 respectively. These samples verify only those provider responses at those blocks; they do
+not establish continuous availability or production provider suitability.
 
-## Deploy (Cloudflare Workers, free plan)
+## Required review before any deployment or registration
 
-Free plan: 100,000 requests/day, 10 ms CPU per request (fetch waits don't count), 50 subrequests per
-request (worst case here is about 16). No cold starts, HTTPS on `*.workers.dev`.
-
-```bash
-cd build/onchain-hybrid
-npx wrangler login                       # opens a browser; free Cloudflare account
-npx wrangler deploy                      # prints https://onchain-hybrid.<your-subdomain>.workers.dev
-# optional: npx wrangler secret put ARCHIVE_RPC_URL
-curl "https://onchain-hybrid.<your-subdomain>.workers.dev/query?address=0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045&block_number=18000000"
-```
-
-Then put that URL in `../miner-kit/miners/onchain-metric-hybrid.yaml` as `base_url`, publish the YAML
-byte-for-byte to the public repo and wait for the raw URL to serve the new sha256.
-
-### Resolve the active registration id immediately before signing
-
-Every `updateMiner` creates a new registration id, so never reuse an id from notes or an old tx.
-Right before building the `updateMiner` calldata:
-
-```bash
-WALLET=0x5549286a1c71893816899bbef8f4ce4d91f87821
-# 1) registry (devnode dispatcher) - must print exactly one active line
-curl -s https://devnode.telegraphprotocol.com/miner-dispatcher/miners/address/$WALLET/yamls \
-  | jq -r '.yamls[] | select(.slug=="onchain-metric-publicnode" and .activation_status!="deregistered")
-           | "\(.registration_id) \(.activation_status) \(.yaml_hash)"'
-curl -s https://devnode.telegraphprotocol.com/api/miners/<ID> | jq .   # cross-check the one id
-
-# 2) on-chain cross-check (Base Sepolia Diamond): the newest MinerRegistered for that id must not be
-#    followed by a MinerDeregistered for it.
-#    MinerRegistered(uint256,address,string,bytes32,address,uint256,string[]) topic0 0x7305b0d0...
-#    MinerDeregistered(uint256,address)                                       topic0 0xa161d6b7...
-cast rpc eth_getLogs '{"address":"0x5a2324aA18613FAD4e44bDF0d6c73Ec1f6D87ff8","fromBlock":"<recent block hex>","toBlock":"latest",
-  "topics":[null,null,"0x0000000000000000000000005549286a1c71893816899bbef8f4ce4d91f87821"]}' \
-  --rpc-url https://base-sepolia-rpc.publicnode.com \
-  | jq -r '.[] | "\(.blockNumber) \(.transactionHash) \(.topics[0][0:10]) id=\(.topics[1])"'
-# (sepolia.base.org limits eth_getLogs to 200 blocks; publicnode accepts larger ranges)
-```
-
-Use that id as the first `updateMiner` argument. If the two checks disagree or more than one onchain
-registration is active, stop and do not sign.
-
-Checked 27 Oct 2026 16:10 IST: dispatcher shows 4860 active (yaml_hash 2e033bbb...); on-chain, tx
-`0x115c4b9b573ee49c8647cbc854d9ca32b49fd43e66850bb0d382a5c6a572c785` (block 50866881) emits
-MinerDeregistered(4856) + MinerRegistered(4860) for this wallet, with no later deregistration of 4860.
-This is a snapshot only; re-run the commands above before signing.
+1. Decide whether the Engine will supply a chain despite the live request schema omitting it, or whether a
+   documented Ethereum-only compatibility policy is required.
+2. Confirm route validation and supported parameter shapes for each operation; the live intent currently
+   scores only `balance_gwei`.
+3. Confirm whether transaction, receipt, log, gas, and total-supply outputs have any declared scored
+   fields. Until then, they are local evidence outputs only.
+4. Confirm the production fallback/archive policy and live RPC availability for each selected chain.
+5. After separate approval, acceptance must exercise Engine → updated YAML → deployed Worker → matching
+   chain-ID-verified RPC → correct scored output. No rank improvement is implied.

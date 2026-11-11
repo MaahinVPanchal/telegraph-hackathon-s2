@@ -12,6 +12,7 @@ const hang = (init) => new Promise((_, rej) => init.signal.addEventListener("abo
 // Healthy JSON-RPC behaviour, used by providers a test marks as good.
 function good(init) {
   const { method } = JSON.parse(init.body);
+  if (method === "eth_chainId") return ok(1, "0x1");
   if (method === "eth_blockNumber") return ok(1, "0x" + HEAD.toString(16));
   if (method === "eth_getBalance") return ok(1, "0xd54076909a93bad129");
   if (method === "eth_getTransactionCount") return ok(1, "0x463");
@@ -28,6 +29,7 @@ const realLog = console.log;
 const results = [];
 async function run(name, { env = {}, behaviour, query = `address=${ADDR}&block_number=18000000`, expect }) {
   clearCache(); logs.length = 0;
+  if (!new URLSearchParams(query).has("chain")) query += "&chain=ethereum";
   const m = mock(behaviour);
   console.log = (s) => logs.push(s);
   const t0 = Date.now();
@@ -44,13 +46,12 @@ const P = DEFAULT_ARCHIVE_RPCS.map(host);
 
 await run("all RPCs fail fast (503) -> 504 NO_ARCHIVE_SOURCE, quick", {
   behaviour: () => new Response("down", { status: 503 }),
-  expect: ({ status, j, ms, log }) => status === 504 && j.error === "NO_ARCHIVE_SOURCE" && ms < 1000 && log.attempts === 2 * P.length && log.status === 504 /* balance + parallel head check */,
+  expect: ({ status, j, ms, log }) => status === 504 && j.error === "NO_ARCHIVE_SOURCE" && ms < 1000 && log.attempts === P.length && log.status === 504,
 });
 
-await run("all 6 RPCs hang -> 504 at ~7.5 s (3 hedged rounds x 2.5 s), inside the 8 s deadline", {
+await run(`all ${P.length} RPCs hang -> 504 at the 8 s total deadline`, {
   behaviour: (_h, init) => hang(init),
-  // 6 providers x 2.5 s, 2 at a time = 7.5 s, so this ends just before the 8 s deadline
-  expect: ({ status, j, ms }) => status === 504 && ["DEADLINE_EXCEEDED", "NO_ARCHIVE_SOURCE"].includes(j.error) && ms >= 7000 && ms < REQUEST_DEADLINE_MS + 500,
+  expect: ({ status, j, ms }) => status === 504 && j.error === "DEADLINE_EXCEEDED" && ms >= REQUEST_DEADLINE_MS - 100 && ms < REQUEST_DEADLINE_MS + 500,
 });
 
 await run("all RPCs hang + ARCHIVE_RPC_URL set (7 providers > deadline) -> DEADLINE_EXCEEDED at 8 s", {
@@ -71,9 +72,9 @@ await run("first RPC hangs -> second (hedged in parallel) answers, no wait for t
   expect: ({ status, j, ms, log }) => status === 200 && j.balance_wei === "3933801546759391596841" && j.block === 18000000 && j.block_tag === "number" && ms < 500 && log.source === P[1],
 });
 
-await run("first two RPCs hang -> third answers after the per-attempt timeout (~2.5 s)", {
+await run("first two RPCs hang -> third answers after bounded head and state checks", {
   behaviour: (h, init) => (h === P[0] || h === P[1] ? hang(init) : good(init)),
-  expect: ({ status, ms, log }) => status === 200 && ms >= 2400 && ms < 3200 && log.source === P[2],
+  expect: ({ status, ms, log }) => status === 200 && ms >= 4800 && ms < 6000 && log.source === P[2],
 });
 
 await run("429 on first RPC -> next RPC answers", {
@@ -98,9 +99,13 @@ await run("ARCHIVE_RPC_URL-only failure message is label-only (all fail)", {
   expect: ({ status, raw }) => status === 504 && !raw.includes("SUPERSECRETKEY123") && !raw.includes("alchemy"),
 });
 
-await run("future block -> 400 FUTURE_BLOCK (head fetched in parallel)", {
+await run("future block -> 400 FUTURE_BLOCK (selected-chain head preflight)", {
   query: `address=${ADDR}&block_number=999999999`,
-  behaviour: (_h, init) => (JSON.parse(init.body).method === "eth_blockNumber" ? good(init) : new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, error: { code: -32000, message: "header not found" } }))),
+  behaviour: (_h, init) => {
+    const { method } = JSON.parse(init.body);
+    if (method === "eth_chainId") return good(init);
+    return method === "eth_blockNumber" ? good(init) : new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, error: { code: -32000, message: "header not found" } }));
+  },
   expect: ({ status, j }) => status === 400 && j.error === "FUTURE_BLOCK",
 });
 

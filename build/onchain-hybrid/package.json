@@ -3,15 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Hybrid ONCHAIN_METRIC_VERIFY miner backend: archive JSON-RPC at an explicit block (latest resolved to head), Ethplorer fallback for latest balance",
+  "description": "Local multichain ONCHAIN_METRIC_VERIFY worker with bounded JSON-RPC operations and explicit provenance",
   "engines": {
     "node": ">=19"
   },
   "scripts": {
     "start": "node src/server.mjs",
-    "test": "node test/failover.test.mjs && node test/live.test.mjs && node test/unit.test.mjs && node test/address-contract.test.mjs && node test/contract.test.mjs strict",
+    "test": "node test/failover.test.mjs && node test/live.test.mjs && node test/unit.test.mjs && node test/address-contract.test.mjs && node test/chain-ops.test.mjs && node test/contract.test.mjs strict",
     "test:contract": "node test/contract.test.mjs strict",
-    "test:unit": "node test/unit.test.mjs && node test/address-contract.test.mjs",
+    "test:unit": "node test/unit.test.mjs && node test/address-contract.test.mjs && node test/chain-ops.test.mjs",
     "test:mock": "node test/failover.test.mjs",
     "test:live": "node test/live.test.mjs"
   }

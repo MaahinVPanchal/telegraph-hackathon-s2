@@ -13,12 +13,13 @@ function check(name, condition, detail = "") {
 
 const mockRpc = async (_url, init) => {
   const { method } = JSON.parse(init.body);
-  const result = method === "eth_blockNumber" ? "0x1406f40" : `0x${WEI.toString(16)}`;
+  const result = method === "eth_chainId" ? "0x1" : method === "eth_blockNumber" ? "0x1406f40" : `0x${WEI.toString(16)}`;
   return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, result }), { status: 200 });
 };
 
 async function query(params, log = false, fetchImpl = mockRpc) {
   clearCache();
+  if (!("chain" in params)) params = { ...params, chain: "ethereum" };
   const url = new URL("https://test/query");
   for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
   const logs = [];

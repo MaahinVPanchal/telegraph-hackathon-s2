@@ -3,8 +3,9 @@ import assert from "node:assert/strict";
 import { runDesk, contentDigest } from "../src/desk.mjs";
 import { ENGINE_INTENT_BY_CHECK, resolveCaps } from "../src/config.mjs";
 import { ask, PaymentRequiredError } from "../src/engine.mjs";
-import { renderHtml, renderMarkdown } from "../src/memo.mjs";
+import { renderHtml, renderHtmlFragment, renderMarkdown } from "../src/memo.mjs";
 import { fetchWithEscrow, PaymentPolicy, PaymentPolicyError, validateEscrowReceipt } from "../src/x402.mjs";
+import { isEthereumAddress, requestMetaMaskAccounts, selectMetaMaskProvider } from "../src/wallet-client.mjs";
 
 const wallet = "0x1111111111111111111111111111111111111111";
 const payTo = "0x2222222222222222222222222222222222222222";
@@ -82,6 +83,52 @@ function settlementResponse(status, receipt = escrowReceipt()) {
     : {};
   return response(status, { ok: status === 200 }, headers);
 }
+
+test("MetaMask provider discovery prefers EIP-6963 and only accepts MetaMask providers", () => {
+  const metamask = { isMetaMask: true, request() {} };
+  const otherWallet = { isMetaMask: false, request() {} };
+  const announced = { request() {} };
+  assert.equal(selectMetaMaskProvider({ providers: [otherWallet, metamask] }), metamask);
+  assert.equal(selectMetaMaskProvider(otherWallet, [
+    { info: { rdns: "io.metamask" }, provider: announced },
+  ]), announced);
+  assert.equal(selectMetaMaskProvider(otherWallet, [
+    { info: { rdns: 7 }, provider: announced },
+    null,
+  ]), null);
+  assert.equal(selectMetaMaskProvider(otherWallet), null);
+});
+
+test("MetaMask connection requests accounts only and validates returned addresses", async () => {
+  const calls = [];
+  const accounts = [wallet, payTo];
+  const provider = {
+    request: async (request) => {
+      calls.push(request);
+      return accounts;
+    },
+  };
+  const result = await requestMetaMaskAccounts(provider);
+  assert.deepEqual(result, accounts);
+  assert.notEqual(result, accounts);
+  assert.deepEqual(calls, [{ method: "eth_requestAccounts", params: [] }]);
+  assert.equal(isEthereumAddress(wallet), true);
+  assert.equal(isEthereumAddress("0x1234"), false);
+  await assert.rejects(() => requestMetaMaskAccounts({ request: async () => [wallet, "not-an-address"] }), /valid Ethereum accounts/);
+  await assert.rejects(() => requestMetaMaskAccounts({ request: async () => [] }), /valid Ethereum accounts/);
+});
+
+test("MetaMask user rejection is preserved without requesting a signature", async () => {
+  const rejection = Object.assign(new Error("User rejected"), { code: 4001 });
+  const methods = [];
+  await assert.rejects(() => requestMetaMaskAccounts({
+    request: async ({ method }) => {
+      methods.push(method);
+      throw rejection;
+    },
+  }), (error) => error === rejection && error.code === 4001);
+  assert.deepEqual(methods, ["eth_requestAccounts"]);
+});
 
 function fakeSigner() {
   const state = { walletCalls: 0, signCalls: 0, messages: [] };
@@ -304,6 +351,7 @@ test("mock receipts are simulated, actual spend is zero, and all renderers are h
   });
   const markdown = renderMarkdown(memo);
   const html = renderHtml(memo);
+  const fragment = renderHtmlFragment(memo);
   const json = JSON.stringify({ memo });
   assert.equal(memo.actualSpentUsd, "$0");
   assert.equal(memo.actualSpendDescription, "actual spent");
@@ -311,7 +359,12 @@ test("mock receipts are simulated, actual spend is zero, and all renderers are h
   assert.equal(memo.modeLabel, "SIMULATED/OFFLINE");
   assert.equal(memo.receipts.every((receipt) => receipt.minerId === null && receipt.signalHash === null), true);
   assert.match(markdown, /\| `SANCTIONS_SCREENING_MATCH` \| `SANCTIONS_SCREENING_MATCH_GENERAL` \| SIMULATED receipt/);
-  assert.match(html, /<td><code>SANCTIONS_SCREENING_MATCH<\/code><\/td><td><code>SANCTIONS_SCREENING_MATCH_GENERAL<\/code>/);
+  assert.match(fragment, /class="memo-card evidence-card"/);
+  assert.match(fragment, /SANCTIONS_SCREENING_MATCH_GENERAL/);
+  assert.doesNotMatch(fragment, /<table\b|<!doctype|<html\b|<head\b|<body\b/i);
+  assert.match(html, /<body class="memo-page">/);
+  assert.equal((html.match(/<html\b/g) ?? []).length, 1);
+  assert.equal((html.match(/<body\b/g) ?? []).length, 1);
   for (const output of [markdown, html, json]) {
     assert.match(output, /SIMULATED/);
     assert.match(output, /not spent/);
@@ -338,7 +391,34 @@ test("partial and unknown real outcomes keep actual spend distinct from estimate
   assert.equal(memo.estimatedCostUsd, "$0");
   assert.equal(memo.paymentStatus.status, "unknown");
   assert.equal(memo.evidence.SOCIAL_BOT_DETECTION.status, "unavailable");
-  assert.doesNotMatch(renderMarkdown(memo), /\b(purchased|signed)\b/i);
+  const markdown = renderMarkdown(memo);
+  const fragment = renderHtmlFragment(memo);
+  assert.doesNotMatch(markdown, /\b(purchased|signed)\b/i);
+  assert.match(fragment, /Recommendation: UNKNOWN/);
+  assert.match(fragment, /connection lost after authorization/);
+  assert.match(fragment, /SOCIAL_BOT_DETECTION/);
+  assert.match(fragment, /SANCTIONS_SCREENING_MATCH_GENERAL/);
+  assert.match(fragment, /test-miner/);
+  assert.match(fragment, /signal hash/i);
+  assert.match(fragment, /Payment status/);
+  assert.match(fragment, /Payment\/proof details/);
+  assert.match(fragment, /receiptValid/);
+  assert.match(fragment, /Content checksum/);
+  assert.match(fragment, /not a digital signature/i);
+  assert.match(fragment, /Cost \(USD\)<\/dt><dd>0\.01/);
+  assert.doesNotMatch(fragment, /\b(purchased|signed)\b/i);
+});
+
+test("memo HTML escapes candidate, evidence, response, and failure strings", async () => {
+  const hostile = '<img src=x onerror="alert(1)"><script>alert(2)</script>';
+  const { memo } = await runDesk({ token: hostile, socialAccounts: ["@example"] }, {
+    mode: "real",
+    askImpl: async () => { throw new Error(hostile); },
+  });
+  const fragment = renderHtmlFragment(memo);
+  assert.match(fragment, /&lt;img src=x onerror=&quot;alert\(1\)&quot;&gt;/);
+  assert.match(fragment, /&lt;script&gt;alert\(2\)&lt;\/script&gt;/);
+  assert.doesNotMatch(fragment, /<img\b|<script\b/);
 });
 
 test("partial mock runs report observed response and failure counts", async () => {

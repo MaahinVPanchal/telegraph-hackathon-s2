@@ -13,6 +13,12 @@ npm run web   # local SIMULATED/OFFLINE UI at http://localhost:7788
 
 Mock mode is **SIMULATED / OFFLINE**. It makes no Engine calls, payments or signatures. Each simulated receipt has a $0 actual-spend value; the demonstration estimate is reported separately. A simulation is never eligible decision evidence.
 
+## Optional MetaMask account connection
+
+The local web UI can request account access after the user selects **Connect MetaMask**. It uses the EIP-1193 `eth_requestAccounts` method and discovers a MetaMask EIP-6963 provider first, with an injected `window.ethereum` MetaMask-provider fallback. The authorized address stays in the browser and is not sent with an assessment request.
+
+This connection does not request a signature, transaction, payment, chain switch, or chain default. It is account access only, not the full `@metamask/connect-evm` mobile QR/deep-link SDK flow. The SDK requires explicit supported-network RPC configuration; that is intentionally not added until the Engine/deployment network is confirmed. See [MetaMask's `eth_requestAccounts` reference](https://docs.metamask.io/metamask-connect/evm/reference/json-rpc-api/eth_requestAccounts) and [provider API](https://docs.metamask.io/metamask-connect/evm/reference/provider-api/).
+
 ## Candidate inputs
 
 The CLI accepts an optional JSON file with candidate-specific identifiers:

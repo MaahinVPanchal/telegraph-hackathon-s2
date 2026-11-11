@@ -1,8 +1,8 @@
 import { usdCostToMicro } from "./x402.mjs";
 
 const CONTRACT_FIELDS = {
-  SANCTIONS_SCREENING_MATCH: ["name", "matched", "matches", "lists", "match_score"],
-  SOCIAL_BOT_DETECTION: ["account", "verdict", "bot_score", "signals"],
+  SANCTIONS_SCREENING_MATCH_GENERAL: ["name", "matched", "matches", "lists", "match_score"],
+  SOCIAL_BOT_DETECTION_GENERAL: ["account", "verdict", "bot_score", "signals"],
 };
 
 export class PaymentRequiredError extends Error {
@@ -88,7 +88,7 @@ function validateEngineAnswer({ intent, params, data, authorizedAmountMicro, set
         note("invalid", "one or more required shaped fields are rejected or unrecognized");
       } else if (statuses.includes("unavailable")) note("unavailable", "one or more required shaped fields are unavailable");
       else if (statuses.includes("missing")) note("missing", "one or more required shaped fields are missing");
-    } else if (intent === "SANCTIONS_SCREENING_MATCH") {
+    } else if (intent === "SANCTIONS_SCREENING_MATCH_GENERAL") {
       const { name, matched, matches, lists } = result;
       if (typeof name !== "string" || name !== params.name ||
           typeof matched !== "boolean" || !Array.isArray(matches) ||
@@ -103,7 +103,7 @@ function validateEngineAnswer({ intent, params, data, authorizedAmountMicro, set
           (matched && matches.length === 0) || (!matched && matches.length > 0)) {
         note("invalid", "sanctions result has wrong identity, malformed coverage or contradictory match fields");
       }
-    } else if (intent === "SOCIAL_BOT_DETECTION") {
+    } else if (intent === "SOCIAL_BOT_DETECTION_GENERAL") {
       if (result.account !== params.account ||
           !["bot", "likely_bot", "inconclusive", "likely_human", "human"].includes(result.verdict) ||
           typeof result.bot_score !== "number" || !Number.isFinite(result.bot_score) ||
@@ -238,17 +238,17 @@ export function makeMockAsk({
   const answerFor = (intent) => {
     const jitter = ((seedNum + callCounter++) % 7) / 100;
     switch (intent) {
-      case "SMART_CONTRACT_AUDIT":
+      case "SMART_CONTRACT_AUDIT_GENERAL":
         return {
           result: { bytecode_verified: true, owner_mint: false, blacklist_function: false, honeypot_signals: [], risk_score: +(0.18 + jitter).toFixed(3) },
         };
-      case "ONCHAIN_METRIC_VERIFY":
+      case "ONCHAIN_METRIC_VERIFY_GENERAL":
         return { result: { holders: 4812, top10_concentration_pct: +(22.4 + jitter * 100).toFixed(1), liquidity_usd: 1842000, contract_age_days: 411 } };
-      case "SANCTIONS_SCREENING_MATCH":
+      case "SANCTIONS_SCREENING_MATCH_GENERAL":
         return { result: { lists_checked: ["OFAC_SDN", "UK_HMT", "EU Consolidated"], matches: [], clean: true } };
-      case "SOCIAL_BOT_DETECTION":
+      case "SOCIAL_BOT_DETECTION_GENERAL":
         return { result: { bot_share_estimate: +(0.11 + jitter).toFixed(3), signals: ["simulated sample"] } };
-      case "CODE_REVIEW":
+      case "CODE_REVIEW_GENERAL":
         return { result: { authenticity_score: +(0.86 - jitter).toFixed(3), findings: ["simulated sample"] } };
       default:
         return { result: {} };

@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { usdToMicro } from "./config.mjs";
 
 const pExecFile = promisify(execFile);
@@ -25,9 +25,19 @@ export class PaymentPolicy {
     this.sequence = 0;
   }
 
-  reserve(intent, amount) {
+  reserve(intent, amount, requestId) {
     if (typeof intent !== "string" || !intent) throw new PaymentPolicyError("payment intent is required");
     if (typeof amount !== "bigint" || amount <= 0n) throw new PaymentPolicyError("challenge amount must be positive integer micro-USDC");
+    if (typeof requestId !== "string" || !/^sha256:[0-9a-f]{64}$/.test(requestId)) {
+      throw new PaymentPolicyError("stable payment request ID is required");
+    }
+    const previous = [...this.reservations.values()].find((reservation) => reservation.requestId === requestId);
+    if (previous && previous.intent !== intent) {
+      throw new PaymentPolicyError("payment request ID cannot be reused for a different intent");
+    }
+    if (previous && previous.status !== "failed") {
+      throw new PaymentPolicyError(`duplicate payment request ID is ${previous.status}`);
+    }
     const active = [...this.reservations.values()].filter((r) => r.status !== "failed");
     const runTotal = active.reduce((sum, r) => sum + r.amount, 0n);
     const intentTotal = active.filter((r) => r.intent === intent).reduce((sum, r) => sum + r.amount, 0n);
@@ -38,7 +48,7 @@ export class PaymentPolicy {
       throw new PaymentPolicyError("run cap exceeded");
     }
     const id = `reservation-${++this.sequence}`;
-    this.reservations.set(id, { id, intent, amount, status: "reserved" });
+    this.reservations.set(id, { id, intent, amount, requestId, status: "reserved" });
     return id;
   }
 
@@ -65,7 +75,7 @@ export class PaymentPolicy {
       maxIntentMicro: String(this.maxUsdPerIntentMicros),
       reservedOrAuthorizedMicro: String(active.reduce((sum, r) => sum + r.amount, 0n)),
       reservations: [...this.reservations.values()].map((r) => ({
-        id: r.id, intent: r.intent, amountMicro: String(r.amount), status: r.status,
+        id: r.id, requestId: r.requestId, intent: r.intent, amountMicro: String(r.amount), status: r.status,
       })),
     };
   }
@@ -141,17 +151,22 @@ function validateChallenge(challenge, url, expected) {
       oneLine(template, "Pay To").toLowerCase() !== payTo.toLowerCase()) {
     throw new PaymentPolicyError("challenge template does not match its envelope or trusted configuration");
   }
-  for (const placeholder of ["{from}", "{nonce}", "{validAfter}", "{validBefore}"]) {
-    if (template.split(placeholder).length !== 2) {
-      throw new PaymentPolicyError(`challenge template must contain exactly one ${placeholder}`);
+  for (const [field, placeholder] of [
+    ["Wallet", "{from}"],
+    ["Nonce", "{nonce}"],
+    ["Valid After", "{validAfter}"],
+    ["Valid Before", "{validBefore}"],
+  ]) {
+    if (oneLine(template, field) !== placeholder || template.split(placeholder).length !== 2) {
+      throw new PaymentPolicyError(`challenge template must bind ${field} to exactly ${placeholder}`);
     }
   }
   return { entry, template, amount: amountFromTemplate(template) };
 }
 
-async function signChallenge(signer, challenge, { url, expected, policy, intent, now, nonceFactory }) {
+async function signChallenge(signer, challenge, { url, expected, policy, intent, requestId, now, nonceFactory }) {
   const validated = validateChallenge(challenge, url, expected);
-  const reservationId = policy.reserve(intent, validated.amount);
+  const reservationId = policy.reserve(intent, validated.amount, requestId);
   try {
     const from = (await signer.walletAddress()).toLowerCase();
     if (!/^0x[0-9a-f]{40}$/.test(from)) throw new PaymentPolicyError("signer returned an invalid wallet address");
@@ -213,6 +228,7 @@ export function validateEscrowReceipt(receipt, { intent, amount, payer }) {
 }
 
 export async function fetchWithEscrow(fetchImpl, signer, url, init, options = {}) {
+  const requestId = paymentRequestId(url, init, options.intent);
   const first = await fetchImpl(url, init);
   if (first.status !== 402) return { res: first, receipt: null, paymentStatus: "not_authorized" };
   if (!signer) return { res: first, receipt: null, paymentStatus: "unavailable" };
@@ -226,6 +242,7 @@ export async function fetchWithEscrow(fetchImpl, signer, url, init, options = {}
     ...options,
     url,
     policy: options.policy,
+    requestId,
     now: options.now ?? Date.now,
     nonceFactory: options.nonceFactory ?? randomUUID,
   });
@@ -246,7 +263,8 @@ export async function fetchWithEscrow(fetchImpl, signer, url, init, options = {}
   let rawHeader = null;
   try {
     rawHeader = res.headers?.get?.("x-payment-response") ?? null;
-    if (rawHeader) {
+    if (rawHeader !== null) {
+      if (!rawHeader) throw new PaymentPolicyError("payment response header is empty");
       receipt = JSON.parse(Buffer.from(rawHeader, "base64").toString("utf8"));
       receiptValid = validateEscrowReceipt(receipt, {
         intent: options.intent,
@@ -258,19 +276,52 @@ export async function fetchWithEscrow(fetchImpl, signer, url, init, options = {}
     headerRead = false;
     receipt = null;
   }
+  let paymentStatus;
   if (receiptValid) {
     options.policy.transition(authorization.reservationId, "settled");
-  } else if (headerRead && res.status === 402 && !rawHeader) {
+    paymentStatus = "receipt_valid";
+  } else if (headerRead && res.status === 402 && rawHeader === null) {
     options.policy.transition(authorization.reservationId, "failed");
+    paymentStatus = "definitive_unpaid";
   } else {
     options.policy.transition(authorization.reservationId, "unknown");
+    paymentStatus = "unknown";
   }
   res.settlementReceipt = receipt;
   res.receiptValid = receiptValid;
-  res.paymentStatus = receiptValid ? "receipt_valid" : res.status === 402 ? "definitive_unpaid" : "unknown";
+  res.paymentStatus = paymentStatus;
   res.reservationId = authorization.reservationId;
   res.authorizedAmountMicro = String(authorization.amount);
   return { res, receipt, paymentStatus: res.paymentStatus };
+}
+
+function paymentRequestId(url, init, intent) {
+  if (typeof intent !== "string" || !intent) throw new PaymentPolicyError("payment intent is required");
+  if (init?.body != null && typeof init.body !== "string") {
+    throw new PaymentPolicyError("payment request body must be stable text");
+  }
+  const requestUrl = new URL(url).toString();
+  const method = typeof init?.method === "string" ? init.method.toUpperCase() : "GET";
+  const body = stableRequestBody(init?.body ?? "");
+  const fingerprint = JSON.stringify({ method, requestUrl, intent, body });
+  return `sha256:${createHash("sha256").update(fingerprint).digest("hex")}`;
+}
+
+function stableRequestBody(body) {
+  if (!body) return body;
+  try {
+    const value = JSON.parse(body);
+    const sortKeys = (item) => {
+      if (Array.isArray(item)) return item.map(sortKeys);
+      if (item && typeof item === "object") {
+        return Object.fromEntries(Object.keys(item).sort().map((key) => [key, sortKeys(item[key])]));
+      }
+      return item;
+    };
+    return JSON.stringify(sortKeys(value));
+  } catch {
+    return body;
+  }
 }
 
 export function usdCostToMicro(value) {

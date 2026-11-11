@@ -1,7 +1,7 @@
 export const ENGINE_BASE =
   process.env.TELEGRAPH_ENGINE_URL || "https://devnode.telegraphprotocol.com/engine";
 
-export const POLICY_VERSION = "listings-desk-policy-2026-11-11-v2";
+export const POLICY_VERSION = "listings-desk-policy-2026-11-11-v3";
 
 export const DEFAULTS = {
   mode: "mock",
@@ -19,26 +19,35 @@ export const MANDATORY_CHECKS = [
 
 export const INTENT_ASKS = [
   {
-    intent: "SMART_CONTRACT_AUDIT",
+    check: "SMART_CONTRACT_AUDIT",
+    intent: "SMART_CONTRACT_AUDIT_GENERAL",
     query: "Audit the smart contract at {token}: report verified source, owner controls, honeypot findings and risk score.",
   },
   {
-    intent: "ONCHAIN_METRIC_VERIFY",
+    check: "ONCHAIN_METRIC_VERIFY",
+    intent: "ONCHAIN_METRIC_VERIFY_GENERAL",
     query: "For token {token}: report holder count, top-10 concentration, liquidity and contract age.",
   },
   {
-    intent: "SANCTIONS_SCREENING_MATCH",
+    check: "SANCTIONS_SCREENING_MATCH",
+    intent: "SANCTIONS_SCREENING_MATCH_GENERAL",
     query: "Screen the explicitly supplied project entity {subject} against sanctions lists.",
   },
   {
-    intent: "SOCIAL_BOT_DETECTION",
+    check: "SOCIAL_BOT_DETECTION",
+    intent: "SOCIAL_BOT_DETECTION_GENERAL",
     query: "Assess the explicitly supplied project social account {account}.",
   },
   {
-    intent: "CODE_REVIEW",
+    check: "CODE_REVIEW",
+    intent: "CODE_REVIEW_GENERAL",
     query: "Review the explicitly supplied repository source for project history and contributor authenticity.",
   },
 ];
+
+export const ENGINE_INTENT_BY_CHECK = Object.freeze(
+  Object.fromEntries(INTENT_ASKS.map(({ check, intent }) => [check, intent]))
+);
 
 const usdPattern = /^(0|[1-9]\d*)(?:\.(\d{1,6}))?$/;
 

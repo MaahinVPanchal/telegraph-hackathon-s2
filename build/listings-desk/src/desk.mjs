@@ -1,12 +1,12 @@
 import { createHash } from "node:crypto";
 import {
-  INTENT_ASKS, MANDATORY_CHECKS, POLICY_VERSION, resolveCaps, formatUsd, usdToMicro, ENGINE_BASE,
+  INTENT_ASKS, ENGINE_INTENT_BY_CHECK, MANDATORY_CHECKS, POLICY_VERSION, resolveCaps, formatUsd, usdToMicro, ENGINE_BASE,
 } from "./config.mjs";
 import { ask, makeMockAsk, PaymentRequiredError } from "./engine.mjs";
 import { EscrowSigner, fetchWithEscrow, PaymentPolicy } from "./x402.mjs";
 
 const UNSUPPORTED = {
-  SMART_CONTRACT_AUDIT: "published intent has no response format or active miner; audit evidence is unsupported",
+  SMART_CONTRACT_AUDIT: "published leaf has no request schema or response format; audit evidence is unsupported",
   ONCHAIN_METRIC_VERIFY: "published schema returns address balance only; it does not establish holder concentration, liquidity or age",
   CODE_REVIEW: "published schema reviews supplied code; it does not establish repository history or contributor authenticity",
 };
@@ -63,7 +63,8 @@ function buildRealJobs(candidate) {
   const jobs = [];
   for (const name of candidate.sanctionsInputStatus === "valid" ? candidate.sanctionsSubjects : []) {
     jobs.push({
-      intent: "SANCTIONS_SCREENING_MATCH",
+      check: "SANCTIONS_SCREENING_MATCH",
+      intent: ENGINE_INTENT_BY_CHECK.SANCTIONS_SCREENING_MATCH,
       params: { name },
       requestInput: { name },
       query: null,
@@ -71,7 +72,8 @@ function buildRealJobs(candidate) {
   }
   for (const account of candidate.socialInputStatus === "valid" ? candidate.socialAccounts : []) {
     jobs.push({
-      intent: "SOCIAL_BOT_DETECTION",
+      check: "SOCIAL_BOT_DETECTION",
+      intent: ENGINE_INTENT_BY_CHECK.SOCIAL_BOT_DETECTION,
       params: { account },
       requestInput: { account },
       query: null,
@@ -91,16 +93,18 @@ export async function runDesk(candidateInput, opts = {}) {
   const engineBase = opts.engineBase ?? ENGINE_BASE;
   const paymentPolicy = new PaymentPolicy(caps);
   const jobs = opts.askImpl
-    ? INTENT_ASKS.map((check) => ({
-        intent: check.intent,
-        query: check.query.replaceAll("{token}", candidate.token),
+    ? INTENT_ASKS.map((definition) => ({
+        check: definition.check,
+        intent: definition.intent,
+        query: definition.query.replaceAll("{token}", candidate.token),
         params: null,
         requestInput: null,
       }))
     : mode === "mock"
-      ? INTENT_ASKS.map((check) => ({
-          intent: check.intent,
-          query: check.query.replaceAll("{token}", candidate.token),
+      ? INTENT_ASKS.map((definition) => ({
+          check: definition.check,
+          intent: definition.intent,
+          query: definition.query.replaceAll("{token}", candidate.token),
           params: null,
           requestInput: null,
         }))
@@ -110,6 +114,7 @@ export async function runDesk(candidateInput, opts = {}) {
     : jobs.length ? realAskFactory(paymentPolicy, opts) : null);
 
   const settled = await Promise.allSettled(jobs.map((job) => askFn(engineBase, {
+    check: job.check,
     intent: job.intent,
     query: job.query,
     params: job.params,
@@ -125,6 +130,7 @@ export async function runDesk(candidateInput, opts = {}) {
     if (result.status === "fulfilled") {
       receipts.push({
         ...result.value,
+        check: job.check,
         mode: mode === "mock" ? "mock" : result.value.mode,
         minerId: mode === "mock" ? null : result.value.minerId,
         minerName: mode === "mock" ? "SIMULATED" : result.value.minerName,
@@ -141,6 +147,7 @@ export async function runDesk(candidateInput, opts = {}) {
       });
     } else {
       failures.push({
+        check: job.check,
         intent: job.intent,
         requestInput: job.requestInput,
         error: String(result.reason?.message ?? result.reason),
@@ -207,14 +214,14 @@ export function assess(candidate, receipts, failures, {
 }) {
   const evidence = {};
   const signals = [];
-  const failedFor = (intent) => failures.filter((failure) => failure.intent === intent);
-  const receiptsFor = (intent) => receipts.filter((receipt) => receipt.intent === intent);
+  const failedFor = (check) => failures.filter((failure) => failure.check === check);
+  const receiptsFor = (check) => receipts.filter((receipt) => receipt.check === check);
 
-  for (const intent of MANDATORY_CHECKS) {
-    const responseReceipts = receiptsFor(intent);
+  for (const check of MANDATORY_CHECKS) {
+    const responseReceipts = receiptsFor(check);
     if (mode === "mock") {
-      const failed = failedFor(intent);
-      evidence[intent] = {
+      const failed = failedFor(check);
+      evidence[check] = {
         status: responseReceipts.length ? "simulated" : failed.length ? "unavailable" : "missing",
         reason: responseReceipts.length
           ? "offline demonstration only; simulation is not decision evidence"
@@ -226,24 +233,24 @@ export function assess(candidate, receipts, failures, {
       };
       continue;
     }
-    if (UNSUPPORTED[intent]) {
-      evidence[intent] = {
+    if (UNSUPPORTED[check]) {
+      evidence[check] = {
         status: "unsupported",
-        reason: UNSUPPORTED[intent],
+        reason: UNSUPPORTED[check],
         sourceReferences: responseReceipts.map(sourceReference),
       };
       continue;
     }
-    const inputStatus = intent === "SANCTIONS_SCREENING_MATCH"
+    const inputStatus = check === "SANCTIONS_SCREENING_MATCH"
       ? candidate.sanctionsInputStatus
       : candidate.socialInputStatus;
-    const expectedInputs = intent === "SANCTIONS_SCREENING_MATCH"
+    const expectedInputs = check === "SANCTIONS_SCREENING_MATCH"
       ? candidate.sanctionsSubjects.map((name) => ({ name }))
       : candidate.socialAccounts.map((account) => ({ account }));
     if (inputStatus !== "valid") {
-      evidence[intent] = {
+      evidence[check] = {
         status: inputStatus,
-        reason: intent === "SANCTIONS_SCREENING_MATCH"
+        reason: check === "SANCTIONS_SCREENING_MATCH"
           ? inputStatus === "invalid"
             ? "deployerName and treasuryName must be non-empty strings"
             : "explicit deployerName and treasuryName inputs are both required; addresses are not guessed"
@@ -257,10 +264,10 @@ export function assess(candidate, receipts, failures, {
     const selected = expectedInputs.map((input) =>
       responseReceipts.find((receipt) => sameInput(receipt.requestInput ?? receipt.returnedInput, input))
     );
-    const failed = failedFor(intent);
+    const failed = failedFor(check);
     if (selected.some((receipt) => !receipt)) {
-      const sourceFailures = failedFor(intent);
-      evidence[intent] = {
+      const sourceFailures = failedFor(check);
+      evidence[check] = {
         status: failed.length ? "unavailable" : "missing",
         reason: failed.map((failure) => failure.error).join("; ") || "required subject receipt is missing",
         sourceReferences: [
@@ -272,7 +279,7 @@ export function assess(candidate, receipts, failures, {
     }
     const invalid = selected.find((receipt) => receipt.evidenceStatus !== "valid");
     if (invalid) {
-      evidence[intent] = {
+      evidence[check] = {
         status: ["missing", "unavailable", "unsupported", "invalid"].includes(invalid.evidenceStatus)
           ? invalid.evidenceStatus
           : "invalid",
@@ -281,7 +288,18 @@ export function assess(candidate, receipts, failures, {
       };
       continue;
     }
-    evidence[intent] = {
+    const expectedIntent = ENGINE_INTENT_BY_CHECK[check];
+    if (selected.some((receipt) =>
+      receipt.intent !== expectedIntent || receipt.matchedIntent !== expectedIntent
+    )) {
+      evidence[check] = {
+        status: "invalid",
+        reason: `receipt request/response intent does not match concrete Engine intent ${expectedIntent}`,
+        sourceReferences: selected.map(sourceReference),
+      };
+      continue;
+    }
+    evidence[check] = {
       status: "valid",
       reason: `validated ${selected.length} explicit subject${selected.length === 1 ? "" : "s"} against the published response shape`,
       sourceReferences: selected.map(sourceReference),
@@ -295,28 +313,29 @@ export function assess(candidate, receipts, failures, {
     const name = receipt.requestInput?.name;
     return typeof name === "string" && candidate.sanctionsSubjects.includes(name) &&
       receipt.resultShape === "intent" &&
-      receipt.matchedIntent === "SANCTIONS_SCREENING_MATCH" &&
+      receipt.intent === ENGINE_INTENT_BY_CHECK.SANCTIONS_SCREENING_MATCH &&
+      receipt.matchedIntent === ENGINE_INTENT_BY_CHECK.SANCTIONS_SCREENING_MATCH &&
       receipt.fieldStatus?.matched === "ok" &&
       result?.name === name && result.matched === true;
   });
-  const validChecks = MANDATORY_CHECKS.filter((intent) => evidence[intent]?.status === "valid");
-  const missingChecks = MANDATORY_CHECKS.filter((intent) => evidence[intent]?.status !== "valid");
+  const validChecks = MANDATORY_CHECKS.filter((check) => evidence[check]?.status === "valid");
+  const missingChecks = MANDATORY_CHECKS.filter((check) => evidence[check]?.status !== "valid");
   const hardBlock = confirmedMatch;
   if (confirmedMatch) {
     signals.push(["bad", "confirmed sanctions match for an explicitly supplied entity"]);
   } else if (sanctions?.status === "valid") {
     signals.push(["good", "no sanctions match for the explicitly supplied entities; returned list coverage is present"]);
   }
-  for (const intent of MANDATORY_CHECKS) {
-    const item = evidence[intent];
-    if (item.status !== "valid") signals.push(["warn", `${intent} ${item.status}: ${item.reason}`]);
-    else if (intent === "SOCIAL_BOT_DETECTION") {
+  for (const check of MANDATORY_CHECKS) {
+    const item = evidence[check];
+    if (item.status !== "valid") signals.push(["warn", `${check} ${item.status}: ${item.reason}`]);
+    else if (check === "SOCIAL_BOT_DETECTION") {
       const risky = item.results.some((result) => result.bot_score > 0.25);
       signals.push([risky ? "bad" : "good", `social bot score checked using app threshold 0.25${risky ? " (above threshold)" : " (at or below threshold)"}`]);
     }
   }
   for (const failure of failures) {
-    signals.push(["warn", `${failure.intent} request ${failure.paymentStatus}: ${failure.error.slice(0, 120)}`]);
+    signals.push(["warn", `${failure.check} (${failure.intent}) request ${failure.paymentStatus}: ${failure.error.slice(0, 120)}`]);
   }
   const badCount = signals.filter(([kind]) => kind === "bad").length;
   const verdict = hardBlock ? "NO-GO" :
@@ -326,9 +345,9 @@ export function assess(candidate, receipts, failures, {
     status: missingChecks.length === 0 ? "complete" : "incomplete",
     validChecks,
     missingChecks,
-    unsupportedChecks: MANDATORY_CHECKS.filter((intent) => evidence[intent]?.status === "unsupported"),
-    invalidChecks: MANDATORY_CHECKS.filter((intent) => evidence[intent]?.status === "invalid"),
-    unavailableChecks: MANDATORY_CHECKS.filter((intent) => evidence[intent]?.status === "unavailable"),
+    unsupportedChecks: MANDATORY_CHECKS.filter((check) => evidence[check]?.status === "unsupported"),
+    invalidChecks: MANDATORY_CHECKS.filter((check) => evidence[check]?.status === "invalid"),
+    unavailableChecks: MANDATORY_CHECKS.filter((check) => evidence[check]?.status === "unavailable"),
   };
   const runCounts = {
     responses: receipts.length,
@@ -398,6 +417,7 @@ function summarizePayments(receipts, failures) {
 
 function minimalReceipt(receipt) {
   return {
+    check: receipt.check ?? null,
     intent: receipt.intent,
     requestInput: receipt.requestInput ?? null,
     minerId: receipt.minerId ?? null,

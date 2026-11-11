@@ -36,13 +36,13 @@ export function renderMarkdown(memo) {
     "",
     "## Receipts and responses",
     "",
-    "| Intent | Label | Cost | Miner | Signal hash |",
-    "|---|---|---|---|---|",
+    "| Check | Engine intent | Label | Cost | Miner | Signal hash |",
+    "|---|---|---|---|---|---|",
     ...memo.receipts.map((receipt) =>
-      `| \`${receipt.intent}\` | ${receiptLabel(receipt, memo.mode)} | ${receipt.costUsd == null ? "unknown" : `$${Number(receipt.costUsd).toFixed(6)}`} | ${receipt.minerName ?? "unknown"} | ${receipt.signalHash ?? "unknown"} |`
+      `| \`${receipt.check ?? "unknown"}\` | \`${receipt.intent}\` | ${receiptLabel(receipt, memo.mode)} | ${receipt.costUsd == null ? "unknown" : `$${Number(receipt.costUsd).toFixed(6)}`} | ${receipt.minerName ?? "unknown"} | ${receipt.signalHash ?? "unknown"} |`
     ),
     ...memo.failures.map((failure) =>
-      `| \`${failure.intent}\` | ${failure.paymentStatus} | — | — | ${failure.error.replace(/\|/g, "\\|")} |`
+      `| \`${failure.check ?? "unknown"}\` | \`${failure.intent}\` | ${failure.paymentStatus} | — | — | ${failure.error.replace(/\|/g, "\\|")} |`
     ),
     "",
     `Generated ${memo.generatedAt}; ${memo.wallMs} ms local wall time.`,
@@ -61,10 +61,10 @@ export function renderHtml(memo) {
     `<tr><td><code>${escape(intent)}</code></td><td>${escape(item.status)}</td><td>${escape(item.reason)}</td><td>${escape((item.sourceReferences ?? []).filter(Boolean).join(", ") || "—")}</td></tr>`
   ).join("");
   const receiptRows = memo.receipts.map((receipt) =>
-    `<tr><td><code>${escape(receipt.intent)}</code></td><td>${escape(receiptLabel(receipt, memo.mode))}</td><td>${receipt.costUsd == null ? "unknown" : `$${Number(receipt.costUsd).toFixed(6)}`}</td><td>${escape(receipt.minerName ?? "unknown")}</td><td><code>${escape(receipt.signalHash ?? "unknown")}</code></td></tr>`
+    `<tr><td><code>${escape(receipt.check ?? "unknown")}</code></td><td><code>${escape(receipt.intent)}</code></td><td>${escape(receiptLabel(receipt, memo.mode))}</td><td>${receipt.costUsd == null ? "unknown" : `$${Number(receipt.costUsd).toFixed(6)}`}</td><td>${escape(receipt.minerName ?? "unknown")}</td><td><code>${escape(receipt.signalHash ?? "unknown")}</code></td></tr>`
   ).join("");
   const failureRows = memo.failures.map((failure) =>
-    `<tr class="warn"><td><code>${escape(failure.intent)}</code></td><td>${escape(failure.paymentStatus)}</td><td colspan="3">${escape(failure.error)}</td></tr>`
+    `<tr class="warn"><td><code>${escape(failure.check ?? "unknown")}</code></td><td><code>${escape(failure.intent)}</code></td><td>${escape(failure.paymentStatus)}</td><td>—</td><td>—</td><td>${escape(failure.error)}</td></tr>`
   ).join("");
   const signals = memo.signals.map(([kind, text]) => `<li class="${escape(kind)}">${escape(text)}</li>`).join("");
   const paymentStatus = typeof memo.paymentStatus === "string" ? memo.paymentStatus : JSON.stringify(memo.paymentStatus);
@@ -83,7 +83,7 @@ li.bad{color:#b33}li.warn{color:#a60}li.good{color:#087}.meta{color:#667}.summar
 <b>Content checksum:</b> <code>${escape(memo.contentDigest)}</code> (not a signature)</div>
 <h2>Findings</h2><ul>${signals}</ul>
 <h2>Evidence status</h2><table><tr><th>Check</th><th>Status</th><th>Reason</th><th>Source reference(s)</th></tr>${evidenceRows}</table>
-<h2>Receipts and responses</h2><table><tr><th>Intent</th><th>Label</th><th>Cost</th><th>Miner</th><th>Signal hash</th></tr>${receiptRows}${failureRows}</table>
+<h2>Receipts and responses</h2><table><tr><th>Check</th><th>Engine intent</th><th>Label</th><th>Cost</th><th>Miner</th><th>Signal hash</th></tr>${receiptRows}${failureRows}</table>
 <p class="meta">Generated ${escape(memo.generatedAt)} · ${memo.wallMs} ms local wall time. The checksum excludes only generatedAt and contentDigest; it is not a digital signature or proof of answer accuracy.</p>
 </body></html>`;
 }

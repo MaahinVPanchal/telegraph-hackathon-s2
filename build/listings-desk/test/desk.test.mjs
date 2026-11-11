@@ -1,13 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { runDesk, contentDigest } from "../src/desk.mjs";
-import { resolveCaps } from "../src/config.mjs";
+import { ENGINE_INTENT_BY_CHECK, resolveCaps } from "../src/config.mjs";
 import { ask, PaymentRequiredError } from "../src/engine.mjs";
 import { renderHtml, renderMarkdown } from "../src/memo.mjs";
 import { fetchWithEscrow, PaymentPolicy, PaymentPolicyError, validateEscrowReceipt } from "../src/x402.mjs";
 
 const wallet = "0x1111111111111111111111111111111111111111";
 const payTo = "0x2222222222222222222222222222222222222222";
+const SANCTIONS_INTENT = ENGINE_INTENT_BY_CHECK.SANCTIONS_SCREENING_MATCH;
+const SOCIAL_INTENT = ENGINE_INTENT_BY_CHECK.SOCIAL_BOT_DETECTION;
 const expected = {
   network: "eip155:11155111",
   payTo,
@@ -35,14 +37,14 @@ function fakeReceipt(intent, overrides = {}) {
 function escrowChallenge({ amount = "10000", network = expected.network, payee = payTo, resource = expected.resource, templateOverrides = {} } = {}) {
   const template = [
     "Telegraph Escrow Payment",
-    `Wallet: {from}`,
+    `Wallet: ${templateOverrides.wallet ?? "{from}"}`,
     `Pay To: ${templateOverrides.payTo ?? payee}`,
     `Network: ${templateOverrides.network ?? network}`,
     `Amount: ${templateOverrides.amount ?? amount} uUSDC`,
     `Resource: ${templateOverrides.resource ?? resource}`,
-    "Nonce: {nonce}",
-    "Valid After: {validAfter}",
-    "Valid Before: {validBefore}",
+    `Nonce: ${templateOverrides.nonce ?? "{nonce}"}`,
+    `Valid After: ${templateOverrides.validAfter ?? "{validAfter}"}`,
+    `Valid Before: ${templateOverrides.validBefore ?? "{validBefore}"}`,
   ].join("\n");
   return {
     accepts: [{
@@ -60,7 +62,7 @@ function escrowReceipt(overrides = {}) {
     rail: "escrow",
     payer: wallet,
     miner: "377",
-    intent: "SANCTIONS_SCREENING_MATCH",
+    intent: SANCTIONS_INTENT,
     amount_uusdc: "10000",
     epoch_id: 314,
     settlement: "epoch",
@@ -82,11 +84,11 @@ function settlementResponse(status, receipt = escrowReceipt()) {
 }
 
 function fakeSigner() {
-  const state = { signCalls: 0, messages: [] };
+  const state = { walletCalls: 0, signCalls: 0, messages: [] };
   return {
     state,
     signer: {
-      async walletAddress() { return wallet; },
+      async walletAddress() { state.walletCalls++; return wallet; },
       async personalSign(message) {
         state.signCalls++;
         state.messages.push(message);
@@ -107,7 +109,7 @@ function engineData(overrides = {}) {
     cost_usd: 0.01,
     duration_ms: 10,
     signal_hash: `0x${"c".repeat(64)}`,
-    intent: "SANCTIONS_SCREENING_MATCH",
+    intent: SANCTIONS_INTENT,
     input: { name: "Example Entity" },
     result_shape: "intent",
     result: { name: "Example Entity", matched: false, matches: [], lists: ["OFAC_SDN"], match_score: 0.1 },
@@ -122,7 +124,7 @@ async function validatedSanctions(name, result) {
     result: { ...engineData().result, ...result, name },
   });
   const receipt = await ask("https://engine.test/engine", {
-    intent: "SANCTIONS_SCREENING_MATCH", params: { name },
+    intent: SANCTIONS_INTENT, params: { name },
   }, async () => response(200, data));
   receipt.requestInput = { name };
   return receipt;
@@ -135,14 +137,14 @@ async function validatedSocial(account, result) {
     cost_usd: 0.01,
     duration_ms: 10,
     signal_hash: `0x${"d".repeat(64)}`,
-    intent: "SOCIAL_BOT_DETECTION",
+    intent: SOCIAL_INTENT,
     input: { account },
     result_shape: "intent",
     result: { account, verdict: "human", bot_score: 0.1, signals: ["sample"], ...result },
     field_status: { account: "ok", verdict: "ok", bot_score: "ok", signals: "ok" },
   };
   const receipt = await ask("https://engine.test/engine", {
-    intent: "SOCIAL_BOT_DETECTION", params: { account },
+    intent: SOCIAL_INTENT, params: { account },
   }, async () => response(200, data));
   receipt.requestInput = { account };
   return receipt;
@@ -164,8 +166,8 @@ test("empty results are not complete evidence and cannot produce GO", async () =
 });
 
 test("unavailable sanctions evidence cannot be treated as clean", async () => {
-  const askImpl = async (_base, { intent }) => {
-    if (intent === "SANCTIONS_SCREENING_MATCH") {
+  const askImpl = async (_base, { check, intent }) => {
+    if (check === "SANCTIONS_SCREENING_MATCH") {
       throw new PaymentRequiredError({ reason: "escrow unavailable" });
     }
     return fakeReceipt(intent);
@@ -174,7 +176,7 @@ test("unavailable sanctions evidence cannot be treated as clean", async () => {
     token: "TOKEN", deployerName: "Example Entity", treasuryName: "Example Entity",
   }, { mode: "real", askImpl });
   assert.notEqual(memo.verdict, "GO");
-  assert.ok(failures.some((failure) => failure.intent === "SANCTIONS_SCREENING_MATCH"));
+  assert.ok(failures.some((failure) => failure.intent === SANCTIONS_INTENT));
   assert.equal(memo.evidence.SANCTIONS_SCREENING_MATCH.status, "unavailable");
   assert.equal(memo.signals.some(([, text]) => /no sanctions match/i.test(text)), false);
 });
@@ -193,8 +195,8 @@ test("null, wrong-type and legacy clean sanctions answers are not affirmative ev
 });
 
 test("four fulfilled responses do not cover the absent mandatory sanctions check", async () => {
-  const askImpl = async (_base, { intent }) => {
-    if (intent === "SANCTIONS_SCREENING_MATCH") throw new Error("not called");
+  const askImpl = async (_base, { check, intent }) => {
+    if (check === "SANCTIONS_SCREENING_MATCH") throw new Error("not called");
     return fakeReceipt(intent);
   };
   const { memo } = await runDesk({ token: "TOKEN", socialAccounts: ["@example"] }, { mode: "real", askImpl });
@@ -203,8 +205,8 @@ test("four fulfilled responses do not cover the absent mandatory sanctions check
 });
 
 test("a confirmed sanctions match remains NO-GO when other checks are missing", async () => {
-  const askImpl = async (_base, { intent }) => {
-    if (intent === "SANCTIONS_SCREENING_MATCH") {
+  const askImpl = async (_base, { check, intent }) => {
+    if (check === "SANCTIONS_SCREENING_MATCH") {
       return validatedSanctions("Example Entity", {
         matched: true, matches: ["OFAC entry"], lists: ["OFAC_SDN"],
       });
@@ -220,8 +222,8 @@ test("a confirmed sanctions match remains NO-GO when other checks are missing", 
 });
 
 test("affirmative matched field stays a hard block despite malformed ancillary coverage", async () => {
-  const askImpl = async (_base, { intent }) => {
-    if (intent === "SANCTIONS_SCREENING_MATCH") {
+  const askImpl = async (_base, { check, intent }) => {
+    if (check === "SANCTIONS_SCREENING_MATCH") {
       return validatedSanctions("Example Entity", {
         matched: true, matches: [], lists: [], match_score: 1,
       });
@@ -237,13 +239,15 @@ test("affirmative matched field stays a hard block despite malformed ancillary c
 });
 
 test("all currently supported safe-shaped evidence still reviews unsupported mandatory checks", async () => {
-  const askImpl = async (_base, { intent }) => {
-    if (intent === "SANCTIONS_SCREENING_MATCH") {
+  const dispatched = [];
+  const askImpl = async (_base, { check, intent }) => {
+    dispatched.push({ check, intent });
+    if (check === "SANCTIONS_SCREENING_MATCH") {
       return validatedSanctions("Example Entity", {
         matched: false, matches: [], lists: ["OFAC_SDN"],
       });
     }
-    if (intent === "SOCIAL_BOT_DETECTION") {
+    if (check === "SOCIAL_BOT_DETECTION") {
       return validatedSocial("@example", {});
     }
     return fakeReceipt(intent);
@@ -254,8 +258,17 @@ test("all currently supported safe-shaped evidence still reviews unsupported man
   }, { mode: "real", askImpl });
   assert.equal(memo.evidence.SANCTIONS_SCREENING_MATCH.status, "valid");
   assert.equal(memo.evidence.SOCIAL_BOT_DETECTION.status, "valid");
+  assert.deepEqual(dispatched, [
+    { check: "SMART_CONTRACT_AUDIT", intent: ENGINE_INTENT_BY_CHECK.SMART_CONTRACT_AUDIT },
+    { check: "ONCHAIN_METRIC_VERIFY", intent: ENGINE_INTENT_BY_CHECK.ONCHAIN_METRIC_VERIFY },
+    { check: "SANCTIONS_SCREENING_MATCH", intent: SANCTIONS_INTENT },
+    { check: "SOCIAL_BOT_DETECTION", intent: SOCIAL_INTENT },
+    { check: "CODE_REVIEW", intent: ENGINE_INTENT_BY_CHECK.CODE_REVIEW },
+  ]);
   assert.match(memo.evidence.SANCTIONS_SCREENING_MATCH.sourceReferences[0], /^engine-signal:/);
-  assert.equal(memo.receipts.find((receipt) => receipt.intent === "SANCTIONS_SCREENING_MATCH").proofStatus, "incomplete");
+  const sanctionsReceipt = memo.receipts.find((receipt) => receipt.check === "SANCTIONS_SCREENING_MATCH");
+  assert.equal(sanctionsReceipt.intent, SANCTIONS_INTENT);
+  assert.equal(sanctionsReceipt.proofStatus, "incomplete");
   assert.equal(memo.verdict, "REVIEW");
   assert.ok(memo.evidenceCompleteness.unsupportedChecks.length >= 3);
 });
@@ -297,6 +310,8 @@ test("mock receipts are simulated, actual spend is zero, and all renderers are h
   assert.equal(memo.estimatedCostUsd, "$0.05");
   assert.equal(memo.modeLabel, "SIMULATED/OFFLINE");
   assert.equal(memo.receipts.every((receipt) => receipt.minerId === null && receipt.signalHash === null), true);
+  assert.match(markdown, /\| `SANCTIONS_SCREENING_MATCH` \| `SANCTIONS_SCREENING_MATCH_GENERAL` \| SIMULATED receipt/);
+  assert.match(html, /<td><code>SANCTIONS_SCREENING_MATCH<\/code><\/td><td><code>SANCTIONS_SCREENING_MATCH_GENERAL<\/code>/);
   for (const output of [markdown, html, json]) {
     assert.match(output, /SIMULATED/);
     assert.match(output, /not spent/);
@@ -310,8 +325,8 @@ test("mock receipts are simulated, actual spend is zero, and all renderers are h
 });
 
 test("partial and unknown real outcomes keep actual spend distinct from estimates", async () => {
-  const askImpl = async (_base, { intent }) => {
-    if (intent === "SOCIAL_BOT_DETECTION") {
+  const askImpl = async (_base, { check, intent }) => {
+    if (check === "SOCIAL_BOT_DETECTION") {
       const error = new Error("connection lost after authorization");
       error.paymentStatus = "unknown";
       throw error;
@@ -327,8 +342,8 @@ test("partial and unknown real outcomes keep actual spend distinct from estimate
 });
 
 test("partial mock runs report observed response and failure counts", async () => {
-  const askImpl = async (_base, { intent }) => {
-    if (intent === "CODE_REVIEW") throw new Error("offline fixture failed");
+  const askImpl = async (_base, { check, intent }) => {
+    if (check === "CODE_REVIEW") throw new Error("offline fixture failed");
     return fakeReceipt(intent);
   };
   const { memo } = await runDesk("TOKEN", { mode: "mock", askImpl });
@@ -381,7 +396,7 @@ test("over-intent and over-run reservations reject before signing", async () => 
       return response(402, escrowChallenge({ amount: "10000" }));
     };
     await assert.rejects(() => fetchWithEscrow(fetchImpl, signer, "https://engine.test/engine/v1/ask", {}, {
-      policy: p, intent: "SANCTIONS_SCREENING_MATCH", expected,
+      policy: p, intent: SANCTIONS_INTENT, expected,
     }), PaymentPolicyError);
     assert.equal(state.signCalls, 0);
     assert.equal(paidRetryCalls, 0);
@@ -398,7 +413,7 @@ test("malformed or missing amount rejects before signing and paid retry", async 
       return response(402, challenge);
     };
     await assert.rejects(() => fetchWithEscrow(fetchImpl, signer, "https://engine.test/engine/v1/ask", {}, {
-      policy: policy(), intent: "SANCTIONS_SCREENING_MATCH", expected,
+      policy: policy(), intent: SANCTIONS_INTENT, expected,
     }), PaymentPolicyError);
     assert.equal(state.signCalls, 0);
     assert.equal(paidRetryCalls, 0);
@@ -413,6 +428,8 @@ test("wrong network, payee, resource and template-envelope mismatch reject befor
     escrowChallenge({ resource: "/v1/other" }),
     escrowChallenge({ templateOverrides: { network: "eip155:8453" } }),
     escrowChallenge({ templateOverrides: { payTo: "0x3333333333333333333333333333333333333333" } }),
+    escrowChallenge({ templateOverrides: { wallet: "{nonce}", nonce: "{from}" } }),
+    escrowChallenge({ templateOverrides: { validAfter: "{validBefore}", validBefore: "{validAfter}" } }),
   ];
   for (const challenge of challenges) {
     const { signer, state } = fakeSigner();
@@ -422,8 +439,9 @@ test("wrong network, payee, resource and template-envelope mismatch reject befor
       return response(402, challenge);
     };
     await assert.rejects(() => fetchWithEscrow(fetchImpl, signer, "https://engine.test/engine/v1/ask", {}, {
-      policy: policy(), intent: "SANCTIONS_SCREENING_MATCH", expected,
+      policy: policy(), intent: SANCTIONS_INTENT, expected,
     }), PaymentPolicyError);
+    assert.equal(state.walletCalls, 0);
     assert.equal(state.signCalls, 0);
     assert.equal(paidRetryCalls, 0);
   }
@@ -437,8 +455,9 @@ test("wrong network, payee, resource and template-envelope mismatch reject befor
     signer,
     "https://other.test/engine/v1/ask",
     {},
-    { policy: policy(), intent: "SANCTIONS_SCREENING_MATCH", expected },
+    { policy: policy(), intent: SANCTIONS_INTENT, expected },
   ), PaymentPolicyError);
+  assert.equal(state.walletCalls, 0);
   assert.equal(state.signCalls, 0);
   assert.equal(paidRetryCalls, 0);
 });
@@ -455,13 +474,13 @@ test("invalid cap blocks authorization without signer or paid retry calls", asyn
   };
   await assert.rejects(() => fetchWithEscrow(fetchImpl, signer, "https://engine.test/engine/v1/ask", {}, {
     policy: { reserve() { throw new PaymentPolicyError("invalid configured cap"); } },
-    intent: "SANCTIONS_SCREENING_MATCH",
+    intent: SANCTIONS_INTENT,
     expected,
   }), /invalid configured cap/);
   assert.equal(state.signCalls, 0);
   assert.equal(paidRetryCalls, 0);
   await assert.rejects(() => fetchWithEscrow(fetchImpl, signer, "https://engine.test/engine/v1/ask", {}, {
-    policy: new PaymentPolicy(resolveCaps()), intent: "SANCTIONS_SCREENING_MATCH", expected: undefined,
+    policy: new PaymentPolicy(resolveCaps()), intent: SANCTIONS_INTENT, expected: undefined,
   }), PaymentPolicyError);
   assert.equal(fetchCalls, 2);
   assert.equal(state.signCalls, 0);
@@ -482,10 +501,11 @@ test("valid exact-boundary challenge signs once with the exact envelope value", 
     return response(402, escrowChallenge());
   };
   const result = await fetchWithEscrow(fetchImpl, signer, "https://engine.test/engine/v1/ask", {}, {
-    policy: p, intent: "SANCTIONS_SCREENING_MATCH", expected,
+    policy: p, intent: SANCTIONS_INTENT, expected,
     now: () => 1_800_000_000_000, nonceFactory: () => "offline-nonce",
   });
   assert.equal(state.signCalls, 1);
+  assert.equal(state.walletCalls, 1);
   assert.equal(paidRetryCalls, 1);
   assert.equal(result.paymentStatus, "receipt_valid");
   assert.equal(result.receipt.tx_hash, undefined);
@@ -510,9 +530,12 @@ test("concurrent challenges reserve atomically and never exceed the run cap", as
     paidRetryCalls++;
     return settlementResponse(200);
   };
-  const results = await Promise.allSettled(Array.from({ length: 5 }, () =>
-    fetchWithEscrow(fetchImpl, signer, "https://engine.test/engine/v1/ask", {}, {
-      policy: p, intent: "SANCTIONS_SCREENING_MATCH", expected,
+  const results = await Promise.allSettled(Array.from({ length: 5 }, (_, index) =>
+    fetchWithEscrow(fetchImpl, signer, "https://engine.test/engine/v1/ask", {
+      method: "POST",
+      body: JSON.stringify({ request: index }),
+    }, {
+      policy: p, intent: SANCTIONS_INTENT, expected,
     })
   ));
   const ledger = p.snapshot();
@@ -534,10 +557,14 @@ test("settled attempts share the same intent and run budget across later attempt
     }
     return response(402, escrowChallenge());
   };
-  const options = { policy: p, intent: "SANCTIONS_SCREENING_MATCH", expected };
-  const first = await fetchWithEscrow(fetchImpl, signer, "https://engine.test/engine/v1/ask", {}, options);
+  const options = { policy: p, intent: SANCTIONS_INTENT, expected };
+  const first = await fetchWithEscrow(fetchImpl, signer, "https://engine.test/engine/v1/ask", {
+    method: "POST", body: "request-1",
+  }, options);
   assert.equal(first.paymentStatus, "receipt_valid");
-  await assert.rejects(() => fetchWithEscrow(fetchImpl, signer, "https://engine.test/engine/v1/ask", {}, options), /cap exceeded/i);
+  await assert.rejects(() => fetchWithEscrow(fetchImpl, signer, "https://engine.test/engine/v1/ask", {
+    method: "POST", body: "request-2",
+  }, options), /cap exceeded/i);
   assert.equal(state.signCalls, 1);
   assert.equal(paidRetryCalls, 1);
   assert.equal(p.snapshot().reservedOrAuthorizedMicro, "10000");
@@ -555,7 +582,7 @@ test("definitive unpaid response releases reservation without retrying", async (
     return response(402, escrowChallenge());
   };
   const result = await fetchWithEscrow(fetchImpl, signer, "https://engine.test/engine/v1/ask", {}, {
-    policy: p, intent: "SANCTIONS_SCREENING_MATCH", expected,
+    policy: p, intent: SANCTIONS_INTENT, expected,
   });
   assert.equal(result.paymentStatus, "definitive_unpaid");
   assert.equal(state.signCalls, 1);
@@ -565,7 +592,9 @@ test("definitive unpaid response releases reservation without retrying", async (
 });
 
 test("unknown post-sign outcome retains reservation and blocks duplicate authorization", async () => {
-  const p = policy("0.01", "0.01");
+  const p = policy("0.02", "0.02");
+  const firstBody = JSON.stringify({ intent: SANCTIONS_INTENT, params: { name: "Example Entity" } });
+  const reorderedBody = JSON.stringify({ params: { name: "Example Entity" }, intent: SANCTIONS_INTENT });
   const { signer, state } = fakeSigner();
   let paidRetryCalls = 0;
   let calls = 0;
@@ -577,17 +606,22 @@ test("unknown post-sign outcome retains reservation and blocks duplicate authori
     }
     return response(402, escrowChallenge());
   };
-  await assert.rejects(() => fetchWithEscrow(fetchImpl, signer, "https://engine.test/engine/v1/ask", {}, {
-    policy: p, intent: "SANCTIONS_SCREENING_MATCH", expected,
+  await assert.rejects(() => fetchWithEscrow(fetchImpl, signer, "https://engine.test/engine/v1/ask", {
+    method: "POST", body: firstBody,
+  }, {
+    policy: p, intent: SANCTIONS_INTENT, expected,
   }));
-  await assert.rejects(() => fetchWithEscrow(fetchImpl, signer, "https://engine.test/engine/v1/ask", {}, {
-    policy: p, intent: "SANCTIONS_SCREENING_MATCH", expected,
-  }), /cap exceeded/i);
+  await assert.rejects(() => fetchWithEscrow(fetchImpl, signer, "https://engine.test/engine/v1/ask", {
+    method: "POST", body: reorderedBody,
+  }, {
+    policy: p, intent: SANCTIONS_INTENT, expected,
+  }), /duplicate payment request ID is unknown/i);
   assert.equal(state.signCalls, 1);
   assert.equal(paidRetryCalls, 1);
   assert.equal(calls, 3);
   assert.equal(p.snapshot().reservedOrAuthorizedMicro, "10000");
   assert.equal(p.snapshot().reservations[0].status, "unknown");
+  assert.match(p.snapshot().reservations[0].requestId, /^sha256:[0-9a-f]{64}$/);
 });
 
 test("malformed settlement header after signing retains unknown reservation", async () => {
@@ -597,57 +631,73 @@ test("malformed settlement header after signing retains unknown reservation", as
     ? response(200, { ok: true }, { "x-payment-response": "not-json-base64" })
     : response(402, escrowChallenge());
   const result = await fetchWithEscrow(fetchImpl, signer, "https://engine.test/engine/v1/ask", {}, {
-    policy: p, intent: "SANCTIONS_SCREENING_MATCH", expected,
+    policy: p, intent: SANCTIONS_INTENT, expected,
   });
   assert.equal(result.paymentStatus, "unknown");
   assert.equal(p.snapshot().reservations[0].status, "unknown");
   assert.equal(p.snapshot().reservedOrAuthorizedMicro, "10000");
 });
 
+test("malformed payment header on 402 reports unknown in both result and ledger", async () => {
+  const p = policy("0.02", "0.02");
+  const { signer, state } = fakeSigner();
+  const fetchImpl = async (_url, init) => init.headers?.["X-PAYMENT"]
+    ? response(402, { error: "unresolved" }, { "x-payment-response": "not-json-base64" })
+    : response(402, escrowChallenge());
+  const result = await fetchWithEscrow(fetchImpl, signer, "https://engine.test/engine/v1/ask", {}, {
+    policy: p, intent: SANCTIONS_INTENT, expected,
+  });
+  assert.equal(result.paymentStatus, "unknown");
+  assert.equal(result.res.paymentStatus, "unknown");
+  assert.equal(p.snapshot().reservations[0].status, "unknown");
+  assert.equal(p.snapshot().reservedOrAuthorizedMicro, "10000");
+  assert.equal(state.signCalls, 1);
+});
+
 test("escrow epoch receipt validates without a per-request tx_hash", () => {
   assert.equal(validateEscrowReceipt(escrowReceipt(), {
-    intent: "SANCTIONS_SCREENING_MATCH", amount: 10000n, payer: wallet,
+    intent: SANCTIONS_INTENT, amount: 10000n, payer: wallet,
   }), true);
   assert.equal(validateEscrowReceipt({ ...escrowReceipt(), amount_uusdc: "9999" }, {
-    intent: "SANCTIONS_SCREENING_MATCH", amount: 10000n, payer: wallet,
+    intent: SANCTIONS_INTENT, amount: 10000n, payer: wallet,
   }), false);
   assert.equal(validateEscrowReceipt({ ...escrowReceipt(), miner: "" }, {
-    intent: "SANCTIONS_SCREENING_MATCH", amount: 10000n, payer: wallet,
+    intent: SANCTIONS_INTENT, amount: 10000n, payer: wallet,
   }), false);
 });
 
 test("shaped sanctions result validates identity, field status, and consistent clean fields", async () => {
-  const valid = await ask("https://engine.test/engine", { intent: "SANCTIONS_SCREENING_MATCH", params: { name: "Example Entity" } },
+  const valid = await ask("https://engine.test/engine", { intent: SANCTIONS_INTENT, params: { name: "Example Entity" } },
     async () => response(200, engineData()));
   assert.equal(valid.evidenceStatus, "valid");
   assert.equal(valid.proofStatus, "incomplete");
   assert.ok(valid.proofGaps.includes("escrow receipt missing"));
 
-  const wrongSubject = await ask("https://engine.test/engine", { intent: "SANCTIONS_SCREENING_MATCH", params: { name: "Example Entity" } },
+  const wrongSubject = await ask("https://engine.test/engine", { intent: SANCTIONS_INTENT, params: { name: "Example Entity" } },
     async () => response(200, engineData({ result: { ...engineData().result, name: "Wrong Entity" } })));
   assert.equal(wrongSubject.evidenceStatus, "invalid");
 
-  const contradictory = await ask("https://engine.test/engine", { intent: "SANCTIONS_SCREENING_MATCH", params: { name: "Example Entity" } },
+  const contradictory = await ask("https://engine.test/engine", { intent: SANCTIONS_INTENT, params: { name: "Example Entity" } },
     async () => response(200, engineData({ result: { ...engineData().result, matched: true } })));
   assert.equal(contradictory.evidenceStatus, "invalid");
 
-  const rejectedField = await ask("https://engine.test/engine", { intent: "SANCTIONS_SCREENING_MATCH", params: { name: "Example Entity" } },
+  const rejectedField = await ask("https://engine.test/engine", { intent: SANCTIONS_INTENT, params: { name: "Example Entity" } },
     async () => response(200, engineData({ field_status: { ...engineData().field_status, matches: "rejected" } })));
   assert.equal(rejectedField.evidenceStatus, "invalid");
 
-  const missingField = await ask("https://engine.test/engine", { intent: "SANCTIONS_SCREENING_MATCH", params: { name: "Example Entity" } },
+  const missingField = await ask("https://engine.test/engine", { intent: SANCTIONS_INTENT, params: { name: "Example Entity" } },
     async () => response(200, engineData({ field_status: { ...engineData().field_status, lists: "missing" } })));
   assert.equal(missingField.evidenceStatus, "missing");
 
-  const unavailableField = await ask("https://engine.test/engine", { intent: "SANCTIONS_SCREENING_MATCH", params: { name: "Example Entity" } },
+  const unavailableField = await ask("https://engine.test/engine", { intent: SANCTIONS_INTENT, params: { name: "Example Entity" } },
     async () => response(200, engineData({ field_status: { ...engineData().field_status, lists: "unavailable" } })));
   assert.equal(unavailableField.evidenceStatus, "unavailable");
 
-  const malformedMatches = await ask("https://engine.test/engine", { intent: "SANCTIONS_SCREENING_MATCH", params: { name: "Example Entity" } },
+  const malformedMatches = await ask("https://engine.test/engine", { intent: SANCTIONS_INTENT, params: { name: "Example Entity" } },
     async () => response(200, engineData({ result: { ...engineData().result, matches: [null] } })));
   assert.equal(malformedMatches.evidenceStatus, "invalid");
 
-  const invalidBound = await ask("https://engine.test/engine", { intent: "SANCTIONS_SCREENING_MATCH", params: { name: "Example Entity" } },
+  const invalidBound = await ask("https://engine.test/engine", { intent: SANCTIONS_INTENT, params: { name: "Example Entity" } },
     async () => response(200, engineData({ result: { ...engineData().result, match_score: 1.1 } })));
   assert.equal(invalidBound.evidenceStatus, "invalid");
 });
@@ -659,7 +709,7 @@ test("missing cost stays missing; negative, nonfinite, string, and unrepresentab
     const answer = response(200, data);
     if (typeof cost === "number" && !Number.isFinite(cost)) answer.json = async () => data;
     const result = await ask("https://engine.test/engine", {
-      intent: "SANCTIONS_SCREENING_MATCH", params: { name: "Example Entity" },
+      intent: SANCTIONS_INTENT, params: { name: "Example Entity" },
     }, async () => answer);
     assert.equal(result.evidenceStatus, "invalid");
     assert.equal(result.costUsd, null);
@@ -667,7 +717,7 @@ test("missing cost stays missing; negative, nonfinite, string, and unrepresentab
   const data = engineData();
   delete data.cost_usd;
   const missing = await ask("https://engine.test/engine", {
-    intent: "SANCTIONS_SCREENING_MATCH", params: { name: "Example Entity" },
+    intent: SANCTIONS_INTENT, params: { name: "Example Entity" },
   }, async () => response(200, data));
   assert.equal(missing.evidenceStatus, "missing");
   assert.equal(missing.costUsd, null);
@@ -675,12 +725,12 @@ test("missing cost stays missing; negative, nonfinite, string, and unrepresentab
 
 test("raw fallback and envelope-as-result are never accepted as decision evidence", async () => {
   const raw = await ask("https://engine.test/engine", {
-    intent: "SANCTIONS_SCREENING_MATCH", params: { name: "Example Entity" },
+    intent: SANCTIONS_INTENT, params: { name: "Example Entity" },
   }, async () => response(200, engineData({ result_shape: "raw", result: { arbitrary: "object" } })));
   assert.equal(raw.evidenceStatus, "unsupported");
 
   const missingResult = await ask("https://engine.test/engine", {
-    intent: "SANCTIONS_SCREENING_MATCH", params: { name: "Example Entity" },
+    intent: SANCTIONS_INTENT, params: { name: "Example Entity" },
   }, async () => {
     const data = engineData();
     delete data.result;
@@ -693,13 +743,35 @@ test("raw fallback and envelope-as-result are never accepted as decision evidenc
 test("response intent and candidate input mismatches are invalid", async () => {
   for (const change of [
     { intent: "OTHER_INTENT" },
+    { intent: "SANCTIONS_SCREENING_MATCH" },
     { input: { name: "Other Entity" } },
   ]) {
     const result = await ask("https://engine.test/engine", {
-      intent: "SANCTIONS_SCREENING_MATCH", params: { name: "Example Entity" },
+      intent: SANCTIONS_INTENT, params: { name: "Example Entity" },
     }, async () => response(200, engineData(change)));
     assert.equal(result.evidenceStatus, "invalid");
   }
+});
+
+test("Engine requests and response/escrow receipts use the concrete leaf intent", async () => {
+  let requestBody;
+  const receipt = await ask("https://engine.test/engine", {
+    intent: SANCTIONS_INTENT, params: { name: "Example Entity" },
+  }, async (_url, init) => {
+    requestBody = JSON.parse(init.body);
+    return response(200, engineData());
+  });
+  assert.deepEqual(requestBody, {
+    intent: SANCTIONS_INTENT,
+    params: { name: "Example Entity" },
+  });
+  assert.equal(receipt.matchedIntent, SANCTIONS_INTENT);
+  assert.equal(validateEscrowReceipt(escrowReceipt(), {
+    intent: SANCTIONS_INTENT, amount: 10000n, payer: wallet,
+  }), true);
+  assert.equal(validateEscrowReceipt(escrowReceipt({ intent: "SANCTIONS_SCREENING_MATCH" }), {
+    intent: SANCTIONS_INTENT, amount: 10000n, payer: wallet,
+  }), false);
 });
 
 test("social response rejects wrong subject and invalid numeric bounds; missing miner/hash are proof gaps", async () => {
@@ -709,7 +781,7 @@ test("social response rejects wrong subject and invalid numeric bounds; missing 
     cost_usd: 0.01,
     duration_ms: 10,
     signal_hash: `0x${"d".repeat(64)}`,
-    intent: "SOCIAL_BOT_DETECTION",
+    intent: SOCIAL_INTENT,
     input: { account: "@example" },
     result_shape: "intent",
     result: { account: "@example", verdict: "human", bot_score: 0.1, signals: ["sample"] },
@@ -721,12 +793,12 @@ test("social response rejects wrong subject and invalid numeric bounds; missing 
     { ...base.result, bot_score: -0.01 },
   ]) {
     const result = await ask("https://engine.test/engine", {
-      intent: "SOCIAL_BOT_DETECTION", params: { account: "@example" },
+      intent: SOCIAL_INTENT, params: { account: "@example" },
     }, async () => response(200, { ...base, result: resultValue }));
     assert.equal(result.evidenceStatus, "invalid");
   }
   const unknownProof = await ask("https://engine.test/engine", {
-    intent: "SOCIAL_BOT_DETECTION", params: { account: "@example" },
+    intent: SOCIAL_INTENT, params: { account: "@example" },
   }, async () => response(200, { ...base, miner_id: null, miner_name: null, signal_hash: null }));
   assert.equal(unknownProof.evidenceStatus, "valid");
   assert.ok(unknownProof.proofGaps.includes("miner identity missing or malformed"));
@@ -735,7 +807,7 @@ test("social response rejects wrong subject and invalid numeric bounds; missing 
 
 test("good decision shape and bad payment proof remain separate", async () => {
   const result = await ask("https://engine.test/engine", {
-    intent: "SANCTIONS_SCREENING_MATCH", params: { name: "Example Entity" },
+    intent: SANCTIONS_INTENT, params: { name: "Example Entity" },
   }, async () => {
     const res = response(200, engineData());
     res.settlementReceipt = escrowReceipt({ receipt_hash: "bad" });
@@ -752,7 +824,7 @@ test("good decision shape and bad payment proof remain separate", async () => {
 test("paid but unusable shaped/raw response keeps receipt validity separate", async () => {
   const validReceipt = escrowReceipt();
   const result = await ask("https://engine.test/engine", {
-    intent: "SANCTIONS_SCREENING_MATCH", params: { name: "Example Entity" },
+    intent: SANCTIONS_INTENT, params: { name: "Example Entity" },
   }, async () => {
     const res = response(200, engineData({ result_shape: "raw", result: { arbitrary: true } }));
     res.settlementReceipt = validReceipt;
@@ -768,7 +840,7 @@ test("paid but unusable shaped/raw response keeps receipt validity separate", as
 
 test("absent or malformed response body is not converted into free intelligence", async () => {
   await assert.rejects(() => ask("https://engine.test/engine", {
-    intent: "SANCTIONS_SCREENING_MATCH", params: { name: "Example Entity" },
+    intent: SANCTIONS_INTENT, params: { name: "Example Entity" },
   }, async () => new Response(null, { status: 200 })), /absent or invalid JSON/);
 });
 
@@ -786,10 +858,10 @@ test("valid payment receipt survives an absent answer body as spend with unavail
   };
   const wrappedFetch = async (url, init) =>
     (await fetchWithEscrow(fetchImpl, signer, url, init, {
-      policy: p, intent: "SANCTIONS_SCREENING_MATCH", expected,
+      policy: p, intent: SANCTIONS_INTENT, expected,
     })).res;
   await assert.rejects(() => ask("https://engine.test/engine", {
-    intent: "SANCTIONS_SCREENING_MATCH", params: { name: "Example Entity" },
+    intent: SANCTIONS_INTENT, params: { name: "Example Entity" },
   }, wrappedFetch), /absent or invalid JSON/);
   assert.equal(state.signCalls, 1);
   assert.equal(paidRetryCalls, 1);

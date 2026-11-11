@@ -53,6 +53,7 @@ const TX_HASH_KEYS = ["tx_hash", "transaction_hash", "txHash"];
 const MAX_LOG_RANGE = 2000n;
 const MAX_LOGS = 100;
 const MAX_DECIMALS = 255;
+const LATEST_RESULT_TTL_MS = 1000;
 
 export class ServiceError extends Error {
   constructor(status, code, message) { super(message); this.status = status; this.code = code; }
@@ -65,7 +66,7 @@ class ChainIdMismatch extends Error {
   }
 }
 
-// ---------- tiny TTL/LRU cache ----------
+// ---------- bounded latest-result TTL/LRU cache ----------
 const cache = new Map();
 const CACHE_MAX = 500;
 function cacheGet(k) {
@@ -350,12 +351,10 @@ async function rpc(ctx, chain, method, params) {
 }
 
 async function headBlock(ctx, chain) {
-  const key = `head:${chain.name}`;
-  const c = cacheGet(key); if (c !== undefined) return c;
   const { result } = await rpc(ctx, chain, "eth_blockNumber", []);
   const n = rpcQuantity(result, "head block");
   if (n > BigInt(Number.MAX_SAFE_INTEGER)) throw new ServiceError(502, "INVALID_RPC_RESPONSE", "head block exceeds the supported exact integer range");
-  cacheSet(key, n, 6000); return n;
+  return n;
 }
 
 async function ethplorerLatest(ctx, address) {
@@ -419,10 +418,14 @@ export async function answer(params, ctx) {
   const req = parseRequest(params);
   ctx.req = req;
   const key = resultCacheKey(req);
-  const cached = cacheGet(key);
-  if (cached) { ctx.cached = true; return { ...cached, cached: true }; }
-  if (req.metric === "tx_receipt") return transactionReceipt(ctx, req, key);
-  if (req.metric === "logs") return logsQuery(ctx, req, key);
+  const cacheTtlMs = req.block === "latest" && req.metric !== "tx_receipt" && req.metric !== "logs"
+    ? LATEST_RESULT_TTL_MS : 0;
+  if (cacheTtlMs > 0) {
+    const cached = cacheGet(key);
+    if (cached) { ctx.cached = true; return { ...cached, cached: true }; }
+  }
+  if (req.metric === "tx_receipt") return transactionReceipt(ctx, req);
+  if (req.metric === "logs") return logsQuery(ctx, req);
 
   const isLatest = req.block === "latest";
   const tagName = isLatest ? "latest" : "number";
@@ -439,7 +442,7 @@ export async function answer(params, ctx) {
         value: native, unit: "ETH", native_symbol: "ETH", balance_native: native,
         balance_wei: wei.toString(), balance_eth: native, balance_gwei: weiToGwei(wei),
         source: "api.ethplorer.io", block_note: "Ethereum-only fallback; block from Ethplorer getLastBlock",
-      }, key, 15000);
+      }, key, LATEST_RESULT_TTL_MS);
     }
   } else {
     blockNum = req.block;
@@ -505,10 +508,10 @@ async function query(ctx, req, blockNum, isLatest, tagName, key) {
       supply_kind: "totalSupply; not circulating supply",
     });
   }
-  return finalize(out, key, isLatest ? 15000 : 0);
+  return finalize(out, key, isLatest ? LATEST_RESULT_TTL_MS : 0);
 }
 
-async function transactionReceipt(ctx, req, key) {
+async function transactionReceipt(ctx, req) {
   const [txResult, receiptResult] = await Promise.all([
     rpc(ctx, req, "eth_getTransactionByHash", [req.txHash]),
     rpc(ctx, req, "eth_getTransactionReceipt", [req.txHash]),
@@ -518,8 +521,39 @@ async function transactionReceipt(ctx, req, key) {
   if (tx === null && receipt === null) {
     throw new ServiceError(404, "TRANSACTION_NOT_FOUND", "no transaction or receipt was found for tx_hash");
   }
+  if (tx === null || typeof tx !== "object" || Array.isArray(tx)) {
+    throw new ServiceError(502, "INCONSISTENT_TRANSACTION", "transaction and receipt evidence is inconsistent");
+  }
+  assertEvidenceHash(tx.hash, req.txHash, "transaction hash");
+  if (!Object.prototype.hasOwnProperty.call(tx, "blockNumber")) {
+    throw new ServiceError(502, "INCONSISTENT_TRANSACTION", "transaction omitted blockNumber");
+  }
   const mined = receipt !== null;
-  const rawBlock = receipt?.blockNumber ?? tx?.blockNumber ?? null;
+  if (!mined && tx.blockNumber !== null) {
+    throw new ServiceError(502, "INCONSISTENT_TRANSACTION", "mined transaction has no receipt");
+  }
+  if (!mined && tx.blockHash != null) {
+    throw new ServiceError(502, "INCONSISTENT_TRANSACTION", "pending transaction unexpectedly has a blockHash");
+  }
+  if (mined && (typeof receipt !== "object" || Array.isArray(receipt))) {
+    throw new ServiceError(502, "INCONSISTENT_RECEIPT", "receipt evidence is malformed");
+  }
+  let blockHash = null;
+  if (mined) {
+    assertEvidenceHash(receipt.transactionHash, req.txHash, "receipt transaction hash");
+    if (tx.blockNumber === null || receipt.blockNumber === null || tx.blockNumber === undefined || receipt.blockNumber === undefined) {
+      throw new ServiceError(502, "INCONSISTENT_RECEIPT", "mined transaction and receipt must include blockNumber");
+    }
+    const txBlock = rpcQuantity(tx.blockNumber, "transaction block");
+    const receiptBlock = rpcQuantity(receipt.blockNumber, "receipt block");
+    const txBlockHash = requireEvidenceHash(tx.blockHash, "transaction block hash");
+    const receiptBlockHash = requireEvidenceHash(receipt.blockHash, "receipt block hash");
+    if (txBlock !== receiptBlock || txBlockHash !== receiptBlockHash) {
+      throw new ServiceError(502, "INCONSISTENT_RECEIPT", "transaction and receipt block evidence does not match");
+    }
+    blockHash = txBlockHash;
+  }
+  const rawBlock = mined ? receipt.blockNumber : null;
   const blockValue = rawBlock === null ? null : rpcQuantity(rawBlock, "transaction block");
   if (blockValue !== null && blockValue > BigInt(Number.MAX_SAFE_INTEGER)) {
     throw new ServiceError(502, "INVALID_RPC_RESPONSE", "transaction block exceeds the supported exact integer range");
@@ -527,7 +561,7 @@ async function transactionReceipt(ctx, req, key) {
   const block = blockValue === null ? null : Number(blockValue);
   const out = {
     metric: req.metric, tx_hash: req.txHash, ...provenance(req, block, mined ? "number" : "pending"),
-    state: mined ? "mined" : "pending",
+    state: mined ? "mined" : "pending", block_hash: blockHash,
     transaction: tx ? {
       from: tx.from || null, to: tx.to || null,
       value_wei: tx.value === undefined ? null : rpcQuantity(tx.value, "transaction value").toString(),
@@ -552,10 +586,45 @@ async function transactionReceipt(ctx, req, key) {
       fee_status: effectivePriceWei === null ? "effective gas price unavailable" : "exact",
     });
   }
-  return finalize(out, key, 2000);
+  return finalize(out, null, 0);
 }
 
-async function logsQuery(ctx, req, key) {
+function requireEvidenceHash(value, field) {
+  if (typeof value !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(value)) {
+    throw new ServiceError(502, "INVALID_RPC_RESPONSE", `${field} was not a valid 32-byte hash`);
+  }
+  return value.toLowerCase();
+}
+
+function assertEvidenceHash(value, expected, field) {
+  if (requireEvidenceHash(value, field) !== expected) {
+    throw new ServiceError(502, "INCONSISTENT_TRANSACTION", `${field} does not match the requested transaction`);
+  }
+}
+
+function validateLog(log, req) {
+  const invalid = (message) => { throw new ServiceError(502, "INVALID_LOG_EVIDENCE", message); };
+  if (!log || typeof log !== "object" || Array.isArray(log)) invalid("eth_getLogs returned a malformed log entry");
+  if (typeof log.address !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(log.address)) invalid("log address is malformed");
+  if (req.address && log.address.toLowerCase() !== req.address) invalid("log address does not match the requested contract");
+  if (!Array.isArray(log.topics) || log.topics.some((topic) => typeof topic !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(topic))) {
+    invalid("log topics are malformed");
+  }
+  for (let i = 0; i < req.topics.length; i++) {
+    if (req.topics[i] !== null && log.topics[i]?.toLowerCase() !== req.topics[i]) invalid(`log topic${i} does not match the requested filter`);
+  }
+  if (typeof log.data !== "string" || !/^0x(?:[0-9a-fA-F]{2})*$/.test(log.data)) invalid("log data is malformed");
+  const block = rpcQuantity(log.blockNumber, "log block");
+  if (block < req.fromBlock || block > req.toBlock) invalid("log block is outside the requested range");
+  requireEvidenceHash(log.blockHash, "log block hash");
+  requireEvidenceHash(log.transactionHash, "log transaction hash");
+  rpcQuantity(log.transactionIndex, "log transaction index");
+  rpcQuantity(log.logIndex, "log index");
+  if (log.removed === true) throw new ServiceError(502, "REORGED_LOG", "provider returned a removed log");
+  if (log.removed !== undefined && typeof log.removed !== "boolean") invalid("log removed flag is malformed");
+}
+
+async function logsQuery(ctx, req) {
   const head = await headBlock(ctx, req);
   if (req.toBlock > head) {
     throw new ServiceError(400, "FUTURE_BLOCK", `to_block ${req.toBlock} is after the ${req.name} head ${head}`);
@@ -566,16 +635,17 @@ async function logsQuery(ctx, req, key) {
   const r = await rpc(ctx, req, "eth_getLogs", [filter]);
   if (!Array.isArray(r.result)) throw new ServiceError(502, "INVALID_RPC_RESPONSE", "eth_getLogs did not return an array");
   if (r.result.length > MAX_LOGS) throw new ServiceError(413, "TOO_MANY_LOGS", `log results are limited to ${MAX_LOGS}`);
+  r.result.forEach((log) => validateLog(log, req));
   return finalize({
     metric: req.metric, ...provenance(req, null, "range"),
     from_block: Number(req.fromBlock), to_block: Number(req.toBlock),
     address: req.address || null, topics: req.topics, count: r.result.length, logs: r.result, source: r.source,
-  }, key, 15000);
+  }, null, 0);
 }
 
 function finalize(out, key, ttlMs) {
   const full = { ok: true, ...out, sources: out.sources || (out.source ? [out.source] : []), as_of: new Date().toISOString() };
-  if (key) cacheSet(key, full, ttlMs);
+  if (key && ttlMs > 0) cacheSet(key, full, ttlMs);
   return full;
 }
 

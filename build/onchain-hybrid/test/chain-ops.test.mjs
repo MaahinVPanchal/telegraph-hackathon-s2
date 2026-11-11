@@ -27,14 +27,14 @@ function fixture(options = {}) {
       return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, result }), { status: 200 });
     }
     if (request.method === "eth_blockNumber") {
-      const head = options.heads?.[chain] ?? 100n;
+      const head = options.heads?.[chain] ?? options.head ?? 100n;
       return ok("0x" + BigInt(head).toString(16));
     }
     if (request.method === "eth_getBalance") {
-      return ok("0x" + BigInt(options.balances?.[chain] ?? 7n).toString(16));
+      return ok("0x" + BigInt(options.balances?.[chain] ?? options.balance ?? 7n).toString(16));
     }
-    if (request.method === "eth_getTransactionCount") return ok("0x57d");
-    if (request.method === "eth_getCode") return ok("0x60006000");
+    if (request.method === "eth_getTransactionCount") return ok("0x" + BigInt(options.nonce ?? 0x57dn).toString(16));
+    if (request.method === "eth_getCode") return ok(options.code ?? "0x60006000");
     if (request.method === "eth_call") {
       const callData = request.params[0].data;
       if (callData === "0x18160ddd") return ok("0x" + BigInt(options.totalSupply ?? 1_234_567n).toString(16));
@@ -47,12 +47,14 @@ function fixture(options = {}) {
       const token = request.params[0].to.toLowerCase();
       return ok("0x" + BigInt(options.tokenBalances?.[token] ?? options.tokenBalance ?? 690_075n).toString(16));
     }
-    if (request.method === "eth_getTransactionByHash") return ok(options.transaction ?? null);
+    if (request.method === "eth_getTransactionByHash") {
+      return ok(options.transaction === undefined ? null : { hash: HASH, ...options.transaction });
+    }
     if (request.method === "eth_getTransactionReceipt") return ok(options.receipt ?? null);
     if (request.method === "eth_getLogs") return ok(options.logs ?? []);
     throw new Error(`unexpected synthetic RPC method ${request.method}`);
   };
-  return { fetch, calls };
+  return { fetch, calls, options };
 }
 
 function ok(result) {
@@ -99,9 +101,17 @@ check("same address and block return their own chain values",
 check("result and head caches are isolated by chain",
   polygon.body.cached !== true && f.calls.length > ethCalls
     && f.calls.some((call) => call.chain === "polygon" && call.method === "eth_blockNumber"));
+f = fixture({ heads: { polygon: 200n } });
+const cachedFirst = await request(`address=${ADDRESS}&chain=polygon`, f.fetch);
 const cacheCalls = f.calls.length;
-const cached = await request(`address=${ADDRESS}&block=10&chain=polygon`, f.fetch, { clear: false });
-check("identical request uses only its own cached result", cached.body.cached === true && f.calls.length === cacheCalls);
+const cached = await request(`address=${ADDRESS}&chain=polygon`, f.fetch, { clear: false });
+check("latest result uses only its chain-partitioned bounded cache",
+  cachedFirst.body.chain === "polygon" && cached.body.cached === true && f.calls.length === cacheCalls);
+await new Promise((resolve) => setTimeout(resolve, 1050));
+f.options.balance = 8n;
+const expiredLatest = await request(`address=${ADDRESS}&chain=polygon`, f.fetch, { clear: false });
+check("latest result cache expires after its bounded TTL",
+  expiredLatest.body.balance_wei === "8" && expiredLatest.body.cached !== true);
 check("POL result does not claim an ETH/Gwei balance", !("balance_gwei" in polygon.body) && polygon.body.balance_native === polygon.body.value);
 
 clearCache();
@@ -110,6 +120,17 @@ const ethFuture = await request(`address=${ADDRESS}&block=150&chain=ethereum`, f
 const polygonAtSameHeight = await request(`address=${ADDRESS}&block=150&chain=polygon`, f.fetch, { clear: false });
 check("future block is checked against Ethereum head", ethFuture.status === 400 && ethFuture.body.error === "FUTURE_BLOCK");
 check("same height is accepted below Polygon head", polygonAtSameHeight.status === 200 && polygonAtSameHeight.body.chain === "polygon");
+f = fixture({ head: 100n });
+r = await request(`address=${ADDRESS}&block=100&chain=ethereum`, f.fetch);
+const firstHeadReads = f.calls.filter((call) => call.method === "eth_blockNumber").length;
+f.options.head = 101n;
+r = await request(`address=${ADDRESS}&block=101&chain=ethereum`, f.fetch, { clear: false });
+check("fresh selected-chain head accepts a newly mined requested block",
+  r.status === 200 && r.body.block === 101 && f.calls.filter((call) => call.method === "eth_blockNumber").length > firstHeadReads);
+f.options.head = 100n;
+r = await request(`address=${ADDRESS}&block=101&chain=ethereum`, f.fetch, { clear: false });
+check("fresh selected-chain head still rejects a genuinely future block",
+  r.status === 400 && r.body.error === "FUTURE_BLOCK");
 
 f = fixture();
 r = await request(`address=0x1234&block=10&chain=ethereum`, f.fetch);
@@ -128,8 +149,8 @@ f = fixture();
 r = await request(`metric=tx_receipt&tx_hash=${HASH}&chain=ethereum`, f.fetch);
 check("missing transaction is an HTTP 404 failure", r.status === 404 && r.body.ok === false && r.body.error === "TRANSACTION_NOT_FOUND");
 f = fixture({
-  transaction: { from: ADDRESS, to: TOKEN, value: "0x0", nonce: "0x1", blockNumber: "0x64", gasPrice: "0x5" },
-  receipt: { blockNumber: "0x64", status: "0x1", gasUsed: "0x5208", effectiveGasPrice: "0x5" },
+  transaction: { from: ADDRESS, to: TOKEN, value: "0x0", nonce: "0x1", blockNumber: "0x64", blockHash: HASH, gasPrice: "0x5" },
+  receipt: { transactionHash: HASH, blockNumber: "0x64", blockHash: HASH, status: "0x1", gasUsed: "0x5208", effectiveGasPrice: "0x5" },
 });
 r = await request(`metric=tx_receipt&tx_hash=${HASH}&chain=ethereum`, f.fetch);
 check("mined receipt exposes distinct gas and exact fee fields",
@@ -137,6 +158,46 @@ check("mined receipt exposes distinct gas and exact fee fields",
     && r.body.gas_used === "21000" && r.body.effective_gas_price_wei === "5"
     && r.body.fee_paid_wei === "105000" && r.body.sources.includes(r.body.source),
   JSON.stringify(r.body));
+f = fixture({
+  transaction: { blockNumber: "0x64", blockHash: HASH },
+  receipt: { transactionHash: `0x${"b".repeat(64)}`, blockNumber: "0x63", blockHash: `0x${"c".repeat(64)}`, gasUsed: "0x5208" },
+});
+r = await request(`metric=tx_receipt&tx_hash=${HASH}&chain=ethereum`, f.fetch);
+check("receipt hash and block mismatches fail explicitly",
+  r.status === 502 && r.body.ok === false && r.body.error === "INCONSISTENT_TRANSACTION");
+f = fixture({
+  transaction: { hash: `0x${"b".repeat(64)}`, blockNumber: null },
+  receipt: null,
+});
+r = await request(`metric=tx_receipt&tx_hash=${HASH}&chain=ethereum`, f.fetch);
+check("returned transaction hash must match the requested hash",
+  r.status === 502 && r.body.error === "INCONSISTENT_TRANSACTION");
+f = fixture({
+  transaction: { blockNumber: "0x64", blockHash: HASH },
+  receipt: { transactionHash: HASH, blockNumber: "0x63", blockHash: HASH, gasUsed: "0x5208" },
+});
+r = await request(`metric=tx_receipt&tx_hash=${HASH}&chain=ethereum`, f.fetch);
+check("transaction and receipt must agree on mined block identity",
+  r.status === 502 && r.body.error === "INCONSISTENT_RECEIPT");
+f = fixture({ transaction: { blockNumber: "0x64", blockHash: HASH }, receipt: null });
+r = await request(`metric=tx_receipt&tx_hash=${HASH}&chain=ethereum`, f.fetch);
+check("mined transaction without receipt is not labeled pending",
+  r.status === 502 && r.body.error === "INCONSISTENT_TRANSACTION");
+f = fixture({
+  transaction: { blockNumber: "0x64", blockHash: HASH },
+  receipt: { transactionHash: HASH, blockNumber: "0x64", blockHash: HASH, gasUsed: "0x5208" },
+});
+const receiptBeforeReorg = await request(`metric=tx_receipt&tx_hash=${HASH}&chain=ethereum`, f.fetch);
+const firstReceiptReads = f.calls.filter((call) => call.method === "eth_getTransactionReceipt").length;
+const nextBlockHash = `0x${"b".repeat(64)}`;
+f.options.transaction.blockNumber = "0x65";
+f.options.transaction.blockHash = nextBlockHash;
+f.options.receipt.blockNumber = "0x65";
+f.options.receipt.blockHash = nextBlockHash;
+const receiptAfterReorg = await request(`metric=tx_receipt&tx_hash=${HASH}&chain=ethereum`, f.fetch, { clear: false });
+check("receipt is re-fetched and exposes changed canonical block identity",
+  receiptBeforeReorg.body.block_hash === HASH && receiptAfterReorg.body.block_hash === nextBlockHash
+    && f.calls.filter((call) => call.method === "eth_getTransactionReceipt").length > firstReceiptReads);
 
 f = fixture();
 r = await request(`metric=erc20_balance&address=${ADDRESS}&token=${TOKEN}&block=10&chain=polygon`, f.fetch);
@@ -167,22 +228,75 @@ const tokenTwo = await request(`metric=erc20_balance&address=${ADDRESS}&token=${
 check("result cache includes token contract arguments",
   tokenOne.body.raw_balance === "10" && tokenTwo.body.raw_balance === "20" && tokenTwo.body.cached !== true);
 
+f = fixture({ head: 100n, balance: 7n, nonce: 1n, code: "0x6000", tokenBalance: 10n, totalSupply: 100n });
+const reorgBalanceBefore = await request(`address=${ADDRESS}&block=100&chain=ethereum`, f.fetch);
+f.options.balance = 9n;
+const reorgBalanceAfter = await request(`address=${ADDRESS}&block=100&chain=ethereum`, f.fetch, { clear: false });
+check("numbered balance is fetched again after canonical block state changes",
+  reorgBalanceBefore.body.balance_wei === "7" && reorgBalanceAfter.body.balance_wei === "9" && reorgBalanceAfter.body.cached !== true);
+const nonceBefore = await request(`metric=tx_count&address=${ADDRESS}&block=100&chain=ethereum`, f.fetch, { clear: false });
+f.options.nonce = 2n;
+const nonceAfter = await request(`metric=tx_count&address=${ADDRESS}&block=100&chain=ethereum`, f.fetch, { clear: false });
+check("numbered nonce is not indefinitely cached", nonceBefore.body.nonce === "1" && nonceAfter.body.nonce === "2");
+const codeBefore = await request(`metric=code&address=${ADDRESS}&block=100&chain=ethereum`, f.fetch, { clear: false });
+f.options.code = "0x";
+const codeAfter = await request(`metric=code&address=${ADDRESS}&block=100&chain=ethereum`, f.fetch, { clear: false });
+check("numbered code is not indefinitely cached", codeBefore.body.has_code === true && codeAfter.body.has_code === false);
+const tokenBefore = await request(`metric=erc20_balance&address=${ADDRESS}&token=${TOKEN}&block=100&chain=ethereum`, f.fetch, { clear: false });
+f.options.tokenBalance = 20n;
+const tokenAfter = await request(`metric=erc20_balance&address=${ADDRESS}&token=${TOKEN}&block=100&chain=ethereum`, f.fetch, { clear: false });
+check("numbered ERC-20 balance is not indefinitely cached",
+  tokenBefore.body.raw_balance === "10" && tokenAfter.body.raw_balance === "20");
+const supplyBefore = await request(`metric=total_supply&token=${TOKEN}&block=100&chain=ethereum`, f.fetch, { clear: false });
+f.options.totalSupply = 200n;
+const supplyAfter = await request(`metric=total_supply&token=${TOKEN}&block=100&chain=ethereum`, f.fetch, { clear: false });
+check("numbered totalSupply is not indefinitely cached",
+  supplyBefore.body.raw_total_supply === "100" && supplyAfter.body.raw_total_supply === "200");
+
 f = fixture();
 r = await request(`metric=logs&from_block=10&to_block=2011&address=${TOKEN}&chain=ethereum`, f.fetch);
 check("oversized log range is rejected before RPC", r.status === 400 && r.body.error === "LOG_RANGE_TOO_LARGE" && f.calls.length === 0);
-const sampleLog = { address: TOKEN, topics: [HASH], data: "0x", blockNumber: "0x14" };
+const sampleLog = {
+  address: TOKEN, topics: [HASH], data: "0x", blockNumber: "0x14",
+  blockHash: HASH, transactionHash: HASH, transactionIndex: "0x0", logIndex: "0x0",
+};
 f = fixture({ logs: [sampleLog] });
 r = await request(`metric=logs&from_block=10&to_block=20&address=${TOKEN}&topic0=${HASH}&chain=polygon`, f.fetch);
 check("bounded log query returns filters, values and provenance",
   r.status === 200 && r.body.count === 1 && r.body.logs[0].blockNumber === "0x14"
     && r.body.from_block === 10 && r.body.to_block === 20 && r.body.chain_id === 137
     && f.calls.some((call) => call.method === "eth_getLogs" && call.params[0].topics[0] === HASH));
+for (const [label, log] of [
+  ["wrong contract", { ...sampleLog, address: ADDRESS }],
+  ["out-of-range block", { ...sampleLog, blockNumber: "0xc9" }],
+  ["removed log", { ...sampleLog, removed: true }],
+  ["wrong topic", { ...sampleLog, topics: [`0x${"b".repeat(64)}`] }],
+]) {
+  f = fixture({ logs: [log] });
+  r = await request(`metric=logs&from_block=10&to_block=20&address=${TOKEN}&topic0=${HASH}&chain=ethereum`, f.fetch);
+  check(`inconsistent log evidence rejected (${label})`,
+    r.status === 502 && r.body.ok === false && ["INVALID_LOG_EVIDENCE", "REORGED_LOG"].includes(r.body.error));
+}
+f = fixture({ logs: [sampleLog] });
+const logBeforeReorg = await request(`metric=logs&from_block=10&to_block=20&address=${TOKEN}&chain=ethereum`, f.fetch);
+f.options.logs = [];
+const logAfterReorg = await request(`metric=logs&from_block=10&to_block=20&address=${TOKEN}&chain=ethereum`, f.fetch, { clear: false });
+check("log range results are re-fetched rather than cached across reorgs",
+  logBeforeReorg.body.count === 1 && logAfterReorg.body.count === 0);
 clearCache();
 f = fixture({ heads: { ethereum: 100n, polygon: 200n } });
 const futureLogs = await request(`metric=logs&from_block=10&to_block=150&address=${TOKEN}&chain=ethereum`, f.fetch, { clear: false });
 const polygonLogs = await request(`metric=logs&from_block=10&to_block=150&address=${TOKEN}&chain=polygon`, f.fetch, { clear: false });
 check("log future-block validation uses the selected chain head",
   futureLogs.status === 400 && futureLogs.body.error === "FUTURE_BLOCK" && polygonLogs.status === 200 && polygonLogs.body.chain === "polygon");
+f = fixture({ head: 100n });
+await request(`metric=logs&from_block=90&to_block=100&address=${TOKEN}&chain=ethereum`, f.fetch);
+const firstLogHeadReads = f.calls.filter((call) => call.method === "eth_blockNumber").length;
+f.options.head = 101n;
+r = await request(`metric=logs&from_block=90&to_block=101&address=${TOKEN}&chain=ethereum`, f.fetch, { clear: false });
+check("fresh selected-chain head accepts a newly mined log-range endpoint",
+  r.status === 200 && r.body.to_block === 101
+    && f.calls.filter((call) => call.method === "eth_blockNumber").length > firstLogHeadReads);
 f = fixture({ logs: Array.from({ length: 101 }, () => sampleLog) });
 r = await request(`metric=logs&from_block=10&to_block=20&address=${TOKEN}&topic0=${HASH}&chain=ethereum`, f.fetch);
 check("too many returned logs fail instead of truncating", r.status === 413 && r.body.error === "TOO_MANY_LOGS");

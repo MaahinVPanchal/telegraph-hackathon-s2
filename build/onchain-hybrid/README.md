@@ -1,8 +1,9 @@
 # onchain-hybrid local patch
 
-This directory is a local proposal for `onchain-metric-publicnode`. Nothing in this patch is deployed,
-published, registered, paid for, or signed. The remote Worker revision was not inspected; do not assume
-it matches this checkout. The associated public YAML staging copy is intentionally unchanged.
+The worker patch and companion YAML proposal are committed in public GitHub repositories, but are not
+deployed or registered. The YAML still uses `http://localhost:8787`; it is not a production endpoint.
+No paid calls, wallet signatures, or rank claims are part of this work. The separate `upload/` snapshot
+remains unchanged.
 
 ## Supported-operation matrix
 
@@ -22,9 +23,10 @@ Supported explicit chains are Ethereum mainnet (1), Polygon PoS (137, native POL
 return the expected `eth_chainId` before its result is trusted. Caller-supplied RPC URLs are rejected.
 `ARCHIVE_RPC_URL`, when configured by an operator, is not a request parameter and is still chain-ID checked.
 
-An explicit `chain` or `chain_id` is required; omitting both returns `CHAIN_REQUIRED`. This intentionally
-avoids silently selecting a network, but requires Engine-contract review before any publication. A
-`question` parameter is rejected
+An explicit `chain` or `chain_id` is required; omitting both returns `CHAIN_REQUIRED`. There is no
+Ethereum compatibility default or question parser: the untouched canonical `address` + `block` request
+is expected to fail until Engine declares/supplies a chain or a separately approved adapter is defined.
+A `question` parameter is rejected
 as `QUESTION_UNSUPPORTED`; there is no LLM or heuristic question parser. Generic `gas` is deliberately
 unsupported: a receipt exposes gas used, effective gas price, and fee as separate fields. Token supply
 means only ERC-20 `totalSupply()`, not circulating supply.
@@ -33,12 +35,17 @@ means only ERC-20 `totalSupply()`, not circulating supply.
 
 - State metrics resolve `latest` to the selected chain's head or use the exact requested numbered block.
   Historical reads are never replaced with latest state or clamped to head.
-- The future-block check uses the selected chain's `eth_blockNumber` and rejects any requested block
-  above that exact head.
+- The future-block check fetches the selected chain's current `eth_blockNumber` for every request and
+  rejects only a block above that fresh head.
 - Responses include requested and resolved chain/block, chain ID, source label(s), units, and exact
   integer strings where applicable. A decimal-scaled amount is never substituted for its raw integer.
-- Head cache keys include chain. Result keys include canonical chain, operation, every relevant argument,
-  and requested block; fallback results share the same chain/argument partitioning.
+- Head values are not cached. Numbered state reads, logs, and receipts are not result-cached because a
+  reorg can change their canonical evidence. Latest state results alone have a one-second
+  chain- and argument-partitioned cache.
+- Receipt success requires matching requested/returned transaction hashes and matching mined
+  transaction/receipt block numbers and hashes. The verified mined `block_hash` is returned.
+- Logs are checked against the requested address, topics, and block range; malformed or removed entries
+  fail instead of being relabeled as valid evidence.
 - Ethplorer is an Ethereum-only fallback for `eth_balance` at `latest`. It cannot answer Polygon or
   Arbitrum requests, historical requests, or other operations.
 - JSON-RPC attempts have per-attempt and total deadlines. Upstream bodies are bounded; answers over
@@ -70,29 +77,28 @@ Node.js >= 19; no added package dependencies.
 
 ```powershell
 npm start
-npm run test:unit
-npm run test:mock
-npm run test:live
-npm run test:contract
+npm test
+npm run test:multichain-live
+npm run test:performance
 ```
 
-`test:unit` includes synthetic chain-ID, chain/cache isolation, future-block, input-validation, transaction,
-log-size, token-decimal, timeout, and response-provenance cases. Synthetic fixtures are not live-chain
-evidence. The latest local validation passed 83 deterministic checks, 14 mock failover/deadline checks,
-15 live checks, and 22 strict contract checks. The measured worst-case mock request was 8,009 ms against
-the configured 8,000 ms deadline (the test allows 500 ms for timer scheduling overhead).
+`test:unit` uses clearly labeled synthetic fixtures for cache/reorg, future-head, receipt identity, log
+filter, and operation behavior. These are logic tests, not live-chain evidence. `test:live` covers
+Ethereum-only direct-worker requests and explicitly adds `chain=ethereum` in its test harness. The
+`evaluator shape` check is not an Engine E2E test: the untouched canonical `address` + `block` request
+returns `CHAIN_REQUIRED`. No Ethereum default adapter is implemented.
 
-Read-only same-block comparisons also matched exact wei values across independent providers: Ethereum at
-block 21,000,000 (`ethereum-mainnet.gateway.tatum.io` and `eth.drpc.org`); Polygon at block 97,130,176
-(`polygon.publicnode.com` and `1rpc.io`); and Arbitrum One at block 523,279,362
-(`arbitrum.publicnode.com` and `arbitrum.drpc.org`). The Polygon and Arbitrum probes verified chain IDs
-137 and 42161 respectively. These samples verify only those provider responses at those blocks; they do
-not establish continuous availability or production provider suitability.
+`test:multichain-live` performs read-only, same-block balance comparisons on each supported chain. It
+reports PASS/FAIL/SKIP separately, including source hosts, chain ID, block, exact wei, and fresh-read
+latency. Provider 403s or unavailable archive reads are SKIPs, never PASS. `test:performance` reports
+cold/warm p50/p95 for every operation/chain using synthetic fetch fixtures; it measures local service
+overhead and cache policy, not production RPC latency or a mission response-time SLA. The mock
+failure-budget suite remains separate.
 
 ## Required review before any deployment or registration
 
-1. Decide whether the Engine will supply a chain despite the live request schema omitting it, or whether a
-   documented Ethereum-only compatibility policy is required.
+1. Engine acceptance of `chain`/`chain_id` and the proposed operation inputs remains unconfirmed. Keep
+   deployment blocked until a sanctioned Engine test establishes the accepted contract.
 2. Confirm route validation and supported parameter shapes for each operation; the live intent currently
    scores only `balance_gwei`.
 3. Confirm whether transaction, receipt, log, gas, and total-supply outputs have any declared scored

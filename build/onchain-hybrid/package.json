@@ -9,10 +9,12 @@
   },
   "scripts": {
     "start": "node src/server.mjs",
-    "test": "node test/failover.test.mjs && node test/live.test.mjs && node test/unit.test.mjs && node test/address-contract.test.mjs && node test/chain-ops.test.mjs && node test/contract.test.mjs strict",
+    "test": "node test/failover.test.mjs && node test/live.test.mjs && node test/multichain-live.test.mjs && node test/unit.test.mjs && node test/address-contract.test.mjs && node test/chain-ops.test.mjs && node test/contract.test.mjs strict && node test/performance.test.mjs",
     "test:contract": "node test/contract.test.mjs strict",
     "test:unit": "node test/unit.test.mjs && node test/address-contract.test.mjs && node test/chain-ops.test.mjs",
     "test:mock": "node test/failover.test.mjs",
-    "test:live": "node test/live.test.mjs"
+    "test:live": "node test/live.test.mjs",
+    "test:multichain-live": "node test/multichain-live.test.mjs",
+    "test:performance": "node test/performance.test.mjs"
   }
 }

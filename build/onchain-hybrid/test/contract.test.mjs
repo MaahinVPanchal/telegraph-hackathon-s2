@@ -5,9 +5,12 @@ const GARBAGE = "1234567890abcdef".repeat(6);
 const mode = process.argv[2] || "strict";
 const env = mode === "soft" ? { SOFT_ERRORS: "1" } : {};
 const errStatus = mode === "soft" ? 200 : 400;
-let pass = 0, fail = 0;
+let pass = 0, fail = 0, skip = 0;
 const check = (n, c, d) => { c ? pass++ : fail++; console.log(c ? "PASS" : "FAIL", n, d ?? ""); };
-const q = async (qs) => {
+const skipCheck = (n, d) => { skip++; console.log("SKIP", n, d ?? ""); };
+// Direct worker contract cases below deliberately select Ethereum in the harness.
+// This does not model Engine input validation or prove that Engine supplies chain.
+const qWithExplicitEthereum = async (qs) => {
   const url = new URL("https://x/query?" + qs);
   if (!url.searchParams.has("chain")) url.searchParams.set("chain", "ethereum");
   const r = await handle(url, env, { quiet: true });
@@ -35,19 +38,36 @@ const rpcBalance = async (addr, blk, excluded = []) => {
   throw new Error(`all independent oracle RPCs failed: ${errors.join("; ")}`);
 };
 
+let canonicalRpcCalls = 0;
+const canonical = await handle(`https://x/query?address=${V}&block=21000000`, {}, {
+  fetch: async () => { canonicalRpcCalls++; throw new Error("canonical request must not reach an RPC"); },
+  quiet: true,
+});
+const canonicalBody = JSON.parse(canonical.text);
+check("untouched canonical address+block input remains blocked without chain",
+  canonical.status === 400 && canonicalBody.error === "CHAIN_REQUIRED" && canonicalRpcCalls === 0);
+
 const blkHexN = 21000000;
-const firstOracle = await rpcBalance(V, blkHexN);
+let firstOracle;
+try {
+  firstOracle = await rpcBalance(V, blkHexN);
+} catch (error) {
+  skipCheck("live Ethereum contract assertions", `independent read-only RPCs unavailable: ${error.message}`);
+  console.log(`mode=${mode}: ${pass} passed, ${fail} failed, ${skip} skipped`);
+  process.exit(fail ? 1 : 0);
+}
 let oracleNote = new URL(firstOracle.url).host;
 let truthWei = firstOracle.wei;
 try {
   const secondOracle = await rpcBalance(V, blkHexN, [firstOracle.url]);
   check("oracle agreement: two independent RPCs return identical wei", truthWei === secondOracle.wei, `${truthWei} vs ${secondOracle.wei}`);
   oracleNote += `+${new URL(secondOracle.url).host}`;
-} catch (e) { console.log("WARN second oracle unavailable:", e.message); }
+} catch (e) { skipCheck("independent Ethereum RPC agreement", e.message); }
 console.log("oracle:", truthWei.toString(), "wei @ block", blkHexN, `(${oracleNote})`);
 
-let r = await q(`address=${V}&block=21000000`);
-check("evaluator shape (address+block): 200 ok, pinned block", r.status === 200 && r.body.ok === true && r.body.block === 21000000 && r.body.block_tag === "number");
+let r = await qWithExplicitEthereum(`address=${V}&block=21000000`);
+check("direct worker request with harness-selected Ethereum (not Engine E2E)",
+  r.status === 200 && r.body.ok === true && r.body.block === 21000000 && r.body.block_tag === "number");
 check("balance_wei === independent oracle (exact string)", r.body.balance_wei === truthWei.toString(), `${r.body.balance_wei} vs ${truthWei}`);
 {
   const ref = Number(truthWei) / 1e9;
@@ -58,46 +78,46 @@ check("balance_wei === independent oracle (exact string)", r.body.balance_wei ==
 check("chain echo ethereum", r.body.chain === "ethereum");
 check("response under 4096 B", r.bytes <= 4096, `${r.bytes}B`);
 
-r = await q(`address=${V.slice(2)}&block=21000000`);
+r = await qWithExplicitEthereum(`address=${V.slice(2)}&block=21000000`);
 check("bare 40-hex normalized to identical answer", r.status === 200 && r.body.ok === true && r.body.balance_wei === truthWei.toString(), `err=${r.body.error || ""}`);
-r = await q(`address=0X${V.slice(2)}&block=21000000`);
+r = await qWithExplicitEthereum(`address=0X${V.slice(2)}&block=21000000`);
 check("0X prefix normalized", r.status === 200 && r.body.ok === true);
-r = await q(`address=%22${V}%22&block=21000000`);
+r = await qWithExplicitEthereum(`address=%22${V}%22&block=21000000`);
 check("stray quotes normalized", r.status === 200 && r.body.ok === true);
-r = await q(`address=${V}&block_number=21000000`);
+r = await qWithExplicitEthereum(`address=${V}&block_number=21000000`);
 check("block_number alias: pinned, same wei", r.body.ok === true && r.body.block === 21000000 && r.body.balance_wei === truthWei.toString());
 
-r = await q(`address=${GARBAGE}&block=21000000`);
+r = await qWithExplicitEthereum(`address=${GARBAGE}&block=21000000`);
 check(`garbage 96-hex rejected (HTTP ${errStatus})`, r.status === errStatus && r.body.ok === false && r.body.error === "INVALID_ADDRESS" && !("balance_wei" in r.body) && !("balance_gwei" in r.body) && !("value" in r.body), `status=${r.status}`);
-r = await q(`address=vitalik.eth&block=21000000`);
+r = await qWithExplicitEthereum(`address=vitalik.eth&block=21000000`);
 check(`ENS rejected (HTTP ${errStatus})`, r.status === errStatus && r.body.error === "INVALID_ADDRESS");
-r = await q(`block=21000000`);
+r = await qWithExplicitEthereum(`block=21000000`);
 check(`missing address (HTTP ${errStatus}) MISSING_ADDRESS`, r.status === errStatus && r.body.error === "MISSING_ADDRESS");
-r = await q(`address=${V}&block=99999999999`);
+r = await qWithExplicitEthereum(`address=${V}&block=99999999999`);
 check(`future block (HTTP ${errStatus}) FUTURE_BLOCK`, r.status === errStatus && r.body.error === "FUTURE_BLOCK" && !("balance_wei" in r.body));
-r = await q(`address=${V}&block=21000000&metric=unsupported`);
+r = await qWithExplicitEthereum(`address=${V}&block=21000000&metric=unsupported`);
 check(`bad metric (HTTP ${errStatus}) UNSUPPORTED_METRIC`, r.status === errStatus && r.body.error === "UNSUPPORTED_METRIC");
 
 const SAMPLE_ADDR = "0x1234567890123456789012345678901234567890";
 const { wei: zw } = await rpcBalance(SAMPLE_ADDR, blkHexN);
-r = await q(`address=${SAMPLE_ADDR}&block=21000000`);
+r = await qWithExplicitEthereum(`address=${SAMPLE_ADDR}&block=21000000`);
 check("sample address: wei matches oracle exactly", r.body.ok === true && r.body.balance_wei === zw.toString() && (zw !== 0n || r.body.balance_gwei === 0), `oracle=${zw}`);
 
 const BURN = "0x0000000000000000000000000000000000000000";
 const { wei: bw } = await rpcBalance(BURN, blkHexN);
-r = await q(`address=${BURN}&block=21000000`);
+r = await qWithExplicitEthereum(`address=${BURN}&block=21000000`);
 {
   const ref = Number(bw) / 1e9;
   check("large balance: balance_wei exact vs oracle", r.body.ok === true && r.body.balance_wei === bw.toString(), `oracle=${bw}`);
   check("large balance: balance_gwei within 2 ULP", Math.abs(r.body.balance_gwei - ref) <= 2 * ulp(ref), `got ${r.body.balance_gwei}`);
 }
 
-r = await q(`address=${V}&block=21000000&metric=tx_count`);
+r = await qWithExplicitEthereum(`address=${V}&block=21000000&metric=tx_count`);
 check("tx_count answers", r.body.ok === true && typeof r.body.value === "string");
-r = await q(`address=${V}&block=21000000&metric=code`);
+r = await qWithExplicitEthereum(`address=${V}&block=21000000&metric=code`);
 check("code answers", r.body.ok === true && typeof r.body.value === "boolean");
-r = await q(`address=${V}&block=21000000&metric=erc20_balance&token=0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`);
+r = await qWithExplicitEthereum(`address=${V}&block=21000000&metric=erc20_balance&token=0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`);
 check("erc20 USDC answers", r.body.ok === true, `value=${r.body.value || r.body.error}`);
 
-console.log(`\nmode=${mode}: ${pass} passed, ${fail} failed`);
+console.log(`\nmode=${mode}: ${pass} passed, ${fail} failed, ${skip} skipped`);
 process.exit(fail ? 1 : 0);

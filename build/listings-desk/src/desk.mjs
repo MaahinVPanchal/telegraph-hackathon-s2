@@ -3,7 +3,10 @@ import {
   INTENT_ASKS, ENGINE_INTENT_BY_CHECK, MANDATORY_CHECKS, POLICY_VERSION, resolveCaps, formatUsd, usdToMicro, ENGINE_BASE,
 } from "./config.mjs";
 import { ask, makeMockAsk, PaymentRequiredError } from "./engine.mjs";
-import { EscrowSigner, fetchWithEscrow, PaymentPolicy } from "./x402.mjs";
+import { PaymentPolicy } from "./x402.mjs";
+import { wrapFetchWithPayment, x402Client } from "@x402/fetch";
+import { registerExactEvmScheme } from "@x402/evm/exact/client";
+import { privateKeyToAccount } from "viem/accounts";
 
 const UNSUPPORTED = {
   SMART_CONTRACT_AUDIT: "published leaf has no request schema or response format; audit evidence is unsupported",
@@ -186,27 +189,18 @@ function usdFloatToMicro(value) {
 }
 
 function realAskFactory(paymentPolicy, opts) {
-  const signer = opts.signer ?? (process.env.WALLET_PRIVATE_KEY ? new EscrowSigner(process.env.WALLET_PRIVATE_KEY) : null);
-  return async (base, args) => {
-    const fetchImpl = signer
-      ? async (url, init) => {
-          const result = await fetchWithEscrow(opts.fetchImpl ?? fetch, signer, url, init, {
-            policy: paymentPolicy,
-            intent: args.intent,
-            expected: opts.escrowExpected ?? {
-              network: process.env.ESCROW_EXPECTED_NETWORK,
-              payTo: process.env.ESCROW_EXPECTED_PAYTO,
-              origin: process.env.ESCROW_EXPECTED_ORIGIN,
-              resource: process.env.ESCROW_EXPECTED_RESOURCE,
-            },
-            now: opts.now,
-            nonceFactory: opts.nonceFactory,
-          });
-          return result.res;
-        }
-      : opts.fetchImpl ?? fetch;
-    return ask(base, args, fetchImpl);
-  };
+  const privateKey = process.env.WALLET_PRIVATE_KEY;
+  if (!privateKey || opts.signer === null) {
+    // No wallet: requests run without payment and surface the 402 challenge as failures.
+    return (base, args) => ask(base, args, opts.fetchImpl ?? fetch);
+  }
+  // The connected wallet signs the x402 "exact" scheme (EIP-3009) directly --
+  // no server-side key ever exists. The facilitator verifies and settles on-chain.
+  const account = privateKeyToAccount(privateKey);
+  const client = new x402Client();
+  registerExactEvmScheme(client, { signer: account });
+  const fetchWithPay = wrapFetchWithPayment(fetch, client);
+  return async (base, args) => ask(base, args, fetchWithPay);
 }
 
 export function assess(candidate, receipts, failures, {

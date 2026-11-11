@@ -87,7 +87,17 @@ function validateEngineAnswer({ intent, params, data, authorizedAmountMicro, set
           !["ok", "missing", "unavailable", "rejected"].includes(status))) {
         note("invalid", "one or more required shaped fields are rejected or unrecognized");
       } else if (statuses.includes("unavailable")) note("unavailable", "one or more required shaped fields are unavailable");
-      else if (statuses.includes("missing")) note("missing", "one or more required shaped fields are missing");
+      else if (statuses.includes("missing")) {
+        // A clean no-match sanctions screening legitimately omits matches/lists:
+        // if those are the only missing fields and matched === false, the result is
+        // valid -- the sanctions-specific validation below gives the final word.
+        const result = isRecord(data.result) ? data.result : null;
+        const missingFields = requiredFields.filter((field) => data.field_status[field] !== "ok");
+        const cleanNoMatch = intent === "SANCTIONS_SCREENING_MATCH_GENERAL" &&
+          result?.matched === false && result?.matches == null &&
+          missingFields.every((field) => field === "matches" || field === "lists");
+        if (!cleanNoMatch) note("missing", "one or more required shaped fields are missing");
+      }
     } else if (intent === "SANCTIONS_SCREENING_MATCH_GENERAL") {
       const { name, matched, matches, lists } = result;
       if (typeof name !== "string" || name !== params.name ||
@@ -173,6 +183,14 @@ export async function ask(engineBase, args, fetchImpl = fetch) {
     error.authorizedAmountMicro = res.authorizedAmountMicro ?? null;
     throw error;
   }
+  // The x402 exact rail carries the settlement proof in the response header
+  // (the SDK verifies it internally -- we decode it for the memo evidence).
+  const settlementHeader = res.headers?.get("x-payment-response") ?? null;
+  let settlementProof = null;
+  if (settlementHeader) {
+    try { settlementProof = JSON.parse(Buffer.from(settlementHeader, "base64").toString("utf8")); }
+    catch { settlementProof = { raw: settlementHeader }; }
+  }
   let data;
   try {
     data = await res.json();
@@ -221,8 +239,8 @@ export async function ask(engineBase, args, fetchImpl = fetch) {
     evidenceIssues: validation.issues,
     proofStatus: validation.proofStatus,
     proofGaps: validation.proofGaps,
-    settlement: res.settlementReceipt ?? null,
-    paymentStatus: res.paymentStatus ?? "unknown",
+    settlement: res.settlementProof ?? res.settlementReceipt ?? null,
+    paymentStatus: res.settlementProof ? "settled_exact_rail" : (res.settlementProof === null && res.ok ? "settled" : (res.paymentStatus ?? "unknown")),
     authorizedAmountMicro: res.authorizedAmountMicro ?? null,
     timestamp: typeof data.timestamp === "string" ? data.timestamp : null,
   };

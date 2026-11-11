@@ -80,3 +80,15 @@ Executed per MIGRATION-RUNBOOK.md:
 5. ⏳ Node activation pending (node busy re-indexing — was dropping 50 miners during migration)
 
 Balances after: 0.1 ETH gas · ~0.97 USDC · ~0.87 MACHINA. Stranded on old chain: 15 USDC + dust (testnet write-off). The 0.05 ETH mystery drop was Ethereum Sepolia all along — exactly the gas the migration needed.
+
+
+## M7 — First real paid run through the desk's own architecture (12 Nov)
+
+The desk (post-rewrite) executed its first REAL paid assessments on the migrated platform:
+
+- **2 x402 exact-scheme payments settled** — SANCTIONS_SCREENING_MATCH_GENERAL via Counterproof Sanctions Screener (731002), $0.01 each, signal hashes issued, facilitator-settled
+- **Evidence: VALID** — after two policy fixes: (1) the sanctions validation accepted clean no-match results (matches/lists legitimately null when matched=false), (2) the field_status \"missing\" demotion exempted clean no-match screenings
+- **Verdict: REVIEW** — the confidence gate holds GO back on partial coverage (1 of 5 checks valid; the rest unsupported by design)
+- **Wired the standard x402 client** (@x402/fetch + @x402/evm exact scheme, browser-compatible) replacing the escrow-rail signer — the payment rail the migrated platform now offers
+- **Known cosmetic gaps:** paymentStatus \"unknown\" (the exact-rail settlement header is not exposed by the SDK wrapper) and actualMicro n/a (the policy ledger is not fed via the SDK path) — the payments themselves are proven by the receipts
+- Test suite: 44/0

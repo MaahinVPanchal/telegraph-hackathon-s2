@@ -4,11 +4,17 @@
   "description": "Local listing-risk desk with fail-closed evidence, payment guards, and honest simulated/real output labels.",
   "type": "module",
   "private": true,
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "demo": "node src/cli.mjs 0xTokenListingCandidate --mode mock",
     "cli": "node src/cli.mjs",
     "web": "node src/serve.mjs",
     "test": "node --test test/desk.test.mjs"
+  },
+  "dependencies": {
+    "@x402/evm": "^2.30.0",
+    "@x402/fetch": "^2.30.0"
   }
 }

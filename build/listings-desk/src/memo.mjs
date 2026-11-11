@@ -142,10 +142,29 @@ body.memo-page {
   gap: 12px;
   margin-bottom: 10px;
 }
-.memo-card-title { min-width: 0; font-weight: 750; overflow-wrap: anywhere; }
+.memo-card-title { min-width: 0; font-weight: 750; overflow-wrap: break-word; }
 .memo-card-title code { color: var(--ld-primary-strong); }
 .memo-pill-row { display: flex; flex-wrap: wrap; gap: 6px; }
-.memo-pill { min-height: 26px; padding: 3px 8px; font-size: .68rem; letter-spacing: .04em; }
+.memo-pill {
+  min-height: 26px;
+  padding: 3px 8px;
+  font-size: .68rem;
+  letter-spacing: .04em;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  flex: 0 0 auto;
+}
+.memo-receipt-details { margin-top: 12px; }
+.memo-receipt-details > summary {
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--ld-border);
+  border-radius: 8px;
+  color: var(--ld-primary-strong);
+  cursor: pointer;
+  font-weight: 700;
+}
+.memo-receipt-details > summary:focus-visible { outline: 3px solid var(--ld-focus); outline-offset: 2px; }
 .memo-reason { margin: 8px 0; overflow-wrap: anywhere; }
 .memo-source { margin: 8px 0 0; color: var(--ld-secondary); font-size: .84rem; overflow-wrap: anywhere; }
 .memo-finding {
@@ -214,13 +233,13 @@ body.memo-page {
   .memo-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .memo-section { padding: 14px; }
   .memo-data-grid { grid-template-columns: minmax(0, 1fr); }
+  .memo-card-head { flex-direction: column; align-items: flex-start; }
 }
 @media (max-width: 380px) {
   body.memo-page { padding: 10px; }
   .memo-result-head { flex-direction: column; gap: 12px; }
   .memo-stat-grid { gap: 7px; }
   .memo-stat { padding: 10px; }
-  .memo-card-head { flex-direction: column; }
 }
 `;
 
@@ -242,6 +261,10 @@ function escapeHtml(value) {
     '"': "&quot;",
     "'": "&#39;",
   }[character]));
+}
+
+function breakableIdentifier(value) {
+  return escapeHtml(value).replaceAll("_", "_<wbr>");
 }
 
 function printable(value) {
@@ -287,7 +310,7 @@ function evidenceCard([check, evidence]) {
   const sourceReferences = (evidence.sourceReferences ?? []).filter(Boolean);
   return `<article class="memo-card evidence-card">
     <header class="memo-card-head">
-      <div class="memo-card-title">${escapeHtml(check)}</div>
+      <div class="memo-card-title">${breakableIdentifier(check)}</div>
       ${statusPill(evidence.status)}
     </header>
     <p class="memo-reason">${escapeHtml(evidence.reason)}</p>
@@ -325,24 +348,27 @@ function receiptCard(receipt, mode) {
   ];
   return `<article class="memo-card receipt-card">
     <header class="memo-card-head">
-      <div class="memo-card-title">${escapeHtml(receipt.check ?? "unknown check")} · <code>${escapeHtml(receipt.intent)}</code></div>
+      <div class="memo-card-title">${breakableIdentifier(receipt.check ?? "unknown check")} · <code>${breakableIdentifier(receipt.intent)}</code></div>
       <div class="memo-pill-row">
         ${statusPill(receipt.evidenceStatus)}
         ${statusPill(receipt.paymentStatus)}
         ${statusPill(receipt.proofStatus)}
       </div>
     </header>
-    ${dataGrid(fields)}
-    ${receipt.rawResponse != null
-      ? `<details class="memo-raw"><summary>Raw Engine response (received data; not independently verified)</summary><pre>${escapeHtml(pretty(receipt.rawResponse))}</pre></details>`
-      : ""}
+    <details class="memo-receipt-details">
+      <summary>Receipt, response and payment details</summary>
+      ${dataGrid(fields)}
+      ${receipt.rawResponse != null
+        ? `<details class="memo-raw"><summary>Raw Engine response (received data; not independently verified)</summary><pre>${escapeHtml(pretty(receipt.rawResponse))}</pre></details>`
+        : ""}
+    </details>
   </article>`;
 }
 
 function failureCard(failure) {
   return `<article class="memo-card failure-card">
     <header class="memo-card-head">
-      <div class="memo-card-title">${escapeHtml(failure.check ?? "unknown check")} · <code>${escapeHtml(failure.intent)}</code></div>
+      <div class="memo-card-title">${breakableIdentifier(failure.check ?? "unknown check")} · <code>${breakableIdentifier(failure.intent)}</code></div>
       <div class="memo-pill-row">
         ${statusPill(failure.paymentStatus)}
         ${statusPill(failure.proofStatus)}

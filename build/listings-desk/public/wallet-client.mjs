@@ -1,7 +1,7 @@
-const ADDRESS_PATTERN = /^0x[0-9a-fA-F]{40}$/;
+const ETHEREUM_ADDRESS_PATTERN = /^0x[0-9a-fA-F]{40}$/;
 
 export function isEthereumAddress(value) {
-  return typeof value === "string" && ADDRESS_PATTERN.test(value);
+  return typeof value === "string" && ETHEREUM_ADDRESS_PATTERN.test(value);
 }
 
 function isProvider(provider) {

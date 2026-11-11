@@ -5,7 +5,9 @@ import { ENGINE_INTENT_BY_CHECK, resolveCaps } from "../src/config.mjs";
 import { ask, PaymentRequiredError } from "../src/engine.mjs";
 import { renderHtml, renderHtmlFragment, renderMarkdown } from "../src/memo.mjs";
 import { fetchWithEscrow, PaymentPolicy, PaymentPolicyError, validateEscrowReceipt } from "../src/x402.mjs";
-import { isEthereumAddress, requestMetaMaskAccounts, selectMetaMaskProvider } from "../src/wallet-client.mjs";
+import { isEthereumAddress, requestMetaMaskAccounts, selectMetaMaskProvider } from "../public/wallet-client.mjs";
+import pageHandler from "../api/index.js";
+import memoHandler from "../api/memo.js";
 
 const wallet = "0x1111111111111111111111111111111111111111";
 const payTo = "0x2222222222222222222222222222222222222222";
@@ -83,6 +85,40 @@ function settlementResponse(status, receipt = escrowReceipt()) {
     : {};
   return response(status, { ok: status === 200 }, headers);
 }
+
+function httpResponse() {
+  return {
+    statusCode: 200,
+    headers: {},
+    body: "",
+    setHeader(name, value) { this.headers[name] = value; },
+    status(code) { this.statusCode = code; return this; },
+    end(body = "") { this.body = String(body); return this; },
+  };
+}
+
+test("Vercel handlers are mock-only and validate methods and candidate input", async () => {
+  const page = httpResponse();
+  pageHandler({ method: "GET" }, page);
+  assert.equal(page.statusCode, 200);
+  assert.match(page.body, /SIMULATED \/ OFFLINE/);
+  assert.match(page.body, /Run offline demo/);
+  assert.equal(page.headers["Cache-Control"], "no-store");
+
+  const memo = httpResponse();
+  await memoHandler({ method: "GET", url: "/memo?token=DEMO", headers: { host: "localhost" } }, memo);
+  assert.equal(memo.statusCode, 200);
+  assert.match(memo.body, /SIMULATED\/OFFLINE/);
+  assert.match(memo.body, /Actually spent: \$0 USD/);
+
+  const invalid = httpResponse();
+  await memoHandler({ method: "GET", url: "/memo", headers: { host: "localhost" } }, invalid);
+  assert.equal(invalid.statusCode, 400);
+
+  const methodNotAllowed = httpResponse();
+  await memoHandler({ method: "POST", url: "/memo?token=DEMO", headers: { host: "localhost" } }, methodNotAllowed);
+  assert.equal(methodNotAllowed.statusCode, 405);
+});
 
 test("MetaMask provider discovery prefers EIP-6963 and only accepts MetaMask providers", () => {
   const metamask = { isMetaMask: true, request() {} };
@@ -352,6 +388,7 @@ test("mock receipts are simulated, actual spend is zero, and all renderers are h
   const markdown = renderMarkdown(memo);
   const html = renderHtml(memo);
   const fragment = renderHtmlFragment(memo);
+  const plainFragment = fragment.replaceAll("<wbr>", "");
   const json = JSON.stringify({ memo });
   assert.equal(memo.actualSpentUsd, "$0");
   assert.equal(memo.actualSpendDescription, "actual spent");
@@ -360,7 +397,12 @@ test("mock receipts are simulated, actual spend is zero, and all renderers are h
   assert.equal(memo.receipts.every((receipt) => receipt.minerId === null && receipt.signalHash === null), true);
   assert.match(markdown, /\| `SANCTIONS_SCREENING_MATCH` \| `SANCTIONS_SCREENING_MATCH_GENERAL` \| SIMULATED receipt/);
   assert.match(fragment, /class="memo-card evidence-card"/);
-  assert.match(fragment, /SANCTIONS_SCREENING_MATCH_GENERAL/);
+  assert.match(plainFragment, /SANCTIONS_SCREENING_MATCH_GENERAL/);
+  assert.equal((fragment.match(/<details class="memo-receipt-details">/g) ?? []).length, memo.receipts.length);
+  assert.doesNotMatch(fragment, /<details class="memo-receipt-details" open/);
+  assert.match(fragment, /Receipt, response and payment details/);
+  assert.match(fragment, /memo-pill[^>]*status--simulated/);
+  assert.match(plainFragment, /SANCTIONS_SCREENING_MATCH_GENERAL/);
   assert.doesNotMatch(fragment, /<table\b|<!doctype|<html\b|<head\b|<body\b/i);
   assert.match(html, /<body class="memo-page">/);
   assert.equal((html.match(/<html\b/g) ?? []).length, 1);
@@ -393,11 +435,12 @@ test("partial and unknown real outcomes keep actual spend distinct from estimate
   assert.equal(memo.evidence.SOCIAL_BOT_DETECTION.status, "unavailable");
   const markdown = renderMarkdown(memo);
   const fragment = renderHtmlFragment(memo);
+  const plainFragment = fragment.replaceAll("<wbr>", "");
   assert.doesNotMatch(markdown, /\b(purchased|signed)\b/i);
   assert.match(fragment, /Recommendation: UNKNOWN/);
   assert.match(fragment, /connection lost after authorization/);
   assert.match(fragment, /SOCIAL_BOT_DETECTION/);
-  assert.match(fragment, /SANCTIONS_SCREENING_MATCH_GENERAL/);
+  assert.match(plainFragment, /SANCTIONS_SCREENING_MATCH_GENERAL/);
   assert.match(fragment, /test-miner/);
   assert.match(fragment, /signal hash/i);
   assert.match(fragment, /Payment status/);

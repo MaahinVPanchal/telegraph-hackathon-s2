@@ -5,18 +5,14 @@
 
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { runDesk } from "./desk.mjs";
 import { MEMO_CSS, renderHtmlFragment, THEME_TOKENS } from "./memo.mjs";
 
 const PORT = Number(process.env.PORT ?? 7788);
 const MODE = process.env.DESK_MODE ?? "mock";
 const IS_MOCK = MODE === "mock";
-const MODE_LABEL = IS_MOCK ? "SIMULATED / OFFLINE" : MODE === "real" ? "REAL" : "INVALID MODE";
-const ACTION_LABEL = IS_MOCK ? "Run offline demo" : "Run assessment";
-const MODE_HELP = IS_MOCK
-  ? "Offline fixtures only. No Engine calls, payments, or signatures."
-  : "Token-only page: required entity and account identities are not inferred, so checks needing them remain missing.";
-const WALLET_CLIENT = readFileSync(new URL("./wallet-client.mjs", import.meta.url));
 
 const PAGE_CSS = `
 * { box-sizing: border-box; }
@@ -274,7 +270,14 @@ button, input, a, summary { -webkit-tap-highlight-color: transparent; }
 }
 `;
 
-const PAGE = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#09080e"><title>Telegraph Listings Desk</title>
+export function renderPage(mode = MODE) {
+  const isMock = mode === "mock";
+  const modeLabel = isMock ? "SIMULATED / OFFLINE" : mode === "real" ? "REAL" : "INVALID MODE";
+  const actionLabel = isMock ? "Run offline demo" : "Run assessment";
+  const modeHelp = isMock
+    ? "Offline fixtures only. No Engine calls, payments, or signatures."
+    : "Token-only page: required entity and account identities are not inferred, so checks needing them remain missing.";
+  const PAGE = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#09080e"><title>Telegraph Listings Desk</title>
 <style>${THEME_TOKENS}${PAGE_CSS}${MEMO_CSS}</style></head><body>
 <main class="app-shell">
   <header class="site-header">
@@ -283,7 +286,7 @@ const PAGE = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta n
       <span><span class="brand-name">LISTINGS DESK</span><span class="brand-subtitle">Telegraph intelligence workspace</span></span>
     </div>
     <div class="header-actions">
-      <span class="mode-badge${IS_MOCK ? "" : MODE === "real" ? " mode-badge--real" : " mode-badge--invalid"}">${MODE_LABEL}</span>
+      <span class="mode-badge${isMock ? "" : mode === "real" ? " mode-badge--real" : " mode-badge--invalid"}">${modeLabel}</span>
       <button class="wallet-connect" id="wallet-connect" type="button">Connect MetaMask</button>
     </div>
   </header>
@@ -304,12 +307,12 @@ const PAGE = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta n
       <section class="setup-grid" aria-label="Assessment setup">
         <form class="panel" id="candidate-form" novalidate>
           <p class="eyebrow">01 / Candidate</p>
-          <h2>Run a ${IS_MOCK ? "local simulation" : "listing assessment"}</h2>
+          <h2>Run a ${isMock ? "local simulation" : "listing assessment"}</h2>
           <label class="field-label" for="token">Token symbol or contract address</label>
           <input class="token-input" id="token" name="token" type="text" placeholder="e.g. PEPE or 0x…" autocomplete="off" maxlength="120" required aria-describedby="token-help">
           <p class="field-help" id="token-help">Token-only input. Treasury, deployer, social identities, chain and repository are not inferred.</p>
-          <button class="primary-action" id="run-button" type="submit">${ACTION_LABEL}</button>
-          <p class="mode-help">${MODE_HELP}</p>
+          <button class="primary-action" id="run-button" type="submit">${actionLabel}</button>
+          <p class="mode-help">${modeHelp}</p>
         </form>
         <aside class="panel" aria-labelledby="limits-title">
           <p class="eyebrow">Evidence overview</p>
@@ -338,8 +341,8 @@ const form = document.getElementById("candidate-form");
 const input = document.getElementById("token");
 const output = document.getElementById("out");
 const button = document.getElementById("run-button");
-const mockMode = ${IS_MOCK};
-const defaultButtonText = ${JSON.stringify(ACTION_LABEL)};
+const mockMode = ${isMock};
+const defaultButtonText = ${JSON.stringify(actionLabel)};
 
 function validateToken() {
   const value = input.value.trim();
@@ -394,45 +397,54 @@ form.addEventListener("submit", async (event) => {
   }
 });
 </script><script type="module" src="/wallet-client.mjs"></script></body></html>`;
+  return PAGE;
+}
 
-createServer(async (req, res) => {
-  const url = new URL(req.url, "http://localhost");
-  if (url.pathname === "/wallet-client.mjs" && req.method === "GET") {
-    res.writeHead(200, {
-      "Content-Type": "text/javascript; charset=utf-8",
-      "X-Content-Type-Options": "nosniff",
-    });
-    res.end(WALLET_CLIENT);
-    return;
-  }
-  if (url.pathname === "/") {
-    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-    res.end(PAGE);
-    return;
-  }
-  if (url.pathname === "/memo") {
-    const token = url.searchParams.get("token")?.trim();
-    if (!token || token.length > 120) {
-      res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
-      res.end(JSON.stringify({ error: "missing or bad token" }));
+function startLocalServer() {
+  const walletClient = readFileSync(new URL("../public/wallet-client.mjs", import.meta.url));
+  createServer(async (req, res) => {
+    const url = new URL(req.url, "http://localhost");
+    if (url.pathname === "/wallet-client.mjs" && req.method === "GET") {
+      res.writeHead(200, {
+        "Content-Type": "text/javascript; charset=utf-8",
+        "X-Content-Type-Options": "nosniff",
+      });
+      res.end(walletClient);
       return;
     }
-    try {
-      const { memo } = await runDesk(token, { mode: MODE });
+    if (url.pathname === "/") {
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-      res.end(renderHtmlFragment(memo));
-    } catch (error) {
-      res.writeHead(502, { "Content-Type": "application/json; charset=utf-8" });
-      const message = error instanceof Error ? error.message : String(error);
-      res.end(JSON.stringify({ error: message.slice(0, 400) }));
+      res.end(renderPage());
+      return;
     }
-    return;
-  }
-  res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
-  res.end("not found");
-}).listen(PORT, () => {
-  console.log(`listings desk on http://localhost:${PORT} (mode: ${MODE})`);
-  console.log(IS_MOCK
-    ? "SIMULATED/OFFLINE mode: no Engine calls, payments or signatures."
-    : "REAL mode: token-only requests remain blocked where required inputs are absent.");
-});
+    if (url.pathname === "/memo") {
+      const token = url.searchParams.get("token")?.trim();
+      if (!token || token.length > 120) {
+        res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
+        res.end(JSON.stringify({ error: "missing or bad token" }));
+        return;
+      }
+      try {
+        const { memo } = await runDesk(token, { mode: MODE });
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        res.end(renderHtmlFragment(memo));
+      } catch (error) {
+        res.writeHead(502, { "Content-Type": "application/json; charset=utf-8" });
+        const message = error instanceof Error ? error.message : String(error);
+        res.end(JSON.stringify({ error: message.slice(0, 400) }));
+      }
+      return;
+    }
+    res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+    res.end("not found");
+  }).listen(PORT, "127.0.0.1", () => {
+    console.log(`listings desk on http://127.0.0.1:${PORT} (mode: ${MODE})`);
+    console.log(IS_MOCK
+      ? "SIMULATED/OFFLINE mode: no Engine calls, payments or signatures."
+      : "REAL mode: token-only requests remain blocked where required.");
+  });
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  startLocalServer();
+}

@@ -19,6 +19,26 @@ The local web UI can request account access after the user selects **Connect Met
 
 This connection does not request a signature, transaction, payment, chain switch, or chain default. It is account access only, not the full `@metamask/connect-evm` mobile QR/deep-link SDK flow. The SDK requires explicit supported-network RPC configuration; that is intentionally not added until the Engine/deployment network is confirmed. See [MetaMask's `eth_requestAccounts` reference](https://docs.metamask.io/metamask-connect/evm/reference/json-rpc-api/eth_requestAccounts) and [provider API](https://docs.metamask.io/metamask-connect/evm/reference/provider-api/).
 
+## Public Vercel mock preview
+
+Live preview: [https://leaderlight.vercel.app](https://leaderlight.vercel.app)
+
+Vercel project: `leaderlight`
+
+Vercel project root: `build/listings-desk`
+
+The `api/` handlers and `vercel.json` adapt the local UI to Vercel Functions. Both the page and memo endpoint explicitly force mock mode; setting `DESK_MODE=real` cannot enable Engine calls or payments on this deployment. The browser wallet remains account-access-only. The preview is public, reports **SIMULATED / OFFLINE**, and makes no Engine calls, payments, or signatures.
+
+Receipt/response diagnostics are collapsed by default on the memo, with an accessible toggle; recommendation, evidence status, payment status, and reasons remain visible. The local Node server binds to `127.0.0.1`. Do not expose its real mode publicly. A future real deployment requires authentication, persistent authorization accounting, confirmed Engine compatibility, and a separate security review.
+
+This Vercel project currently uses direct CLI deployments rather than Git-based automatic deployment. After logging in with `npx vercel@latest login`, redeploy from this project directory with:
+
+```bash
+npx vercel@latest deploy --prod --project leaderlight
+```
+
+The `leaderlight.vercel.app` hostname is Vercel-provided. A custom domain requires control of its DNS.
+
 ## Candidate inputs
 
 The CLI accepts an optional JSON file with candidate-specific identifiers:

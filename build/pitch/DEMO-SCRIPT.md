@@ -1,77 +1,63 @@
-# 🎬 Demo Video Script — 3 minutes, word-for-word
+# Leaderlight Listings Desk — honest local demo
 
-> **How to record:** Xbox Game Bar (`Win + G`) or OBS Studio (free). Record **browser + terminal**.
-> Read the **SAY** lines, do the **SHOW** actions at the same time. Total ≈ 3:00. The submission
-> needs 2–5 minutes — this lands at 3.
+This script demonstrates the current offline app and the un-deployed command-room concept. It does **not** make paid Engine calls, connect a wallet, sign, spend, or claim that all five checks are live. Do not record a real-mode CLI run as a live five-intent demo: the current Engine contract does not support all mandatory checks.
 
----
+## Before recording
 
-## SHOT 1 — Hook (0:00 – 0:20)
+From `build/listings-desk`:
 
-**SHOW:** the finished memo open in your browser (`build/milestones/real-run-memos/…html`) — scroll slowly from verdict to receipts to the cost line.
+```bash
+npm run demo
+npm run web
+```
 
-**SAY:**
-> "This is a listing risk memo produced by our app, the Listings Desk, for Telegraph Hackathon Season Two. Every line of it was **bought with real money** from the Telegraph network — five pieces of intelligence, parallel, a couple of minutes including automatic retries, and the total cost printed at the bottom. Let me show you how."
+Open the local SIMULATED/OFFLINE desk at `http://localhost:7788`. Separately open `public/leaderlight-command-room-preview.html` from a static local server if you want to show the visual concept. The preview is not the deployed app and its controls are disabled.
 
----
+## Three-minute script
 
-## SHOT 2 — The problem (0:20 – 0:50)
+### 1. Problem and product (0:00–0:30)
 
-**SHOW:** the Mission 01 brief on `hackathon.telegraphprotocol.com/missions/exchange` — highlight the "problem" paragraph.
+**Show:** The local Listings Desk memo.
 
-**SAY:**
-> "When an exchange reviews a token listing, it needs contract audits, on-chain metrics, sanctions screening, social authenticity, and code review. Today that's weeks of analyst time, per-seat surveillance licensing, and counterparty checks that mean exposing your book. Agents can't trust raw APIs either — there's no receipt, no track record, no accountability."
+**Say:**
+> "Leaderlight is a prototype listings desk for organizing evidence behind a token-listing decision. It makes the required checks and their evidence status visible instead of turning missing data into a confident answer."
 
----
+### 2. Honest offline behavior (0:30–1:15)
 
-## SHOT 3 — The app in action (0:50 – 1:40)
+**Show:** The simulated memo. Point to the recommendation, mandatory checks, evidence/payment/proof labels, and simulation status.
 
-**SHOW:** terminal. Type `node src/cli.mjs <token> --mode real` and let it run. The memo prints. (If it's slow, cut the wait in editing — or pre-run and show the saved memo being written.)
+**Say:**
+> "This run is explicitly simulated and offline. It makes no Engine calls, wallet requests, signatures, or payments. A fixture is useful for reviewing the workflow, but it is not decision evidence and we do not present its sample receipts as paid delivery."
 
-**SAY:**
-> "Here's the app running live. We fire **five parallel paid requests** through the Telegraph Engine — contract audit, on-chain metrics, sanctions screening, social bot detection, and code review. We never choose who answers: the Engine routes each request to the **best-ranked miner** on the network for that Intent. Each answer comes back with a receipt — which miner served it, what it cost, how long it took, and a signal hash we can verify later. Failed requests are never billed, and the desk retries them automatically."
+### 3. Evidence gates and current limitation (1:15–2:00)
 
----
+**Show:** The README's candidate-input and contract-compatibility sections. Do not display a fabricated GO result.
 
-## SHOT 4 — The supply side: our own miners (1:40 – 2:20)
+**Say:**
+> "The current Engine contracts we inspected expose only part of the five-check policy. Audit, holder concentration, and repository-history evidence are still unsupported by the retrieved contracts. Those checks remain mandatory, so this version cannot honestly produce a GO. We are keeping that gate rather than spending on mismatched requests or filling gaps with defaults."
 
-**SHOW:** two tabs fast:
-1. `https://devnode.telegraphprotocol.com/api/miners` → Ctrl+F `openmeteo` → highlight our miner.
-2. `https://sepolia.basescan.org/address/0x5549286a1C71893816899BbEF8F4CE4d91f87821` → the 7 transactions.
+### 4. Payment evidence, precisely stated (2:00–2:35)
 
-**SAY:**
-> "We don't just consume this network — we supply it. We registered two miners on-chain: an on-chain metrics reader and a weather verification service, both live in the routing pool today — you can see them in the network's own catalogue, and our wallet's registration transactions on Base Sepolia. Miners earn from real demand: ninety-eight percent of every payment is converted to MACHINA and paid to the miner's fee address. In our test runs, our own desk bought from our own miners — the full supply-and-demand loop, working."
+**Show:** The README table linking the two public epoch-2068 delivery records.
 
----
+**Say:**
+> "There are two previously reported 10,000-micro-USDC delivery records in the public epoch API. Both identify the same payer, miner 5166, sanctions intent, and epoch. These records support epoch-ledger inclusion for those receipt IDs. They do not prove which browser or request body produced them, a live MetaMask signature, answer accuracy, or a separate per-request chain transaction. We have not made a new paid request for this demo."
 
-## SHOT 5 — The numbers (2:20 – 2:45)
+### 5. Design preview and next milestone (2:35–3:00)
 
-**SHOW:** the memo's cost line, then the leaderboards (`node build/check-leaderboard.mjs`).
+**Show:** `public/leaderlight-command-room-preview.html` at desktop width, then a mobile viewport. Clearly identify it as a static, local design concept.
 
-**SAY:**
-> "The economics: one request costs one cent. A full listing review costs five cents and runs in a couple of minutes — against weeks of analyst time. And because rankings are public, quality is transparent: our Intents have incumbents scoring zero-point-three to zero-point-six, and our validators-verified answers are built to beat them."
+**Say:**
+> "This is a local design preview, not a deployment. The next milestone is one supported live request with a verified answer and receipt, followed by reconciliation and a repeatable public test. We will not expand to five intents or enable payments until the contracts, wallet flow, and receipt semantics are verified."
 
----
+## Short version
 
-## SHOT 6 — Try it (2:45 – 3:00)
+> "Leaderlight organizes evidence for a token-listing decision. The current desk demo is offline and clearly labeled as simulation. Some required Engine checks are unsupported, so the app does not claim a live five-intent GO. We have public epoch delivery records for two earlier reported requests, but they do not prove browser signing or answer accuracy. Our next milestone is one supported live request with a verified answer and receipt."
 
-**SHOW:** the repo README on GitHub, and the "How to reproduce" block of the memo.
+## Recording rules
 
-**SAY:**
-> "Everything is open: the app, the miner configs, the run instructions, and every receipt. Clone it, run `npm run demo` — no wallet needed — and you'll produce the same memo. This is our Mission One submission for Telegraph Hackathon Season Two. Thank you."
-
----
-
-## 📱 Discord intro post (copy-paste)
-
-> Hi all 👋 We're **building for Mission 01 (Exchange)**: an **autonomous listings desk** that buys verified intelligence through Telegraph — 5 parallel paid Intents (contract audit, on-chain metrics, sanctions, bot detection, code review) → a signed listing risk memo with receipts and a **cost line**.
->
-> We're also on the **Miner track**: two live miners (`ONCHAIN_METRIC_VERIFY` + `WEATHER_FORECAST(_VERIFY)`) already serving routed traffic on testnet. Real purchases done ✅ with settlement receipts — Nov 14 milestone artifact ready.
->
-> Looking for: app builders who need `ONCHAIN_METRIC_VERIFY` or weather verification, and feedback on our memo format. Repo + receipts: <link — paste when repo goes public or share in DM>
-
----
-
-## 🎙️ If asked to speak live (30-second version)
-
-> "We built a listings desk for Mission One: it buys five kinds of verified intelligence — contract audit, on-chain metrics, sanctions, bot detection, code review — in parallel through Telegraph, and returns a risk memo with receipts and a cost line, in minutes for five cents. We also run two live miners on the network supplying that intelligence. Everything is on-chain, receipted, and reproducible — repo and receipts in the thread."
+- Keep the SIMULATED/OFFLINE label visible when showing fixtures.
+- Do not run `node src/cli.mjs ... --mode real` for this demo.
+- Do not click connect, sign, approve, deposit, or any payment control while recording.
+- Do not describe a protocol receipt or epoch delivery record as final on-chain settlement.
+- Do not claim current miner rankings, availability, answer quality, one-cent guarantees, or five-cent full reviews without fresh evidence.

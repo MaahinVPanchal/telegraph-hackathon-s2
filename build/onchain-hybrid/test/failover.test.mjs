@@ -8,7 +8,15 @@ const SECRET = "https://eth-mainnet.g.alchemy.com/v2/SUPERSECRETKEY123";
 const host = (u) => new URL(u).host;
 const ok = (id, result) => new Response(JSON.stringify({ jsonrpc: "2.0", id, result }), { status: 200 });
 const hang = (init) => new Promise((_, rej) => init.signal.addEventListener("abort", () => rej(Object.assign(new Error("aborted"), { name: "AbortError" }))));
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// Abortable delay: resolves after ms, or rejects with AbortError the moment the
+// worker's attempt signal fires — mirroring what a real fetch does.
+const sleep = (ms, signal) => new Promise((resolve, reject) => {
+  if (signal?.aborted) { reject(Object.assign(new Error("aborted"), { name: "AbortError" })); return; }
+  const timer = setTimeout(() => { cleanup(); resolve(); }, ms);
+  const onAbort = () => { cleanup(); reject(Object.assign(new Error("aborted"), { name: "AbortError" })); };
+  const cleanup = () => { clearTimeout(timer); signal?.removeEventListener?.("abort", onAbort); };
+  signal?.addEventListener?.("abort", onAbort);
+});
 
 // Healthy JSON-RPC behaviour, used by providers a test marks as good.
 function good(init) {
@@ -121,22 +129,21 @@ await run("arbitrum archive: publicnode rejects fast + drpc hangs + delayed arb1
     if (method === "eth_blockNumber") return ok(1, "0x" + HEAD.toString(16));
     if (h === "arbitrum.publicnode.com") return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, error: { code: -32602, message: "Archive requests require a personal token." } }), { status: 403 });
     if (h === "arbitrum.drpc.org") return hang(init);
-    if (method === "eth_call") { await sleep(2000); return ok(1, params?.[0]?.data === "0x313ce567" ? "0x06" : "0x00000000000000000000000000000000000000000000000056bc75e2d63100000"); }
+    if (method === "eth_call") { await sleep(2000, init.signal); return ok(1, params?.[0]?.data === "0x313ce567" ? "0x06" : "0x00000000000000000000000000000000000000000000000056bc75e2d63100000"); }
     return ok(1, "0x");
   },
   expect: ({ status, ms, log, j }) => status === 200 && ms >= 1900 && ms < REQUEST_DEADLINE_MS &&
     log.source === "arb1.arbitrum.io" && j.block === HEAD - 1000 && j.block_tag === "number",
 });
 
-await run("arbitrum archive: real delays across head and supply — decimals cut by the shared 8 s budget -> 200 with an explicitly labeled decimals_error", {
+await run("arbitrum archive: cumulative sub-limit delays (slow head 2.3 s, arb1 chainId+call 2.3 s each) cross the shared 8 s budget -> 200 with an explicitly labeled decimals_error", {
   query: `chain=arbitrum-one&metric=total_supply&token=0x912CE59144191C1204E64559FE8253a0e49E6548&block_number=${HEAD - 1000}`,
   behaviour: async (h, init) => {
     const { method, params } = JSON.parse(init.body);
-    if (method === "eth_chainId") return ok(1, "0xa4b1");
-    if (h === "arbitrum.publicnode.com" && method === "eth_blockNumber") { await sleep(1000); return ok(1, "0x" + HEAD.toString(16)); }
-    if (method === "eth_blockNumber") return ok(1, "0x" + HEAD.toString(16));
+    if (method === "eth_chainId") { if (h === "arb1.arbitrum.io") await sleep(2300, init.signal); return ok(1, "0xa4b1"); }
+    if (method === "eth_blockNumber") { await sleep(2300, init.signal); return ok(1, "0x" + HEAD.toString(16)); }
     if (h === "arbitrum.publicnode.com" || h === "arbitrum.drpc.org") return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, error: { code: -32602, message: "Archive requests require a personal token." } }), { status: 403 });
-    if (method === "eth_call") { await sleep(7000); return ok(1, params?.[0]?.data === "0x313ce567" ? "0x06" : "0x00000000000000000000000000000000000000000000000056bc75e2d63100000"); }
+    if (method === "eth_call") { await sleep(2300, init.signal); return ok(1, params?.[0]?.data === "0x313ce567" ? "0x06" : "0x00000000000000000000000000000000000000000000000056bc75e2d63100000"); }
     return ok(1, "0x");
   },
   expect: ({ status, j, ms }) => status === 200 && j.block === HEAD - 1000 && j.block_tag === "number" &&
@@ -144,18 +151,30 @@ await run("arbitrum archive: real delays across head and supply — decimals cut
     ms >= REQUEST_DEADLINE_MS - 100 && ms < REQUEST_DEADLINE_MS + 700,
 });
 
-await run("arbitrum archive: nothing lands within the shared 8 s budget -> 504 DEADLINE_EXCEEDED", {
+await run("arbitrum archive: every attempt completes under the 2.5 s limit but no provider can answer -> 504 NO_ARCHIVE_SOURCE, failed closed", {
+  query: `chain=arbitrum-one&metric=total_supply&token=0x912CE59144191C1204E64559FE8253a0e49E6548&block_number=${HEAD - 1000}`,
+  behaviour: async (h, init) => {
+    const { method, params } = JSON.parse(init.body);
+    if (method === "eth_chainId") { if (h === "arb1.arbitrum.io") await sleep(2400, init.signal); return ok(1, "0xa4b1"); }
+    if (method === "eth_blockNumber") return ok(1, "0x" + HEAD.toString(16));
+    return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, error: { code: -32602, message: h === "arbitrum.drpc.org" ? "Unknown state. First available state is 1" : "Archive requests require a personal token." } }), { status: h === "arbitrum.drpc.org" ? 400 : 403 });
+  },
+  expect: ({ status, j, ms, log }) => status === 504 && j.error === "NO_ARCHIVE_SOURCE" && ms < 6000 &&
+    log.rpc_failures.length >= 3 && log.rpc_failures.every((f) => f.reason === "no_archive"),
+});
+
+await run("arbitrum archive: the delayed mock respects attempt cancellation -> aborted at the 2.5 s attempt limit, 504 NO_ARCHIVE_SOURCE ~2.5 s", {
   query: `chain=arbitrum-one&metric=total_supply&token=0x912CE59144191C1204E64559FE8253a0e49E6548&block_number=${HEAD - 1000}`,
   behaviour: async (h, init) => {
     const { method, params } = JSON.parse(init.body);
     if (method === "eth_chainId") return ok(1, "0xa4b1");
     if (method === "eth_blockNumber") return ok(1, "0x" + HEAD.toString(16));
     if (h === "arbitrum.publicnode.com" || h === "arbitrum.drpc.org") return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, error: { code: -32602, message: "Archive requests require a personal token." } }), { status: 403 });
-    if (method === "eth_call") { await sleep(9500); return ok(1, params?.[0]?.data === "0x313ce567" ? "0x06" : "0x00000000000000000000000000000000000000000000000056bc75e2d63100000"); }
+    if (method === "eth_call") { await sleep(9500, init.signal); return ok(1, params?.[0]?.data === "0x313ce567" ? "0x06" : "0x00000000000000000000000000000000000000000000000056bc75e2d63100000"); }
     return ok(1, "0x");
   },
-  expect: ({ status, j, ms }) => status === 504 && j.error === "DEADLINE_EXCEEDED" &&
-    ms >= REQUEST_DEADLINE_MS - 100 && ms < REQUEST_DEADLINE_MS + 700,
+  expect: ({ status, j, ms, log }) => status === 504 && j.error === "NO_ARCHIVE_SOURCE" &&
+    ms >= 2400 && ms < 4500 && log.attempts >= 3,
 });
 
 await run("arbitrum archive: all three providers reject the historical eth_call -> 504 NO_ARCHIVE_SOURCE fast, all no_archive", {

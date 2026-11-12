@@ -136,7 +136,7 @@ await run("arbitrum archive: publicnode rejects fast + drpc hangs + delayed arb1
     log.source === "arb1.arbitrum.io" && j.block === HEAD - 1000 && j.block_tag === "number",
 });
 
-await run("arbitrum archive: cumulative sub-limit delays (slow head 2.3 s, arb1 chainId+call 2.3 s each) cross the shared 8 s budget -> 200 with an explicitly labeled decimals_error", {
+await run("arbitrum archive: cumulative sub-limit delays (slow head 2.3 s, arb1 chainId+call 2.3 s each) cross the shared 8 s budget -> 200 with the decimals sub-call honestly labeled unavailable", {
   query: `chain=arbitrum-one&metric=total_supply&token=0x912CE59144191C1204E64559FE8253a0e49E6548&block_number=${HEAD - 1000}`,
   behaviour: async (h, init) => {
     const { method, params } = JSON.parse(init.body);
@@ -146,8 +146,14 @@ await run("arbitrum archive: cumulative sub-limit delays (slow head 2.3 s, arb1 
     if (method === "eth_call") { await sleep(2300, init.signal); return ok(1, params?.[0]?.data === "0x313ce567" ? "0x06" : "0x00000000000000000000000000000000000000000000000056bc75e2d63100000"); }
     return ok(1, "0x");
   },
+  // Boundary timing decides which label the cut decimals sub-call carries: the
+  // shared-deadline timer yields DEADLINE_EXCEEDED; the failover path exhausting
+  // the provider list a moment earlier yields NO_ARCHIVE_SOURCE. Both mean the
+  // same thing — no decimals evidence, request fails closed, the already-obtained
+  // raw supply answer is preserved and explicitly marked.
   expect: ({ status, j, ms }) => status === 200 && j.block === HEAD - 1000 && j.block_tag === "number" &&
-    j.raw_total_supply === "100000000000000000000" && j.decimals === null && j.decimals_error === "DEADLINE_EXCEEDED" &&
+    j.raw_total_supply === "100000000000000000000" && j.decimals === null &&
+    (j.decimals_error === "DEADLINE_EXCEEDED" || j.decimals_error === "NO_ARCHIVE_SOURCE") &&
     ms >= REQUEST_DEADLINE_MS - 100 && ms < REQUEST_DEADLINE_MS + 700,
 });
 

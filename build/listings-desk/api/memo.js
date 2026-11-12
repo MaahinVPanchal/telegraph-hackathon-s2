@@ -1,5 +1,8 @@
 import { runDesk } from "../src/desk.mjs";
-import { renderHtmlFragment } from "../src/memo.mjs";
+// renderHtml: /memo is a standalone page in the visitor's browser. A bare
+// section fragment has no document, stylesheet or theme and renders unreadably
+// (transparent surfaces, unstyled black text).
+import { renderHtml } from "../src/memo.mjs";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -22,7 +25,7 @@ export default async function handler(req, res) {
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.setHeader("Cache-Control", "no-store");
     res.setHeader("X-Content-Type-Options", "nosniff");
-    res.status(200).end(renderHtmlFragment(memo));
+    res.status(200).end(renderHtml(memo));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     res.setHeader("Content-Type", "application/json; charset=utf-8");

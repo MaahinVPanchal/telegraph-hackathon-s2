@@ -87,10 +87,80 @@ await run("JSON-RPC error (pruned node) -> next RPC", {
   expect: ({ status, log }) => status === 200 && log.rpc_failures.some((f) => f.reason === "no_archive"),
 });
 
+// Regression (2026-11-12): Arbitrum archive total_supply against the free public
+// RPCs — these are the exact 4xx bodies reproduced in production. The official
+// arb1 endpoint must answer after failover, and both 4xx bodies must classify
+// as no_archive (dRPC's "first available state" previously fell into "network").
+await run("arbitrum archive total_supply: free RPC 4xx -> official arb1 answers, classified no_archive", {
+  query: `chain=arbitrum-one&metric=total_supply&token=0x912CE59144191C1204E64559FE8253a0e49E6548&block_number=${HEAD - 1000}`,
+  behaviour: (h, init) => {
+    if (h === "arbitrum.publicnode.com") return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, error: { code: -32602, message: "Archive requests require a personal token. Get one at: https://www.allnodes.com/publicnode" } }), { status: 403 });
+    if (h === "arbitrum.drpc.org") return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, error: { message: "Unknown state. First available state is 1", code: 27 } }), { status: 400 });
+    const { method, params } = JSON.parse(init.body);
+    if (method === "eth_chainId") return ok(1, "0xa4b1");
+    if (method === "eth_blockNumber") return ok(1, "0x" + HEAD.toString(16));
+    if (method === "eth_call") return ok(1, params?.[0]?.data === "0x313ce567" ? "0x06" : "0x00000000000000000000000000000000000000000000000056bc75e2d63100000");
+    return ok(1, "0x");
+  },
+  expect: ({ status, j, log, raw }) => status === 200 && log.source === "arb1.arbitrum.io" &&
+    log.rpc_failures.filter((f) => f.rpc !== "arb1.arbitrum.io").every((f) => f.reason === "no_archive") &&
+    log.rpc_failures.length >= 2 &&
+    !raw.includes("allnodes.com") && !raw.includes("Archive requests") && !raw.includes("First available state"),
+});
+
+await run("arbitrum archive: publicnode 403 fast + drpc hangs + arb1 answers -> 200 within the 8 s budget", {
+  query: `chain=arbitrum-one&metric=total_supply&token=0x912CE59144191C1204E64559FE8253a0e49E6548&block_number=${HEAD - 1000}`,
+  behaviour: (h, init) => {
+    if (h === "arbitrum.publicnode.com") return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, error: { code: -32602, message: "Archive requests require a personal token." } }), { status: 403 });
+    if (h === "arbitrum.drpc.org") return hang(init);
+    const { method, params } = JSON.parse(init.body);
+    if (method === "eth_chainId") return ok(1, "0xa4b1");
+    if (method === "eth_blockNumber") return ok(1, "0x" + HEAD.toString(16));
+    if (method === "eth_call") return ok(1, params?.[0]?.data === "0x313ce567" ? "0x06" : "0x00000000000000000000000000000000000000000000000056bc75e2d63100000");
+    return ok(1, "0x");
+  },
+  expect: ({ status, ms, log }) => status === 200 && ms < REQUEST_DEADLINE_MS && log.source === "arb1.arbitrum.io",
+});
+
+await run("arbitrum archive: all three providers reject -> 504 NO_ARCHIVE_SOURCE fast, all no_archive", {
+  query: `chain=arbitrum-one&metric=total_supply&token=0x912CE59144191C1204E64559FE8253a0e49E6548&block_number=${HEAD - 1000}`,
+  behaviour: (h) => new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, error: { code: -32602, message: h === "arbitrum.drpc.org" ? "Unknown state. First available state is 1" : "Archive requests require a personal token." } }), { status: h === "arbitrum.drpc.org" ? 400 : 403 }),
+  expect: ({ status, j, ms, log }) => status === 504 && j.error === "NO_ARCHIVE_SOURCE" && ms < 2000 &&
+    log.rpc_failures.every((f) => f.reason === "no_archive"),
+});
+
 await run("ARCHIVE_RPC_URL tried first; key never in response or log", {
   env: { ARCHIVE_RPC_URL: SECRET },
   behaviour: (h, init) => (h === host(SECRET) ? new Response("bad key", { status: 401 }) : h === P[0] ? hang(init) : good(init)),
   expect: ({ status, raw, log }) => status === 200 && !raw.includes("SUPERSECRETKEY123") && !raw.includes("alchemy") && log.rpc_failures[0].rpc === "ARCHIVE_RPC_URL#1",
+});
+
+// Chain-specific archive override (P5): reaches only the named chain, never the
+// others — unlike the global ARCHIVE_RPC_URL, which would be raced (and fail the
+// chain-ID check) for Ethereum and Polygon too.
+await run("ARCHIVE_RPC_URL_ARBITRUM_ONE is prepended for arbitrum only; secret never leaks", {
+  env: { ARCHIVE_RPC_URL_ARBITRUM_ONE: SECRET },
+  query: `chain=arbitrum-one&metric=total_supply&token=0x912CE59144191C1204E64559FE8253a0e49E6548&block_number=${HEAD - 1000}`,
+  behaviour: (h, init) => {
+    if (h === host(SECRET)) return new Response("bad key", { status: 401 });
+    const { method, params } = JSON.parse(init.body);
+    if (method === "eth_chainId") return ok(1, "0xa4b1");
+    if (method === "eth_blockNumber") return ok(1, "0x" + HEAD.toString(16));
+    if (method === "eth_call") return ok(1, params?.[0]?.data === "0x313ce567" ? "0x06" : "0x00000000000000000000000000000000000000000000000056bc75e2d63100000");
+    return ok(1, "0x");
+  },
+  expect: ({ status, raw, log }) => status === 200 && !raw.includes("SUPERSECRETKEY123") &&
+    !raw.includes("arb-keyed-endpoint") && log.rpc_failures[0].rpc === "ARCHIVE_RPC_URL_ARBITRUM_ONE#1",
+});
+
+await run("chain-specific archive override is not raced for ethereum", {
+  env: { ARCHIVE_RPC_URL_ARBITRUM_ONE: "https://arb-keyed-endpoint.example/v3/secret" },
+  query: `address=${ADDR}&block_number=18000000`,
+  behaviour: (h, init) => {
+    if (h === "arb-keyed-endpoint.example") return new Response("must not be called", { status: 500 });
+    return good(init);
+  },
+  expect: ({ status, log }) => status === 200 && !(log.rpc_failures ?? []).some((f) => f.rpc.includes("arb-keyed-endpoint")),
 });
 
 await run("ARCHIVE_RPC_URL-only failure message is label-only (all fail)", {

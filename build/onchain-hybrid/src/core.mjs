@@ -36,8 +36,14 @@ export const CHAINS = Object.freeze({
   "arbitrum-one": Object.freeze({
     id: 42161, nativeSymbol: "ETH",
     rpcs: Object.freeze([
+      // Free PublicNode/dRPC endpoints only serve recent Arbitrum state: archive
+      // eth_call returns 403 "Archive requests require a personal token" (PublicNode)
+      // and 400 "Unknown state. First available state is 1" (dRPC) — reproduced 2026-11-12.
+      // The official endpoint serves archive state; kept third so latest-state
+      // latency (HEDGE = 2) is unaffected and archive requests fail over to it.
       "https://arbitrum.publicnode.com",
       "https://arbitrum.drpc.org",
+      "https://arb1.arbitrum.io/rpc",
     ]),
   }),
 });
@@ -247,9 +253,23 @@ function rpcList(chain, env) {
     if (parsed.protocol !== "https:") throw new ServiceError(500, "INVALID_RPC_CONFIGURATION", "ARCHIVE_RPC_URL endpoints must use HTTPS");
     return { url, label: `ARCHIVE_RPC_URL#${i + 1}` };
   });
+  // Chain-specific archive override (e.g. ARCHIVE_RPC_URL_ARBITRUM_ONE): prepended
+  // ONLY for the named chain — the global ARCHIVE_RPC_URL would otherwise be raced
+  // for every chain and always fail the chain-ID check on the others.
+  const chainKeySuffix = chain.name.toUpperCase().replace(/-/g, "_");
+  const chainExtra = env && env[`ARCHIVE_RPC_URL_${chainKeySuffix}`]
+    ? String(env[`ARCHIVE_RPC_URL_${chainKeySuffix}`]).split(",").map((s) => s.trim()).filter(Boolean)
+    : [];
+  const chainConfigured = chainExtra.map((url, i) => {
+    let parsed;
+    try { parsed = new URL(url); } catch { throw new ServiceError(500, "INVALID_RPC_CONFIGURATION", `${chainKeySuffix} archive RPC contains an invalid URL`); }
+    if (parsed.protocol !== "https:") throw new ServiceError(500, "INVALID_RPC_CONFIGURATION", `${chainKeySuffix} archive RPC endpoints must use HTTPS`);
+    return { url, label: `ARCHIVE_RPC_URL_${chainKeySuffix}#${i + 1}` };
+  });
   return [
+    ...chainConfigured,
     ...configured,
-    ...chain.rpcs.map((url) => ({ url, label: new URL(url).host })),
+    ...chain.config.rpcs.map((url) => ({ url, label: new URL(url).host })),
   ];
 }
 
@@ -258,7 +278,7 @@ function classify(e) {
   if (e instanceof ChainIdMismatch) return "chain_id_mismatch";
   if (e && e.name === "AbortError" || /abort|timeout/i.test(m)) return "timeout";
   if (/HTTP 429|rate/i.test(m)) return "rate_limited";
-  if (/pruned|historical state|archive|missing trie/i.test(m)) return "no_archive";
+  if (/pruned|historical state|archive|missing trie|first available state|unknown state|archive_state_unavailable/i.test(m)) return "no_archive";
   if (/HTTP 5\d\d/.test(m)) return "http_5xx";
   if (/HTTP 4\d\d/.test(m)) return "http_4xx";
   if (/rpc error/.test(m)) return "rpc_error";
@@ -284,7 +304,22 @@ async function attempt(ctx, url, init, outer) {
     if (Number.isFinite(declaredBytes) && declaredBytes > 2_000_000) throw new Error("upstream body too large");
     const text = await res.text();
     if (new TextEncoder().encode(text).length > 2_000_000) throw new Error("upstream body too large");
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      // Categorize archive rejections WITHOUT propagating provider text — a 4xx
+      // body could echo URLs or credentials, and only the category label reaches
+      // the request log. (Reproduced 2026-11-12: PublicNode 403 "Archive requests
+      // require a personal token…", dRPC 400 "Unknown state. First available
+      // state is 1".)
+      let category = "";
+      try {
+        const m = JSON.parse(text)?.error?.message;
+        if (typeof m === "string" &&
+            /archive|historical state|pruned|missing trie|first available state|unknown state/i.test(m)) {
+          category = " archive_state_unavailable";
+        }
+      } catch { /* non-JSON body keeps the bare status */ }
+      throw new Error(`HTTP ${res.status}${category}`);
+    }
     let json; try { json = JSON.parse(text); } catch { throw new Error(`non-JSON HTTP ${res.status}`); }
     return json;
   } finally {
@@ -296,7 +331,7 @@ async function attempt(ctx, url, init, outer) {
 // Hedged, bounded failover: race the first HEDGE providers; every failure starts the next
 // provider; the first valid result wins and aborts the rest; stop at the request deadline.
 async function rpc(ctx, chain, method, params) {
-  const list = rpcList(chain.config, ctx.env);
+  const list = rpcList(chain, ctx.env);
   const winner = new AbortController();
   return await new Promise((resolve, reject) => {
     let next = 0, inFlight = 0, done = false;

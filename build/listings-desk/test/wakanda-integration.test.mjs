@@ -15,3 +15,16 @@ test('refined Wakanda preserves unique runtime controls and embeds its verified 
  for(const id of ['candidate-form','run-button','wallet-connect','run-live','mint-usdc','fund-escrow','deployer-name','treasury-name','out','lb-refresh','lb-body','chip-miners'])assert.equal((html.match(new RegExp('id="'+id+'"','g'))||[]).length,1,id);
  assert.match(html,/See the risk/);assert.match(html,/Keep the signal/);assert.match(html,/Independent app/);assert.match(html,/data:font\/ttf;base64/);assert.match(html,/data:image\/png;base64/);
 });
+test('/memo serves a full styled document, not a bare fragment',async()=>{
+ // Regression (2026-11-12): the endpoint returned renderHtmlFragment — a bare
+ // <section> with no document or stylesheet, which rendered unreadably.
+ const { renderHtml } = await import('../src/memo.mjs');
+ const { memo } = await import('../src/desk.mjs').then((d) => d.runDesk('PEPE', { mode: 'mock' }));
+ const page = renderHtml(memo);
+ assert.match(page, /^<!doctype html>/i);
+ assert.match(page, /--ld-page:/);
+ assert.match(page, /<style/);
+ const handler = readFileSync(new URL('../api/memo.js', import.meta.url), 'utf8');
+ assert.match(handler, /renderHtml\(memo\)/);
+ assert.doesNotMatch(handler, /renderHtmlFragment\s*\(/);
+});

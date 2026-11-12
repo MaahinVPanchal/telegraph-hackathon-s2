@@ -9,7 +9,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runDesk } from "./desk.mjs";
 import engineProxy from "../api/engine.js";
-import { MEMO_CSS, renderHtmlFragment, THEME_TOKENS } from "./memo.mjs";
+import { MEMO_CSS, renderHtml, THEME_TOKENS } from "./memo.mjs";
 
 const PORT = Number(process.env.PORT ?? 7788);
 const MODE = process.env.DESK_MODE ?? "mock";
@@ -444,8 +444,11 @@ function startLocalServer() {
       }
       try {
         const { memo } = await runDesk(token, { mode: MODE });
+        // Full document, matching the deployed /memo route: direct navigation
+        // needs a real page. The offline demo fetch extracts .listings-memo from
+        // the parsed response, which works the same against a full document.
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-        res.end(renderHtmlFragment(memo));
+        res.end(renderHtml(memo));
       } catch (error) {
         res.writeHead(502, { "Content-Type": "application/json; charset=utf-8" });
         const message = error instanceof Error ? error.message : String(error);

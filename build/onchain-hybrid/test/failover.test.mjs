@@ -8,6 +8,7 @@ const SECRET = "https://eth-mainnet.g.alchemy.com/v2/SUPERSECRETKEY123";
 const host = (u) => new URL(u).host;
 const ok = (id, result) => new Response(JSON.stringify({ jsonrpc: "2.0", id, result }), { status: 200 });
 const hang = (init) => new Promise((_, rej) => init.signal.addEventListener("abort", () => rej(Object.assign(new Error("aborted"), { name: "AbortError" }))));
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Healthy JSON-RPC behaviour, used by providers a test marks as good.
 function good(init) {
@@ -88,43 +89,83 @@ await run("JSON-RPC error (pruned node) -> next RPC", {
 });
 
 // Regression (2026-11-12): Arbitrum archive total_supply against the free public
-// RPCs — these are the exact 4xx bodies reproduced in production. The official
-// arb1 endpoint must answer after failover, and both 4xx bodies must classify
-// as no_archive (dRPC's "first available state" previously fell into "network").
-await run("arbitrum archive total_supply: free RPC 4xx -> official arb1 answers, classified no_archive", {
+// RPCs — these are the exact 4xx bodies reproduced in production. Realistic
+// per-method behaviour: providers pass eth_chainId and eth_blockNumber and fail
+// ONLY the historical eth_call; they never answer it with latest state. The
+// official arb1 endpoint (recent archive window, no SLA) must answer after
+// failover, and both 4xx bodies must classify as no_archive (dRPC's "first
+// available state" previously fell into "network").
+await run("arbitrum archive total_supply: providers pass chain-ID/head, reject only the historical eth_call -> arb1 answers, classified no_archive", {
   query: `chain=arbitrum-one&metric=total_supply&token=0x912CE59144191C1204E64559FE8253a0e49E6548&block_number=${HEAD - 1000}`,
   behaviour: (h, init) => {
-    if (h === "arbitrum.publicnode.com") return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, error: { code: -32602, message: "Archive requests require a personal token. Get one at: https://www.allnodes.com/publicnode" } }), { status: 403 });
-    if (h === "arbitrum.drpc.org") return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, error: { message: "Unknown state. First available state is 1", code: 27 } }), { status: 400 });
     const { method, params } = JSON.parse(init.body);
     if (method === "eth_chainId") return ok(1, "0xa4b1");
     if (method === "eth_blockNumber") return ok(1, "0x" + HEAD.toString(16));
+    if (h === "arbitrum.publicnode.com") return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, error: { code: -32602, message: "Archive requests require a personal token. Get one at: https://www.allnodes.com/publicnode" } }), { status: 403 });
+    if (h === "arbitrum.drpc.org") return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, error: { message: "Unknown state. First available state is 1", code: 27 } }), { status: 400 });
     if (method === "eth_call") return ok(1, params?.[0]?.data === "0x313ce567" ? "0x06" : "0x00000000000000000000000000000000000000000000000056bc75e2d63100000");
     return ok(1, "0x");
   },
   expect: ({ status, j, log, raw }) => status === 200 && log.source === "arb1.arbitrum.io" &&
+    j.block === HEAD - 1000 && j.block_tag === "number" &&
     log.rpc_failures.filter((f) => f.rpc !== "arb1.arbitrum.io").every((f) => f.reason === "no_archive") &&
     log.rpc_failures.length >= 2 &&
     !raw.includes("allnodes.com") && !raw.includes("Archive requests") && !raw.includes("First available state"),
 });
 
-await run("arbitrum archive: publicnode 403 fast + drpc hangs + arb1 answers -> 200 within the 8 s budget", {
+await run("arbitrum archive: publicnode rejects fast + drpc hangs + delayed arb1 answers -> 200 within the 8 s budget", {
   query: `chain=arbitrum-one&metric=total_supply&token=0x912CE59144191C1204E64559FE8253a0e49E6548&block_number=${HEAD - 1000}`,
-  behaviour: (h, init) => {
-    if (h === "arbitrum.publicnode.com") return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, error: { code: -32602, message: "Archive requests require a personal token." } }), { status: 403 });
-    if (h === "arbitrum.drpc.org") return hang(init);
+  behaviour: async (h, init) => {
     const { method, params } = JSON.parse(init.body);
     if (method === "eth_chainId") return ok(1, "0xa4b1");
     if (method === "eth_blockNumber") return ok(1, "0x" + HEAD.toString(16));
-    if (method === "eth_call") return ok(1, params?.[0]?.data === "0x313ce567" ? "0x06" : "0x00000000000000000000000000000000000000000000000056bc75e2d63100000");
+    if (h === "arbitrum.publicnode.com") return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, error: { code: -32602, message: "Archive requests require a personal token." } }), { status: 403 });
+    if (h === "arbitrum.drpc.org") return hang(init);
+    if (method === "eth_call") { await sleep(2000); return ok(1, params?.[0]?.data === "0x313ce567" ? "0x06" : "0x00000000000000000000000000000000000000000000000056bc75e2d63100000"); }
     return ok(1, "0x");
   },
-  expect: ({ status, ms, log }) => status === 200 && ms < REQUEST_DEADLINE_MS && log.source === "arb1.arbitrum.io",
+  expect: ({ status, ms, log, j }) => status === 200 && ms >= 1900 && ms < REQUEST_DEADLINE_MS &&
+    log.source === "arb1.arbitrum.io" && j.block === HEAD - 1000 && j.block_tag === "number",
 });
 
-await run("arbitrum archive: all three providers reject -> 504 NO_ARCHIVE_SOURCE fast, all no_archive", {
+await run("arbitrum archive: real delays across head and supply — decimals cut by the shared 8 s budget -> 200 with an explicitly labeled decimals_error", {
   query: `chain=arbitrum-one&metric=total_supply&token=0x912CE59144191C1204E64559FE8253a0e49E6548&block_number=${HEAD - 1000}`,
-  behaviour: (h) => new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, error: { code: -32602, message: h === "arbitrum.drpc.org" ? "Unknown state. First available state is 1" : "Archive requests require a personal token." } }), { status: h === "arbitrum.drpc.org" ? 400 : 403 }),
+  behaviour: async (h, init) => {
+    const { method, params } = JSON.parse(init.body);
+    if (method === "eth_chainId") return ok(1, "0xa4b1");
+    if (h === "arbitrum.publicnode.com" && method === "eth_blockNumber") { await sleep(1000); return ok(1, "0x" + HEAD.toString(16)); }
+    if (method === "eth_blockNumber") return ok(1, "0x" + HEAD.toString(16));
+    if (h === "arbitrum.publicnode.com" || h === "arbitrum.drpc.org") return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, error: { code: -32602, message: "Archive requests require a personal token." } }), { status: 403 });
+    if (method === "eth_call") { await sleep(7000); return ok(1, params?.[0]?.data === "0x313ce567" ? "0x06" : "0x00000000000000000000000000000000000000000000000056bc75e2d63100000"); }
+    return ok(1, "0x");
+  },
+  expect: ({ status, j, ms }) => status === 200 && j.block === HEAD - 1000 && j.block_tag === "number" &&
+    j.raw_total_supply === "100000000000000000000" && j.decimals === null && j.decimals_error === "DEADLINE_EXCEEDED" &&
+    ms >= REQUEST_DEADLINE_MS - 100 && ms < REQUEST_DEADLINE_MS + 700,
+});
+
+await run("arbitrum archive: nothing lands within the shared 8 s budget -> 504 DEADLINE_EXCEEDED", {
+  query: `chain=arbitrum-one&metric=total_supply&token=0x912CE59144191C1204E64559FE8253a0e49E6548&block_number=${HEAD - 1000}`,
+  behaviour: async (h, init) => {
+    const { method, params } = JSON.parse(init.body);
+    if (method === "eth_chainId") return ok(1, "0xa4b1");
+    if (method === "eth_blockNumber") return ok(1, "0x" + HEAD.toString(16));
+    if (h === "arbitrum.publicnode.com" || h === "arbitrum.drpc.org") return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, error: { code: -32602, message: "Archive requests require a personal token." } }), { status: 403 });
+    if (method === "eth_call") { await sleep(9500); return ok(1, params?.[0]?.data === "0x313ce567" ? "0x06" : "0x00000000000000000000000000000000000000000000000056bc75e2d63100000"); }
+    return ok(1, "0x");
+  },
+  expect: ({ status, j, ms }) => status === 504 && j.error === "DEADLINE_EXCEEDED" &&
+    ms >= REQUEST_DEADLINE_MS - 100 && ms < REQUEST_DEADLINE_MS + 700,
+});
+
+await run("arbitrum archive: all three providers reject the historical eth_call -> 504 NO_ARCHIVE_SOURCE fast, all no_archive", {
+  query: `chain=arbitrum-one&metric=total_supply&token=0x912CE59144191C1204E64559FE8253a0e49E6548&block_number=${HEAD - 1000}`,
+  behaviour: (h, init) => {
+    const { method } = JSON.parse(init.body);
+    if (method === "eth_chainId") return ok(1, "0xa4b1");
+    if (method === "eth_blockNumber") return ok(1, "0x" + HEAD.toString(16));
+    return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, error: { code: -32602, message: h === "arbitrum.drpc.org" ? "Unknown state. First available state is 1" : "Archive requests require a personal token." } }), { status: h === "arbitrum.drpc.org" ? 400 : 403 });
+  },
   expect: ({ status, j, ms, log }) => status === 504 && j.error === "NO_ARCHIVE_SOURCE" && ms < 2000 &&
     log.rpc_failures.every((f) => f.reason === "no_archive"),
 });
@@ -160,7 +201,8 @@ await run("chain-specific archive override is not raced for ethereum", {
     if (h === "arb-keyed-endpoint.example") return new Response("must not be called", { status: 500 });
     return good(init);
   },
-  expect: ({ status, log }) => status === 200 && !(log.rpc_failures ?? []).some((f) => f.rpc.includes("arb-keyed-endpoint")),
+  expect: ({ status, log, calls }) => status === 200 && !calls.includes("arb-keyed-endpoint.example") &&
+    !(log.rpc_failures ?? []).some((f) => f.rpc.includes("arb-keyed-endpoint")),
 });
 
 await run("ARCHIVE_RPC_URL-only failure message is label-only (all fail)", {

@@ -39,8 +39,10 @@ export const CHAINS = Object.freeze({
       // Free PublicNode/dRPC endpoints only serve recent Arbitrum state: archive
       // eth_call returns 403 "Archive requests require a personal token" (PublicNode)
       // and 400 "Unknown state. First available state is 1" (dRPC) — reproduced 2026-11-12.
-      // The official endpoint serves archive state; kept third so latest-state
-      // latency (HEDGE = 2) is unaffected and archive requests fail over to it.
+      // The official endpoint served recent archive state in the same check but its
+      // coverage window is short (~10-30 min verified; deeper history still fails)
+      // and it carries no SLA. Kept third so latest-state latency (HEDGE = 2) is
+      // unaffected and archive requests fail over to it.
       "https://arbitrum.publicnode.com",
       "https://arbitrum.drpc.org",
       "https://arb1.arbitrum.io/rpc",

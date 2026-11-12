@@ -28,7 +28,7 @@ body {
 button, input { font: inherit; }
 button, input, a, summary { -webkit-tap-highlight-color: transparent; }
 :focus-visible { outline: 3px solid var(--ld-focus); outline-offset: 3px; }
-.app-shell { width: min(100%, 1200px); margin: 0 auto; padding: 0 24px 42px; }
+.app-shell { width: 100%; max-width: none; margin: 0; padding: 0 clamp(14px, 2.4vw, 36px) 42px; }
 .site-header {
   display: flex;
   align-items: center;
@@ -104,7 +104,7 @@ button, input, a, summary { -webkit-tap-highlight-color: transparent; }
 .wallet-status--error { color: var(--ld-danger); }
 .workspace-grid {
   display: grid;
-  grid-template-columns: 176px minmax(0, 1fr);
+  grid-template-columns: 208px minmax(0, 1fr);
   align-items: stretch;
   gap: 24px;
   margin-top: 24px;
@@ -150,7 +150,7 @@ button, input, a, summary { -webkit-tap-highlight-color: transparent; }
   color: var(--ld-primary-strong);
 }
 .workspace-main { min-width: 0; }
-.hero { position: relative; max-width: 760px; padding: clamp(32px, 7vw, 66px) 0 28px; }
+.hero { position: relative; max-width: none; padding: clamp(32px, 7vw, 66px) 0 28px; }
 .hero::before {
   content: "";
   display: block;
@@ -265,7 +265,7 @@ button, input, a, summary { -webkit-tap-highlight-color: transparent; }
   .hero-chips { flex-wrap: wrap; }
 }
 @media (max-width: 420px) {
-  .app-shell { padding-right: 14px; padding-left: 14px; }
+  .app-shell { padding-right: 12px; padding-left: 12px; }
   .site-header { flex-wrap: wrap; min-height: 68px; padding: 12px 0; }
   .header-actions { width: 100%; justify-content: space-between; }
   .mode-badge { max-width: 132px; padding: 5px 9px; font-size: .62rem; }
@@ -357,8 +357,8 @@ body.memo-page {
 }
 .listings-memo, .listings-memo * { box-sizing: border-box; }
 .listings-memo {
-  width: min(100%, 1080px);
-  margin: 0 auto;
+  width: 100%;
+  margin: 0;
   color: var(--ld-text);
 }
 .listings-memo h2, .listings-memo h3, .listings-memo p { margin-top: 0; }
@@ -474,7 +474,7 @@ body.memo-page {
   gap: 12px;
   margin-bottom: 10px;
 }
-.memo-card-title { min-width: 0; font-weight: 750; overflow-wrap: break-word; }
+.memo-card-title { min-width: 0; max-width: 100%; font-weight: 750; overflow-wrap: anywhere; }
 .memo-card-title code { color: var(--ld-primary-strong); }
 .memo-pill-row { display: flex; flex-wrap: wrap; gap: 6px; }
 .memo-pill {
@@ -522,7 +522,7 @@ body.memo-page {
 .memo-data-grid dt { color: var(--ld-secondary); font-size: .72rem; }
 .memo-data-grid dd { margin: 3px 0 0; overflow-wrap: anywhere; white-space: pre-wrap; }
 .memo-data-grid dd code { overflow-wrap: anywhere; }
-.memo-raw, .memo-ledger { margin-top: 12px; }
+.memo-raw, .memo-ledger { min-width: 0; max-width: 100%; margin-top: 12px; }
 .memo-raw summary, .memo-ledger summary {
   min-height: 44px;
   padding: 10px 12px;
@@ -536,7 +536,9 @@ body.memo-page {
   outline: 3px solid var(--ld-focus);
   outline-offset: 2px;
 }
-.memo-raw pre {
+pre.memo-raw {
+  box-sizing: border-box;
+  width: 100%;
   max-width: 100%;
   margin: 10px 0 0;
   padding: 12px;
@@ -639,9 +641,9 @@ body.memo-page {
         <h1 id="hero-title">A sharper view of listing risk.</h1>
         <p class="hero-copy">Check the candidate. Keep uncertainty visible. Review the evidence behind every recommendation.</p>
         <div class="hero-chips" aria-label="Workspace facts">
-          <span class="chip">3 miners live</span>
+          <span class="chip">3 miners tracked</span>
           <span class="chip"><span id="chip-miners">…</span> in network catalogue</span>
-          <span class="chip">asks from $0.01</span>
+          <span class="chip">Challenge priced before signing</span>
         </div>
       </section>
       <section class="setup-grid" aria-label="Assessment setup">
@@ -667,7 +669,7 @@ body.memo-page {
             <label class="field-label" for="treasury-name">Sanctions: treasury entity name</label>
             <input class="text-input" id="treasury-name" type="text" placeholder="e.g. Pepe Treasury Holdings SA" autocomplete="off">
             <button class="primary-action" id="run-live" type="button" disabled>Run LIVE assessment (signs + pays)</button>
-            <p class="mode-help">Two $0.01 Engine calls routed by intent; settlement receipts shown below. Signed in your browser, paid from your own escrow.</p>
+            <p class="mode-help">Up to two explicit sanctions requests. The validated challenge is capped at $0.01 per call and $0.02 per run. A receipt is not final epoch settlement.</p>
           </div>
         </form>
         <aside class="panel" aria-labelledby="limits-title">
@@ -679,11 +681,11 @@ body.memo-page {
             <li><span>Audit and repository history</span><strong>Unsupported by current contracts</strong></li>
             <li><span>MetaMask connection</span><strong>Account access only</strong></li>
           </ul>
-          <p class="boundary-note">Connecting a wallet requests account access. Live actions then sign with your wallet — nothing spends until you approve each MetaMask prompt.</p>
+          <p class="boundary-note">Connecting requests account access only. Testnet actions use the selected MetaMask provider and Sepolia; each signature or transaction requires its own approval.</p>
         </aside>
       </section>
       <section class="out-region" id="out" aria-live="polite" aria-busy="false" aria-label="Assessment result">
-        <p class="empty-state">No receipt yet. Run the offline demo — no wallet needed — or connect above for a LIVE paid assessment. Results and settlement receipts land here.</p>
+        <p class="empty-state">No result yet. Run the offline demo without a wallet, or connect MetaMask for a testnet request. Evidence, payment receipt and settlement status are reported separately.</p>
       </section>
     </div>
   </div>
@@ -696,7 +698,7 @@ body.memo-page {
     </section>
   <footer class="app-footer">
     <p>Application policy and supplied evidence only; not an official Telegraph guarantee or ranking.</p>
-    <p>Abstract geometric styling is original and unaffiliated. Wallet connection does not authorize an assessment, signature, or payment.</p>
+    <p>Independent app, not an official Telegraph guarantee or ranking. Wallet connection alone never authorizes a signature, transaction or payment.</p>
   </footer>
 </main>
 <script>
@@ -759,7 +761,19 @@ form.addEventListener("submit", async (event) => {
     output.setAttribute("aria-busy", "false");
   }
 });
-</script><script>
+</script><script type="module">
+import {
+  fundEscrow as fundEscrowWithWallet,
+  isMatchingAnswer,
+  LIVE_PAYMENT_LIMITS,
+  mintTestUsdc as mintTestUsdcWithWallet,
+  parseMicroUsdc,
+  paymentRequestId,
+  performPaidAsk,
+  readAttemptLedger,
+  validateEscrowReceipt,
+} from "/live-payment.mjs";
+
 const ETHEREUM_ADDRESS_PATTERN = /^0x[0-9a-fA-F]{40}$/;
 
 function isEthereumAddress(value) {
@@ -809,6 +823,7 @@ function initializeWalletConnection() {
   const announcedProviders = [];
   let activeProvider = null;
   let accountsChangedHandler = null;
+  let chainChangedHandler = null;
 
   window.addEventListener("eip6963:announceProvider", (event) => {
     const detail = event.detail;
@@ -826,9 +841,11 @@ function initializeWalletConnection() {
     status.className = `wallet-status wallet-status--${state}`;
   }
 
-  function showAccounts(accounts) {
+  function showAccounts(accounts, chainId) {
     if (accounts.length === 0) {
       window.__listingsWallet = null;
+      window.__listingsProvider = null;
+      window.__listingsWalletRevision = (window.__listingsWalletRevision ?? 0) + 1;
       window.dispatchEvent(new CustomEvent("listings:wallet", { detail: { address: null } }));
       button.textContent = "Connect MetaMask";
       button.removeAttribute("aria-label");
@@ -836,34 +853,52 @@ function initializeWalletConnection() {
       return;
     }
     const first = accounts[0];
-    window.__listingsWallet = { address: first, accounts };
-    window.dispatchEvent(new CustomEvent("listings:wallet", { detail: { address: first } }));
+    window.__listingsWallet = { address: first, accounts, provider: activeProvider, chainId };
+    window.__listingsProvider = activeProvider;
+    window.dispatchEvent(new CustomEvent("listings:wallet", { detail: { address: first, chainId } }));
     button.textContent = `Connected · ${first.slice(0, 6)}…${first.slice(-4)}`;
     button.setAttribute("aria-label", `Connected MetaMask account ${first}`);
     const additionalAccounts = accounts.length > 1 ? ` (${accounts.length} accounts)` : "";
     showStatus(
-      `Account access only${additionalAccounts}: ${accounts.join(", ")}. This address is not sent to Listings Desk; no signature or payment was requested.`,
-      "connected"
+      String(chainId).toLowerCase() === LIVE_PAYMENT_LIMITS.chainId
+        ? `Connected${additionalAccounts}: ${accounts.join(", ")}. Account access alone does not sign or pay.`
+        : `Connected${additionalAccounts}, but MetaMask is not on Ethereum Sepolia. Switch networks before live actions.`,
+      String(chainId).toLowerCase() === LIVE_PAYMENT_LIMITS.chainId ? "connected" : "error"
     );
   }
 
   function listenForAccountChanges(provider) {
-    if (activeProvider && accountsChangedHandler && typeof activeProvider.removeListener === "function") {
-      activeProvider.removeListener("accountsChanged", accountsChangedHandler);
+    if (activeProvider && typeof activeProvider.removeListener === "function") {
+      if (accountsChangedHandler) activeProvider.removeListener("accountsChanged", accountsChangedHandler);
+      if (chainChangedHandler) activeProvider.removeListener("chainChanged", chainChangedHandler);
     }
     activeProvider = provider;
     accountsChangedHandler = (accounts) => {
+      window.__listingsWalletRevision = (window.__listingsWalletRevision ?? 0) + 1;
       if (!Array.isArray(accounts) || !accounts.every(isEthereumAddress)) {
         window.__listingsWallet = null;
+        window.__listingsProvider = null;
         window.dispatchEvent(new CustomEvent("listings:wallet", { detail: { address: null } }));
         button.textContent = "Connect MetaMask";
         button.removeAttribute("aria-label");
         showStatus("MetaMask returned an invalid account update.", "error");
         return;
       }
-      showAccounts(accounts);
+      Promise.resolve(provider.request({ method: "eth_chainId" }))
+        .then((chainId) => showAccounts(accounts, chainId))
+        .catch((error) => {
+          window.__listingsWallet = null;
+          window.__listingsProvider = null;
+          showStatus(formatProviderError(error), "error");
+        });
+    };
+    chainChangedHandler = (chainId) => {
+      window.__listingsWalletRevision = (window.__listingsWalletRevision ?? 0) + 1;
+      if (window.__listingsWallet) window.__listingsWallet.chainId = chainId;
+      if (window.__listingsWallet) showAccounts(window.__listingsWallet.accounts, chainId);
     };
     if (typeof provider.on === "function") provider.on("accountsChanged", accountsChangedHandler);
+    if (typeof provider.on === "function") provider.on("chainChanged", chainChangedHandler);
   }
 
   button.addEventListener("click", async () => {
@@ -881,7 +916,9 @@ function initializeWalletConnection() {
       }
       const accounts = await requestMetaMaskAccounts(provider);
       listenForAccountChanges(provider);
-      showAccounts(accounts);
+      const chainId = await provider.request({ method: "eth_chainId" });
+      window.__listingsWalletRevision = (window.__listingsWalletRevision ?? 0) + 1;
+      showAccounts(accounts, chainId);
     } catch (error) {
       button.textContent = "Connect MetaMask";
       button.removeAttribute("aria-label");
@@ -908,65 +945,30 @@ const TRUSTED_NETWORK = "eip155:11155111";
 const OUR_MINERS = ["9602", "9603", "9601"];
 
 function connectedWallet() { return window.__listingsWallet ?? null; }
-function connectedAddress() { return window.__listingsWallet?.address ?? null; }
-function providerRequest(params) { return window.ethereum.request(params); }
-function randomNonce() {
-  const b = new Uint8Array(16); crypto.getRandomValues(b);
-  return Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
-}
+function connectedAddress() { return connectedWallet()?.address ?? null; }
+function connectedProvider() { return connectedWallet()?.provider ?? null; }
 
+function currentWalletRevision() { return window.__listingsWalletRevision ?? 0; }
+function walletContextIsCurrent(provider, wallet, revision) {
+  return provider === connectedProvider() &&
+    wallet.toLowerCase() === connectedAddress()?.toLowerCase() &&
+    revision === currentWalletRevision();
+}
 async function mintTestUsdc(wallet) {
-  const data = "0x40c10f19" + wallet.toLowerCase().replace(/^0x/, "").padStart(64, "0") + (10_000_000).toString(16).padStart(64, "0");
-  return providerRequest({ method: "eth_sendTransaction", params: [{ from: wallet, to: USDC, data, gas: "0x186a0" }] });
+  const provider = connectedProvider();
+  const revision = currentWalletRevision();
+  return mintTestUsdcWithWallet({
+    provider, wallet, usdc: USDC,
+    isCurrent: () => walletContextIsCurrent(provider, wallet, revision),
+  });
 }
 async function fundEscrow(wallet) {
-  const approve = "0x095ea7b3" + DIAMOND.toLowerCase().replace(/^0x/, "").padStart(64, "0") + (3_000_000).toString(16).padStart(64, "0");
-  await providerRequest({ method: "eth_sendTransaction", params: [{ from: wallet, to: USDC, data: approve, gas: "0x186a0" }] });
-  const deposit = "0x6a761202" + (3_000_000).toString(16).padStart(64, "0");
-  return providerRequest({ method: "eth_sendTransaction", params: [{ from: wallet, to: DIAMOND, data: deposit, gas: "0x30d40" }] });
-}
-async function liveAssessment(wallet, intent, params) {
-  // Intent-routed ask (no miner ID): the Engine routes to the winning miner for
-  // the intent — the same proven pattern the desk's paid run uses.
-  const url = ENGINE_BASE + "/v1/ask";
-  const body = JSON.stringify(params ? { intent, params } : { query: params?.query ?? intent });
-  const first = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body });
-  if (first.status !== 402) {
-    if (first.ok) return { status: 200, data: await first.json().catch(() => ({})), settlement: null };
-    throw new Error("Engine HTTP " + first.status);
-  }
-  const challenge = await first.json().catch(() => ({}));
-  const entry = (challenge.accepts ?? []).find((a) => a?.scheme === "escrow");
-  if (!entry) throw new Error("no escrow scheme in the 402 challenge");
-  // Safety guard: never sign a challenge that routes payment anywhere but the
-  // Telegraph Diamond escrow.
-  if (String(entry.payTo ?? "").toLowerCase() !== DIAMOND.toLowerCase()) {
-    throw new Error("challenge payTo is not the Telegraph Diamond — aborting for safety");
-  }
-  const template = String(entry.extra?.message ?? "");
-  const now = Math.floor(Date.now() / 1000);
-  const authorization = {
-    from: wallet.toLowerCase(),
-    to: String(entry.payTo ?? DIAMOND).toLowerCase(),
-    value: (template.match(/Amount:\s*(\d+) uUSDC/) ?? [])[1] ?? "10000",
-    validAfter: String(now - 5),
-    validBefore: String(now + 100),
-    nonce: randomNonce(),
-  };
-  const message = String(entry.extra?.message ?? "")
-    .replace("{from}", authorization.from)
-    .replace("{nonce}", authorization.nonce)
-    .replace("{validAfter}", authorization.validAfter)
-    .replace("{validBefore}", authorization.validBefore);
-  const signature = await providerRequest({ method: "personal_sign", params: [message, wallet] });
-  const envelope = { x402Version: 2, scheme: "escrow", network: entry.network ?? TRUSTED_NETWORK, payload: { signature, authorization } };
-  const header = btoa(JSON.stringify(envelope));
-  const retry = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", "X-PAYMENT": header }, body });
-  const rawSettlement = retry.headers?.get("x-payment-response") ?? null;
-  let settlement = null;
-  if (rawSettlement) { try { settlement = JSON.parse(atob(rawSettlement)); } catch { settlement = { raw: rawSettlement }; } }
-  if (!retry.ok) throw new Error("Engine HTTP " + retry.status + " after payment");
-  return { status: 200, data: await retry.json().catch(() => ({})), settlement };
+  const provider = connectedProvider();
+  const revision = currentWalletRevision();
+  return fundEscrowWithWallet({
+    provider, wallet, usdc: USDC, diamond: DIAMOND,
+    isCurrent: () => walletContextIsCurrent(provider, wallet, revision),
+  });
 }
 
 // The LIVE run: sanctions screening with explicit inputs (2 paid requests)
@@ -974,63 +976,200 @@ const runLive = document.getElementById("run-live");
 const liveInputs = document.getElementById("live-inputs");
 const out = document.getElementById("out");
 
-function renderLiveMemo(list, wallet) {
+function element(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text != null) node.textContent = String(text);
+  return node;
+}
+
+function appendDetail(grid, label, value, code = false) {
+  const wrapper = document.createElement("div");
+  wrapper.append(element("dt", "", label));
+  const detail = document.createElement("dd");
+  if (code) detail.append(element("code", "", value));
+  else detail.textContent = String(value);
+  wrapper.append(detail);
+  grid.append(wrapper);
+}
+
+function formattedCost(value) {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0 ||
+      !Number.isSafeInteger(Math.round(value * 1_000_000))) return "Not validated";
+  return "$" + (Math.round(value * 1_000_000) / 1_000_000).toFixed(6).replace(/0+$/, "").replace(/\.$/, "");
+}
+
+function formattedDuration(value) {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0
+    ? `${value} ms`
+    : "Not validated";
+}
+
+function renderLiveMemo(list, wallet, runError = null) {
   const shell = document.createElement("div");
   shell.className = "listings-memo";
-  const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
-  const totalMicro = list.reduce((sum, r) => sum + Number(r.settlement?.amount_uusdc ?? 10_000), 0n);
-  const rows = list.map((r) => {
-    const d = r.data ?? {};
-    return '<div class="memo-card"><div class="memo-card-head"><span class="memo-card-title"><code>' +
-      esc(d.intent ?? "SANCTIONS_SCREENING_MATCH_GENERAL") + '</code></span><span class="memo-pill status--receipt-valid">' +
-      (r.settlement ? "SETTLED · " + (r.settlement.amount_uusdc ?? "?") + " μUSDC" : "PENDING") + '</span></div>' +
-      '<dl class="memo-data-grid">' +
-      '<div><dt>Miner</dt><dd>' + esc(d.miner_name ?? "?") + " (#" + esc(d.miner_id ?? "?") + ')</dd></div>' +
-      '<div><dt>Cost</dt><dd>$' + (d.cost_usd ?? 0.01) + '</dd></div>' +
-      '<div><dt>Latency</dt><dd>' + (d.duration_ms ?? "?") + ' ms</dd></div>' +
-      '<div><dt>Signal</dt><dd><code>' + esc(d.signal_hash ?? "—") + '</code></dd></div>' +
-      '</dl><pre class="memo-raw">' + esc(JSON.stringify(d.result ?? {}, null, 1)) + '</pre></div>';
-  }).join("");
-  shell.innerHTML =
-    '<div class="memo-result-head"><div><p class="memo-eyebrow">LIVE sanctions assessment · real payments</p>' +
-    '<h2>' + esc(list[0]?.data?.input?.name ?? "candidate") + '</h2></div>' +
-    '<span class="memo-verdict status--receipt-valid">' + list.length + ' PAID</span></div>' +
-    '<p class="memo-mode-note memo-mode-note--real">LIVE mode — real Engine calls settled from your escrow. ' +
-    'Receipts: ' + list.filter((r) => r.settlement).length + ' of ' + list.length + '.</p>' +
-    '<div class="memo-section"><h3>Purchased intelligence</h3>' + rows + '</div>' +
-    '<p class="memo-footer">Cost line: ' + list.length + ' paid requests, $' +
-    (Number(totalMicro) / 1e6).toFixed(2) + ' total.</p>';
+  const receiptAmounts = [];
+  const displayedRuns = list.map((run) => {
+    const data = run.answer && typeof run.answer === "object" ? run.answer : {};
+    const amountValid = typeof run.amountMicro === "string" && /^(0|[1-9]\d*)$/.test(run.amountMicro);
+    const receiptValid = run.receipt != null && amountValid &&
+      validateEscrowReceipt(run.receipt, {
+        intent: run.intent ?? data.intent,
+        amount: BigInt(run.amountMicro),
+        payer: run.wallet ?? wallet,
+        minerId: data.miner_id,
+      });
+    const answerMatches = isMatchingAnswer(data, { intent: run.intent, params: run.params });
+    if (receiptValid) receiptAmounts.push(BigInt(run.receipt.amount_uusdc));
+    return { ...run, data, receiptValid, answerMatches };
+  });
+  const totalMicro = receiptAmounts.reduce((sum, amount) => sum + amount, 0n);
+  const heading = document.createElement("div");
+  heading.className = "memo-result-head";
+  const headingCopy = document.createElement("div");
+  headingCopy.append(element("p", "memo-eyebrow", "LIVE sanctions assessment · testnet"));
+  const candidateName = list.find((run) => typeof run.params?.name === "string")?.params.name ?? "candidate";
+  headingCopy.append(element("h2", "", candidateName));
+  heading.append(headingCopy);
+  heading.append(element("span", "memo-verdict status--unknown", `${receiptAmounts.length} protocol receipt${receiptAmounts.length === 1 ? "" : "s"} validated`));
+  shell.append(heading);
+
+  const info = element("p", "memo-mode-note memo-mode-note--real",
+    "Protocol receipts are not final epoch settlement or proof of answer accuracy. Missing or uncertain payment evidence remains unknown.");
+  shell.append(info);
+  if (runError) shell.append(element("p", "request-error", `Assessment stopped: ${runError}`));
+
+  const section = element("div", "memo-section");
+  section.append(element("h3", "", "Request evidence"));
+  for (const run of displayedRuns) {
+    const data = run.data;
+    const card = element("div", "memo-card");
+    const cardHead = element("div", "memo-card-head");
+    const title = element("span", "memo-card-title");
+    title.append(element("code", "", run.intent ?? data.intent ?? "Unknown intent"));
+    cardHead.append(title);
+    const state = run.receiptValid
+      ? "PROTOCOL RECEIPT · EPOCH SETTLEMENT UNCONFIRMED"
+      : run.paymentStatus === "not_authorized"
+        ? "NO PAYMENT AUTHORIZED"
+        : run.status === "authorization_pending" || run.status === "unknown"
+          ? "UNKNOWN · RECONCILIATION REQUIRED"
+          : "NO VALID RECEIPT";
+    cardHead.append(element("span", "memo-pill status--unknown", state));
+    card.append(cardHead);
+
+    const grid = element("dl", "memo-data-grid");
+    appendDetail(grid, "Answer identity", run.answerMatches ? "Matches requested intent and input" : "Not verified");
+    appendDetail(grid, "Miner", `${data.miner_name ?? "Not provided"}${data.miner_id == null ? "" : ` (#${data.miner_id})`}`);
+    appendDetail(grid, "Engine cost", formattedCost(data.cost_usd));
+    appendDetail(grid, "Latency", formattedDuration(data.duration_ms));
+    appendDetail(grid, "Receipt amount", run.receiptValid ? `${run.receipt.amount_uusdc} μUSDC` : "Unavailable");
+    appendDetail(grid, "Receipt hash", run.receiptValid ? run.receipt.receipt_hash : "Unavailable", true);
+    appendDetail(grid, "Signal", typeof data.signal_hash === "string" && /^0x[0-9a-f]{64}$/i.test(data.signal_hash) ? data.signal_hash : "Unavailable", true);
+    appendDetail(grid, "Protocol status", run.receiptValid ? `Epoch ${run.receipt.epoch_id} · not independently settled` : "Unknown or absent");
+    card.append(grid);
+    const raw = element("pre", "memo-raw", JSON.stringify(data.result ?? data, null, 2));
+    card.append(raw);
+    section.append(card);
+  }
+  shell.append(section);
+  const totalText = receiptAmounts.length
+    ? `${totalMicro.toString()} μUSDC across ${receiptAmounts.length} validated protocol receipt(s); this is not final settlement.`
+    : "Verified receipt total unavailable; no amount has been inferred.";
+  shell.append(element("p", "memo-footer", `Validated receipt amounts: ${totalText}`));
   return shell;
 }
 
 if (runLive) runLive.addEventListener("click", async () => {
   const wallet = connectedAddress();
+  const provider = connectedProvider();
+  const revision = currentWalletRevision();
   if (!wallet) { alert("Connect MetaMask first — the LIVE assessment pays from your escrow."); return; }
   const deployer = document.getElementById("deployer-name")?.value.trim() ?? "";
   const treasury = document.getElementById("treasury-name")?.value.trim() ?? "";
   if (!deployer || !treasury) { alert("Enter both the deployer and treasury entity names for the sanctions check."); return; }
+  const jobs = [
+    { intent: "SANCTIONS_SCREENING_MATCH_GENERAL", params: { name: deployer } },
+    { intent: "SANCTIONS_SCREENING_MATCH_GENERAL", params: { name: treasury } },
+  ];
   runLive.disabled = true;
   out.setAttribute("aria-busy", "true");
   const state = Object.assign(document.createElement("p"), { className: "request-state request-state--real", role: "status" });
-  state.textContent = "LIVE — signing and paying via your connected wallet…";
+  state.textContent = "LIVE — checking the selected MetaMask account and testnet; no signature occurs until a trusted challenge is validated.";
   out.replaceChildren(state);
+  const results = [];
   try {
-    const jobs = [
-      { intent: "SANCTIONS_SCREENING_MATCH_GENERAL", params: { name: deployer } },
-      { intent: "SANCTIONS_SCREENING_MATCH_GENERAL", params: { name: treasury } },
-    ];
-    const list = [];
     for (const job of jobs) {
-      const run = await liveAssessment(wallet, job.intent, job.params);
-      list.push(run);
+      if (!walletContextIsCurrent(provider, wallet, revision)) throw new Error("Wallet account or network changed; stopping before another request.");
+      const requestId = await paymentRequestId(wallet, job.intent, job.params);
+      const saved = readAttemptLedger().attempts[requestId];
+      if (saved?.authorizationStarted || saved?.status === "unknown" || saved?.status === "protocol_receipt") {
+        throw new Error("A prior request may already have been authorized. Reconcile its saved receipt or epoch delivery before retrying.");
+      }
+      const run = await performPaidAsk({
+        provider, wallet, intent: job.intent, params: job.params,
+        requestUrl: ENGINE_BASE + "/v1/ask",
+        network: TRUSTED_NETWORK,
+        payTo: DIAMOND,
+        origin: window.location.origin,
+        resource: "/v1/ask",
+        isCurrent: () => walletContextIsCurrent(provider, wallet, revision),
+        onAttempt: (attempt) => {
+          if (attempt.authorizationStarted) runLive.dataset.paymentBlocked = "true";
+        },
+      });
+      results.push({
+        intent: job.intent,
+        params: job.params,
+        answer: run.answer,
+        answerMatches: run.answerMatches,
+        receipt: run.receipt,
+        paymentStatus: run.paymentStatus,
+        amountMicro: run.amountMicro,
+        wallet,
+      });
+      out.replaceChildren(renderLiveMemo(results, wallet));
+      if (run.paymentStatus !== "protocol_receipt") {
+        throw new Error("No validated escrow receipt was returned; stopping before the next request.");
+      }
     }
-    out.replaceChildren(renderLiveMemo(list, wallet));
   } catch (error) {
-    out.replaceChildren(Object.assign(document.createElement("p"), {
-      className: "request-error", role: "alert",
-      textContent: "LIVE failed: " + String(error?.message ?? error),
-    }));
-  } finally { runLive.disabled = false; }
+    try {
+      const ledger = readAttemptLedger();
+      for (const job of jobs) {
+        const requestId = await paymentRequestId(wallet, job.intent, job.params);
+        const attempt = ledger.attempts[requestId];
+        if (!attempt || results.some((result) => result.intent === job.intent && result.params.name === job.params.name)) continue;
+        if (attempt.answer || attempt.authorizationStarted) {
+          results.push({
+            intent: job.intent,
+            params: job.params,
+            answer: attempt.answer,
+            answerMatches: attempt.answerMatches,
+            receipt: attempt.receipt,
+            paymentStatus: attempt.status === "answered_without_payment" ? "not_authorized" : "unknown",
+            status: attempt.status,
+            amountMicro: attempt.amountMicro ?? null,
+            wallet,
+          });
+        }
+      }
+      if (results.length) out.replaceChildren(renderLiveMemo(results, wallet, String(error?.message ?? error)));
+      else out.replaceChildren(Object.assign(document.createElement("p"), {
+        className: "request-error", role: "alert",
+        textContent: "LIVE failed before a result was received: " + String(error?.message ?? error),
+      }));
+    } catch (renderError) {
+      out.replaceChildren(Object.assign(document.createElement("p"), {
+        className: "request-error", role: "alert",
+        textContent: "LIVE outcome is saved but could not be displayed. Reconcile the saved request before retrying. " +
+          String(renderError?.message ?? renderError),
+      }));
+    }
+  } finally {
+    out.setAttribute("aria-busy", "false");
+    runLive.disabled = !connectedAddress() || runLive.dataset.paymentBlocked === "true";
+  }
 });
 
 // === Live UI state: enable the testnet actions once a wallet connects ===
@@ -1044,19 +1183,58 @@ const stepFund = document.querySelector('.flow-steps [data-step="fund"]');
 const stepRun = document.querySelector('.flow-steps [data-step="run"]');
 const liveControls = [runLive, mintBtn, fundBtn].filter(Boolean);
 
-function setLiveState(address) {
-  for (const c of liveControls) c.disabled = !address;
-  if (liveState) liveState.textContent = address
-    ? "Wallet " + address.slice(0, 6) + "…" + address.slice(-4) + " connected — live actions enabled. Signing happens in your browser; nothing spends until you approve it."
-    : "Connect MetaMask (top right) to enable live actions. Payments sign in your browser from your own wallet.";
-  if (modeBadge) {
-    modeBadge.textContent = address ? "TESTNET LIVE" : "SIMULATED / OFFLINE";
-    modeBadge.classList.toggle("mode-badge--live", Boolean(address));
+function setLiveState(address, chainId = connectedWallet()?.chainId) {
+  const onSepolia = Boolean(address) && String(chainId).toLowerCase() === LIVE_PAYMENT_LIMITS.chainId;
+  for (const c of liveControls) {
+    c.disabled = !onSepolia || (c === runLive && runLive.dataset.paymentBlocked === "true");
   }
-  if (stepConnect) stepConnect.classList.toggle("done", Boolean(address));
+  if (liveState) liveState.textContent = !address
+    ? "Connect MetaMask (top right) to enable testnet actions. No signature or payment is requested by connecting."
+    : onSepolia
+      ? "Wallet " + address.slice(0, 6) + "…" + address.slice(-4) + " connected to Ethereum Sepolia. Each transaction or request requires a separate approval."
+      : "Wallet connected on the wrong network. Switch MetaMask to Ethereum Sepolia (chain ID 11155111) before live actions.";
+  if (modeBadge) {
+    modeBadge.textContent = onSepolia ? "TESTNET LIVE" : "SIMULATED / OFFLINE";
+    modeBadge.classList.toggle("mode-badge--live", onSepolia);
+  }
+  if (stepConnect) stepConnect.classList.toggle("done", onSepolia);
 }
-window.addEventListener("listings:wallet", (e) => setLiveState(e.detail?.address ?? null));
-setLiveState(window.__listingsWallet?.address ?? null);
+window.addEventListener("listings:wallet", (e) => setLiveState(e.detail?.address ?? null, e.detail?.chainId));
+setLiveState(connectedAddress(), connectedWallet()?.chainId);
+
+try {
+  const previousAttempts = Object.values(readAttemptLedger().attempts)
+    .filter((attempt) => attempt.answer || attempt.authorizationStarted)
+    .sort((a, b) => String(a.updatedAt).localeCompare(String(b.updatedAt)))
+    .slice(-10)
+    .map((attempt) => ({
+      intent: attempt.intent,
+      params: attempt.params,
+      answer: attempt.answer,
+      answerMatches: attempt.answerMatches,
+      receipt: attempt.receipt,
+      paymentStatus: attempt.status === "answered_without_payment" ? "not_authorized" : attempt.status,
+      status: attempt.status,
+      amountMicro: attempt.amountMicro ?? null,
+      wallet: attempt.wallet,
+    }));
+  if (previousAttempts.length) {
+    out.replaceChildren(renderLiveMemo(previousAttempts, connectedAddress() ?? "saved on this device"));
+  }
+} catch (error) {
+  out.replaceChildren(Object.assign(document.createElement("p"), {
+    className: "request-error", role: "alert",
+    textContent: "Saved payment history needs reconciliation before it can be used: " + String(error?.message ?? error),
+  }));
+  if (runLive) runLive.disabled = true;
+}
+
+for (const input of [document.getElementById("deployer-name"), document.getElementById("treasury-name")]) {
+  input?.addEventListener("input", () => {
+    runLive.dataset.paymentBlocked = "false";
+    setLiveState(connectedAddress(), connectedWallet()?.chainId);
+  });
+}
 
 // Result-aware nav: Evidence / Receipt links only matter once a result exists.
 if (out) {
@@ -1072,21 +1250,37 @@ if (out) {
 function requireWallet() {
   const wallet = connectedAddress();
   if (!wallet) { setLiveState(null); alert("Connect MetaMask first — live actions pay from your own wallet."); return null; }
+  if (String(connectedWallet()?.chainId).toLowerCase() !== LIVE_PAYMENT_LIMITS.chainId) {
+    alert("Switch MetaMask to Ethereum Sepolia (chain ID 11155111) before continuing.");
+    setLiveState(wallet, connectedWallet()?.chainId);
+    return null;
+  }
   return wallet;
 }
 
 async function walletAction(label, run) {
   const wallet = requireWallet();
   if (!wallet) return;
+  const provider = connectedProvider();
+  const revision = currentWalletRevision();
   for (const c of liveControls) c.disabled = true;
   if (actionNote) actionNote.textContent = label + " — approve in MetaMask…";
   try {
     const tx = await run(wallet);
-    if (actionNote) actionNote.textContent = label + " sent: " + String(tx);
+    if (actionNote) {
+      actionNote.textContent = label.startsWith("Escrow")
+        ? `Escrow funding confirmed: 3 USDC deposited; refreshed escrow balance ${tx.balanceMicro} μUSDC. Deposit tx ${tx.depositHash}.`
+        : `${label} confirmed in a mined Sepolia transaction: ${String(tx)}.`;
+    }
     if (label.startsWith("Escrow") && stepFund) stepFund.classList.add("done");
   } catch (error) {
     if (actionNote) actionNote.textContent = label + " failed: " + String(error?.message ?? error).slice(0, 160);
-  } finally { setLiveState(connectedAddress()); }
+  } finally {
+    if (!walletContextIsCurrent(provider, wallet, revision) && actionNote) {
+      actionNote.textContent = label + " stopped because the selected wallet or network changed.";
+    }
+    setLiveState(connectedAddress(), connectedWallet()?.chainId);
+  }
 }
 
 if (mintBtn) mintBtn.addEventListener("click", () => walletAction("Mint 10 test USDC", (w) => mintTestUsdc(w)));
@@ -1095,23 +1289,45 @@ if (fundBtn) fundBtn.addEventListener("click", () => walletAction("Escrow fundin
 // The leaderboard panel
 const lbRefresh = document.getElementById("lb-refresh");
 const lbBody = document.getElementById("lb-body");
+function leaderboardRow(intent, rank, score) {
+  const row = element("div", "lb-row");
+  row.append(element("span", "lb-intent", intent));
+  if (rank != null) row.append(element("span", "lb-rank", rank === "absent" ? "absent" : `#${rank}`));
+  if (score != null) row.append(element("span", "lb-score", score));
+  return row;
+}
+
 async function lbLoad() {
   if (lbRefresh) lbRefresh.disabled = true;
   try {
     const miners = await (await fetch("https://devnode.telegraphprotocol.com/api/miners")).json();
+    if (!Array.isArray(miners)) throw new Error("Miner catalogue response is not a list.");
     const chip = document.getElementById("chip-miners");
-    if (chip) chip.textContent = Number(miners.length).toLocaleString("en-US");
+    if (chip) chip.textContent = miners.length.toLocaleString("en-US");
     const ours = ["onchain-metric-publicnode", "weather-verify-openmeteo", "fx-now-frankfurter"];
-    lbBody.innerHTML = ours.map((slug) => {
+    const groups = ours.map((slug) => {
       const m = miners.find((x) => x.slug === slug);
-      if (!m) return '<div class="lb-row"><span class="lb-intent">' + slug + '</span><span class="lb-rank">absent</span></div>';
-      const rows = (m.scores ?? []).map((s) =>
-        '<div class="lb-row"><span class="lb-intent">' + s.intent_id + '</span><span class="lb-rank">#' +
-        (s.rank ?? "—") + '</span><span class="lb-score">' + (s.score != null ? (+s.score).toFixed(4) : "—") + '</span></div>'
-      ).join("") || '<div class="lb-row"><span class="lb-intent">no scores yet</span></div>';
-      return '<p class="eyebrow">' + slug + ' · ' + m.activation_status + '</p>' + rows;
-    }).join("<hr>");
-  } catch (error) { lbBody.textContent = "Failed: " + error.message; }
+      const group = document.createElement("section");
+      if (!m) {
+        group.append(leaderboardRow(slug, "absent"));
+        return group;
+      }
+      group.append(element("p", "eyebrow", `${slug} · ${m.activation_status ?? "status unavailable"}`));
+      const scores = Array.isArray(m.scores) ? m.scores : [];
+      if (!scores.length) group.append(leaderboardRow("No scores reported"));
+      for (const score of scores) {
+        const rank = typeof score.rank === "string" || Number.isSafeInteger(score.rank)
+          ? score.rank
+          : "—";
+        const value = typeof score.score === "number" && Number.isFinite(score.score)
+          ? score.score.toFixed(4)
+          : "—";
+        group.append(leaderboardRow(score.intent_id ?? "Unknown intent", rank, value));
+      }
+      return group;
+    });
+    lbBody.replaceChildren(...groups);
+  } catch (error) { lbBody.textContent = "Failed: " + String(error?.message ?? error); }
   if (lbRefresh) lbRefresh.disabled = false;
 }
 if (lbRefresh) { lbRefresh.addEventListener("click", lbLoad); lbLoad(); }

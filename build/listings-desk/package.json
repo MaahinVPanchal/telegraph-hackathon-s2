@@ -11,10 +11,14 @@
     "demo": "node src/cli.mjs 0xTokenListingCandidate --mode mock",
     "cli": "node src/cli.mjs",
     "web": "node src/serve.mjs",
-    "test": "node --test test/desk.test.mjs test/live-payment.test.mjs"
+    "test": "node --test test/desk.test.mjs test/live-payment.test.mjs test/wakanda-integration.test.mjs",
+    "test:browser": "node review/browser-test.mjs && node review/paid-browser-test.mjs"
   },
   "dependencies": {
     "@x402/evm": "^2.30.0",
     "@x402/fetch": "^2.30.0"
+  },
+  "devDependencies": {
+    "playwright": "^1.65.0"
   }
 }

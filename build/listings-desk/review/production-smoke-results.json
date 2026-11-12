@@ -1,0 +1,19 @@
+{
+  "url": "https://leaderlight.vercel.app/",
+  "results": [
+    "Production root serves command-room redesign",
+    "No initial horizontal overflow at 320",
+    "No initial horizontal overflow at 390",
+    "No initial horizontal overflow at 1280",
+    "Actual production offline /memo succeeds with simulated label",
+    "No offline result overflow at 320",
+    "No offline result overflow at 390",
+    "No offline result overflow at 1280",
+    "Result navigation works",
+    "No-provider message and disabled paid control preserved",
+    "No page exceptions or POST requests"
+  ],
+  "errors": [],
+  "postRequests": [],
+  "scope": "Actual public production. Offline GET only. No provider, signing, paid calls or transactions."
+}

@@ -1,0 +1,53 @@
+{
+  "scope": "Local real entrypoint, mocked providers/network only; screenshots of ranks are fixtures, not current ranks.",
+  "results": [
+    {
+      "test": "disconnected/no overflow",
+      "width": 320,
+      "pass": true
+    },
+    {
+      "test": "disconnected/no overflow",
+      "width": 390,
+      "pass": true
+    },
+    {
+      "test": "disconnected/no overflow",
+      "width": 1280,
+      "pass": true
+    },
+    {
+      "test": "real local /memo path, offline result and honest labels",
+      "pass": true
+    },
+    {
+      "test": "result navigation and mobile memo",
+      "pass": true
+    },
+    {
+      "test": "no-provider wallet error remains usable",
+      "pass": true
+    },
+    {
+      "test": "offline failure rendered and retry restored",
+      "pass": true
+    },
+    {
+      "test": "provider rejection keeps paid controls disabled",
+      "pass": true
+    },
+    {
+      "test": "fake connection enables actions without signing",
+      "pass": true
+    },
+    {
+      "test": "chain change disables paid controls",
+      "pass": true
+    },
+    {
+      "test": "no uncaught browser exceptions",
+      "pass": true
+    }
+  ],
+  "errors": []
+}

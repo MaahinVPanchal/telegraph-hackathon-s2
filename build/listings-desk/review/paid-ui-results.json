@@ -1,0 +1,37 @@
+{
+  "scope": "All signatures, challenges, responses, receipts and rankings are LOCAL FIXTURES, no live wallet or paid API calls.",
+  "results": [
+    {
+      "scenario": "valid",
+      "pass": true,
+      "mockedSignatures": 2,
+      "authorizedMockResponses": 2,
+      "asks": 4,
+      "externalCalls": 0
+    },
+    {
+      "scenario": "partial",
+      "pass": true,
+      "mockedSignatures": 2,
+      "authorizedMockResponses": 2,
+      "asks": 4,
+      "externalCalls": 0
+    },
+    {
+      "scenario": "unknown",
+      "pass": true,
+      "mockedSignatures": 1,
+      "authorizedMockResponses": 1,
+      "asks": 2,
+      "externalCalls": 0
+    },
+    {
+      "scenario": "malformed-challenge",
+      "pass": true,
+      "mockedSignatures": 0,
+      "authorizedMockResponses": 0,
+      "asks": 1,
+      "externalCalls": 0
+    }
+  ]
+}

@@ -8,6 +8,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runDesk } from "./desk.mjs";
+import engineProxy from "../api/engine.js";
 import { MEMO_CSS, renderHtmlFragment, THEME_TOKENS } from "./memo.mjs";
 
 const PORT = Number(process.env.PORT ?? 7788);
@@ -271,6 +272,7 @@ button, input, a, summary { -webkit-tap-highlight-color: transparent; }
 `;
 
 export function renderPage(mode = MODE) {
+  if (mode === "mock") return readFileSync(new URL("../public/leaderlight-live.html", import.meta.url), "utf8");
   const isMock = mode === "mock";
   const modeLabel = isMock ? "SIMULATED / OFFLINE" : mode === "real" ? "REAL" : "INVALID MODE";
   const actionLabel = isMock ? "Run offline demo" : "Run assessment";
@@ -412,9 +414,25 @@ function startLocalServer() {
       res.end(walletClient);
       return;
     }
+    if (url.pathname === "/api/engine/v1/ask") {
+      res.status = (code) => { res.statusCode = code; return res; };
+      await engineProxy(req, res);
+      return;
+    }
+    const staticFiles = {
+      "/live-payment.mjs": ["../public/live-payment.mjs", "text/javascript; charset=utf-8"],
+      "/assets/telegraph-mark.png": ["../public/assets/telegraph-mark.png", "image/png"],
+      "/assets/command-bold.ttf": ["../public/assets/command-bold.ttf", "font/ttf"],
+    };
+    if (req.method === "GET" && Object.hasOwn(staticFiles, url.pathname)) {
+      const [file, contentType] = staticFiles[url.pathname];
+      res.writeHead(200, { "Content-Type": contentType, "X-Content-Type-Options": "nosniff" });
+      res.end(readFileSync(new URL(file, import.meta.url)));
+      return;
+    }
     if (url.pathname === "/") {
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-      res.end(renderPage());
+      res.end(readFileSync(new URL("../public/leaderlight-live.html", import.meta.url)));
       return;
     }
     if (url.pathname === "/memo") {

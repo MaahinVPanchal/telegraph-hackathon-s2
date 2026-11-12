@@ -1,0 +1,17 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+const html=readFileSync(new URL('../public/leaderlight-live.html',import.meta.url),'utf8');
+const config=JSON.parse(readFileSync(new URL('../vercel.json',import.meta.url),'utf8'));
+test('UI resolves the same-origin ask URL before calling strict payment guards',()=>{
+ assert.match(html,/requestUrl: new URL\(ENGINE_BASE \+ "\/v1\/ask", window.location.origin\).href/);
+ const origin='https://desk.example';const path='/api/engine/v1/ask';
+ const url=new URL(path,origin);assert.equal(url.origin,origin);assert.equal(url.pathname,path);
+});
+test('Vercel routes the exact guarded browser ask path to the existing Engine proxy',()=>{
+ assert.deepEqual(config.rewrites.find(x=>x.source==='/api/engine/v1/ask'),{source:'/api/engine/v1/ask',destination:'/api/engine'});
+});
+test('refined Wakanda preserves unique runtime controls and embeds its verified mark/font',()=>{
+ for(const id of ['candidate-form','run-button','wallet-connect','run-live','mint-usdc','fund-escrow','deployer-name','treasury-name','out','lb-refresh','lb-body','chip-miners'])assert.equal((html.match(new RegExp('id="'+id+'"','g'))||[]).length,1,id);
+ assert.match(html,/See the risk/);assert.match(html,/Keep the signal/);assert.match(html,/Independent app/);assert.match(html,/data:font\/ttf;base64/);assert.match(html,/data:image\/png;base64/);
+});

@@ -116,3 +116,10 @@ The on-chain provider deployment gate remains blocked until Engine confirms acce
 ## Artifact integrity
 
 Memos carry a versioned SHA-256 content checksum over candidate, inputs/evidence, recommendation, signals, receipt/proof metadata, failures, spend labels and caps. The volatile `generatedAt` and the checksum field itself are excluded. This checksum is not a digital signature and does not prove that an answer is accurate.
+
+
+## Production release: 12 November 2026
+
+The Wakanda command-room layout now serves the real production app at https://leaderlight.vercel.app/. The current source and release checks are documented in [WAKANDA-RELEASE.md](WAKANDA-RELEASE.md). This supersedes earlier preview-only/source-not-deployed notes for these app changes. `npm test` now runs 60 tests; `npm run test:browser` runs the local mocked browser checks. A direct production smoke check is in `review/production-smoke.mjs` (read-only/offline, no signing or paid requests). Payment helpers and the Engine proxy implementation remain unchanged; the ask-route rewrite and absolute same-origin URL fix are included.
+
+Deployment remains manual through the existing Vercel project. Pull this source before your next CLI release. No automatic Git deployment connection was added. UI/offline success and mocked payment tests do not certify a fresh real paid production run.

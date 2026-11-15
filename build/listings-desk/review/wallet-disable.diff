@@ -1,0 +1,63 @@
+diff --git a/build/listings-desk/public/leaderlight-live.html b/build/listings-desk/public/leaderlight-live.html
+index 49cc1b8..ef0417f 100644
+--- a/build/listings-desk/public/leaderlight-live.html
++++ b/build/listings-desk/public/leaderlight-live.html
+@@ -1201,16 +1201,24 @@ const stepFund = document.querySelector('.flow-steps [data-step="fund"]');
+ const stepRun = document.querySelector('.flow-steps [data-step="run"]');
+ const liveControls = [runLive, mintBtn, fundBtn].filter(Boolean);
+ 
++// TEMPORARY (2026-11-12): visitor wallet actions are disabled while the domain
++// carries a MetaMask BLOCK/DRAINER warning. Flip to true to restore; the
++// offline demo, /memo and the network board need no wallet.
++const WALLET_ACTIONS_ENABLED = false;
++
+ function setLiveState(address, chainId = connectedWallet()?.chainId) {
++  if (!WALLET_ACTIONS_ENABLED) address = null;
+   const onSepolia = Boolean(address) && String(chainId).toLowerCase() === LIVE_PAYMENT_LIMITS.chainId;
+   for (const c of liveControls) {
+     c.disabled = !onSepolia || (c === runLive && runLive.dataset.paymentBlocked === "true");
+   }
+-  if (liveState) liveState.textContent = !address
+-    ? "Connect MetaMask (top right) to enable testnet actions. No signature or payment is requested by connecting."
+-    : onSepolia
+-      ? "Wallet " + address.slice(0, 6) + "…" + address.slice(-4) + " connected to Ethereum Sepolia. Each transaction or request requires a separate approval."
+-      : "Wallet connected on the wrong network. Switch MetaMask to Ethereum Sepolia (chain ID 11155111) before live actions.";
++  if (liveState) liveState.textContent = !WALLET_ACTIONS_ENABLED
++    ? "Visitor wallet actions are temporarily unavailable while this domain is under a MetaMask safety review. The offline demo needs no wallet."
++    : !address
++      ? "Connect MetaMask (top right) to enable testnet actions. No signature or payment is requested by connecting."
++      : onSepolia
++        ? "Wallet " + address.slice(0, 6) + "…" + address.slice(-4) + " connected to Ethereum Sepolia. Each transaction or request requires a separate approval."
++        : "Wallet connected on the wrong network. Switch MetaMask to Ethereum Sepolia (chain ID 11155111) before live actions.";
+   if (modeBadge) {
+     modeBadge.textContent = onSepolia ? "TESTNET LIVE" : "SIMULATED / OFFLINE";
+     modeBadge.classList.toggle("mode-badge--live", onSepolia);
+@@ -1219,6 +1227,12 @@ function setLiveState(address, chainId = connectedWallet()?.chainId) {
+ }
+ window.addEventListener("listings:wallet", (e) => setLiveState(e.detail?.address ?? null, e.detail?.chainId));
+ setLiveState(connectedAddress(), connectedWallet()?.chainId);
++if (!WALLET_ACTIONS_ENABLED) {
++  const connectBtn = document.getElementById("wallet-connect");
++  if (connectBtn) { connectBtn.hidden = true; connectBtn.disabled = true; }
++  const walletStatus = document.getElementById("wallet-status");
++  if (walletStatus) walletStatus.textContent = "Visitor wallet actions are temporarily unavailable while this domain is under a MetaMask safety review. The offline demo needs no wallet.";
++}
+ 
+ try {
+   const previousAttempts = Object.values(readAttemptLedger().attempts)
+diff --git a/build/listings-desk/test/wakanda-integration.test.mjs b/build/listings-desk/test/wakanda-integration.test.mjs
+index 8362712..170872c 100644
+--- a/build/listings-desk/test/wakanda-integration.test.mjs
++++ b/build/listings-desk/test/wakanda-integration.test.mjs
+@@ -28,3 +28,11 @@ test('/memo serves a full styled document, not a bare fragment',async()=>{
+  assert.match(handler, /renderHtml\(memo\)/);
+  assert.doesNotMatch(handler, /renderHtmlFragment\s*\(/);
+ });
++test('visitor wallet actions are disabled while the MetaMask warning stands',()=>{
++ // TEMPORARY guard (2026-11-12): the flag must exist, be false, and neutralize
++ // both the connect entry point and the live-action controls with an explicit
++ // notice. Flip the flag to true (or remove this test) when the warning clears.
++ assert.match(html,/const WALLET_ACTIONS_ENABLED = false/);
++ assert.match(html,/MetaMask safety review/);
++ assert.match(html,/connectBtn\.hidden = true/);
++});

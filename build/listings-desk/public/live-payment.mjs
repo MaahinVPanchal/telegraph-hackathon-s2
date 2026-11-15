@@ -9,6 +9,15 @@ const CALL_CAP_MICRO = 10_000n;
 const FUNDING_AMOUNT_MICRO = 3_000_000n;
 const DEPOSIT_SELECTOR = "0xf688bcfb";
 
+// Selectors for contracts
+const ERC20_ALLOWANCE_SELECTOR = "0xdd62ed3e";
+const ERC20_APPROVE_SELECTOR = "0x095ea7b3";
+const ERC20_BALANCE_OF_SELECTOR = "0x70a08231";
+const ESCROW_BALANCE_SELECTOR = "0x55af6353";
+const ESCROW_EFFECTIVE_BALANCE_SELECTOR = "0x16a398f7";
+const ESCROW_AGENT_DEBT_SELECTOR = "0xdb9104c6";
+const ESCROW_PENDING_WITHDRAWAL_SELECTOR = "0x0964c95b";
+
 function assertAddress(value, label) {
   if (typeof value !== "string" || !ADDRESS_PATTERN.test(value)) {
     throw new TypeError(`${label} must be a valid Ethereum address`);
@@ -250,34 +259,219 @@ export async function mintTestUsdc({ provider, wallet, usdc, isCurrent }) {
   return hash;
 }
 
-export async function fundEscrow({ provider, wallet, usdc, diamond, isCurrent, waitForReceipt = waitForTransaction }) {
+export async function readWalletFundingState({
+  provider,
+  wallet,
+  usdc,
+  diamond,
+  isCurrent = () => true,
+  storage = globalThis.localStorage,
+}) {
   await assertSepolia(provider, wallet, isCurrent);
-  const allowanceData = encodeFunctionCall("0xdd62ed3e", ["address", "address"], [wallet, diamond]);
-  const approveData = encodeFunctionCall("0x095ea7b3", ["address", "uint256"], [diamond, FUNDING_AMOUNT_MICRO]);
-  const approveHash = await provider.request({
-    method: "eth_sendTransaction",
-    params: [{ from: wallet, to: usdc, data: approveData, gas: "0x186a0" }],
-  });
-  await waitForReceipt(provider, approveHash);
-  await assertSepolia(provider, wallet, isCurrent);
-  const allowanceAfter = await readUint(provider, usdc, allowanceData, wallet);
-  if (allowanceAfter < FUNDING_AMOUNT_MICRO) {
-    throw new Error("USDC approval receipt confirmed, but allowance is insufficient for the deposit");
+  const normalizedWallet = assertAddress(wallet, "wallet");
+  const normalizedUsdc = assertAddress(usdc, "usdc");
+  const normalizedDiamond = assertAddress(diamond, "diamond");
+
+  let ethBalanceWei = null;
+  let ethBalanceReadError = null;
+  try {
+    const res = await provider.request({ method: "eth_getBalance", params: [normalizedWallet, "latest"] });
+    if (typeof res !== "string" || !/^0x[0-9a-f]+$/i.test(res)) throw new Error("invalid balance response");
+    ethBalanceWei = BigInt(res);
+  } catch (err) {
+    ethBalanceReadError = String(err?.message ?? err);
   }
-  const escrowBalanceData = encodeFunctionCall("0x55af6353", ["address"], [wallet]);
-  const balanceBefore = await readUint(provider, diamond, escrowBalanceData, wallet);
-  const depositData = encodeFunctionCall(DEPOSIT_SELECTOR, ["uint256"], [FUNDING_AMOUNT_MICRO]);
-  const depositHash = await provider.request({
-    method: "eth_sendTransaction",
-    params: [{ from: wallet, to: diamond, data: depositData, gas: "0x30d40" }],
-  });
-  await waitForReceipt(provider, depositHash);
-  await assertSepolia(provider, wallet, isCurrent);
-  const balanceAfter = await readUint(provider, diamond, escrowBalanceData, wallet);
-  if (balanceAfter < balanceBefore + FUNDING_AMOUNT_MICRO) {
-    throw new Error("deposit receipt confirmed, but escrow balance did not increase by 3 USDC");
+
+  let usdcBalanceMicro = null;
+  let usdcBalanceReadError = null;
+  try {
+    const data = encodeFunctionCall(ERC20_BALANCE_OF_SELECTOR, ["address"], [normalizedWallet]);
+    usdcBalanceMicro = await readUint(provider, normalizedUsdc, data, normalizedWallet);
+  } catch (err) {
+    usdcBalanceReadError = String(err?.message ?? err);
   }
-  return { approveHash, depositHash, balanceMicro: balanceAfter.toString() };
+
+  let allowanceMicro = null;
+  let allowanceReadError = null;
+  try {
+    const data = encodeFunctionCall(ERC20_ALLOWANCE_SELECTOR, ["address", "address"], [normalizedWallet, normalizedDiamond]);
+    allowanceMicro = await readUint(provider, normalizedUsdc, data, normalizedWallet);
+  } catch (err) {
+    allowanceReadError = String(err?.message ?? err);
+  }
+
+  let rawEscrowBalanceMicro = null;
+  let rawEscrowReadError = null;
+  try {
+    const data = encodeFunctionCall(ESCROW_BALANCE_SELECTOR, ["address"], [normalizedWallet]);
+    rawEscrowBalanceMicro = await readUint(provider, normalizedDiamond, data, normalizedWallet);
+  } catch (err) {
+    rawEscrowReadError = String(err?.message ?? err);
+  }
+
+  let effectiveEscrowBalanceMicro = null;
+  let effectiveEscrowReadError = null;
+  try {
+    const data = encodeFunctionCall(ESCROW_EFFECTIVE_BALANCE_SELECTOR, ["address"], [normalizedWallet]);
+    effectiveEscrowBalanceMicro = await readUint(provider, normalizedDiamond, data, normalizedWallet);
+  } catch (err) {
+    effectiveEscrowReadError = String(err?.message ?? err);
+  }
+
+  let agentDebtMicro = null;
+  let agentDebtReadError = null;
+  try {
+    const data = encodeFunctionCall(ESCROW_AGENT_DEBT_SELECTOR, ["address"], [normalizedWallet]);
+    agentDebtMicro = await readUint(provider, normalizedDiamond, data, normalizedWallet);
+  } catch (err) {
+    agentDebtReadError = String(err?.message ?? err);
+  }
+
+  let pendingWithdrawalMicro = null;
+  let pendingWithdrawalReadError = null;
+  try {
+    const data = encodeFunctionCall(ESCROW_PENDING_WITHDRAWAL_SELECTOR, ["address"], [normalizedWallet]);
+    const res = await provider.request({
+      method: "eth_call",
+      params: [{ to: normalizedDiamond, data }, "latest"],
+    });
+    if (typeof res !== "string" || !/^0x[0-9a-f]+$/i.test(res)) throw new Error("invalid pending withdrawal response");
+    const hex = res.slice(2).padStart(64, "0");
+    const amountHex = hex.slice(0, 64);
+    pendingWithdrawalMicro = BigInt("0x" + amountHex);
+  } catch (err) {
+    pendingWithdrawalReadError = String(err?.message ?? err);
+  }
+
+  // Calculate unbilled liabilities from stored attempts
+  let pendingLiabilitiesMicro = 0n;
+  try {
+    const ledger = readAttemptLedger(storage);
+    pendingLiabilitiesMicro = Object.values(ledger.attempts)
+      .filter((attempt) => {
+        if (!attempt.wallet || attempt.wallet.toLowerCase() !== normalizedWallet) return false;
+        return attempt.authorizationStarted && (attempt.status === "authorization_pending" || attempt.status === "unknown");
+      })
+      .reduce((sum, attempt) => sum + (typeof attempt.amountMicro === "string" ? BigInt(attempt.amountMicro) : 0n), 0n);
+  } catch {
+    // If ledger read fails, unbilled liability calculation is unknown
+  }
+
+  let spendableEscrowMicro = null;
+  if (effectiveEscrowBalanceMicro != null) {
+    const safeBase = effectiveEscrowBalanceMicro > pendingLiabilitiesMicro
+      ? effectiveEscrowBalanceMicro - pendingLiabilitiesMicro
+      : 0n;
+    spendableEscrowMicro = safeBase;
+  }
+
+  return {
+    wallet: normalizedWallet,
+    ethBalanceWei,
+    ethBalanceReadError,
+    usdcBalanceMicro,
+    usdcBalanceReadError,
+    allowanceMicro,
+    allowanceReadError,
+    rawEscrowBalanceMicro,
+    rawEscrowReadError,
+    effectiveEscrowBalanceMicro,
+    effectiveEscrowReadError,
+    agentDebtMicro,
+    agentDebtReadError,
+    pendingWithdrawalMicro,
+    pendingWithdrawalReadError,
+    pendingLiabilitiesMicro,
+    spendableEscrowMicro,
+  };
+}
+
+export async function fundEscrow({
+  provider,
+  wallet,
+  usdc,
+  diamond,
+  amountMicro,
+  isCurrent = () => true,
+  waitForReceipt = waitForTransaction,
+  onStage = () => {},
+}) {
+  await assertSepolia(provider, wallet, isCurrent);
+  const normalizedWallet = assertAddress(wallet, "wallet");
+  const normalizedUsdc = assertAddress(usdc, "usdc");
+  const normalizedDiamond = assertAddress(diamond, "diamond");
+
+  const allowanceData = encodeFunctionCall(ERC20_ALLOWANCE_SELECTOR, ["address", "address"], [normalizedWallet, normalizedDiamond]);
+  const allowanceBefore = await readUint(provider, normalizedUsdc, allowanceData, normalizedWallet);
+
+  let approveHash = null;
+  if (amountMicro !== undefined) {
+    const topUpMicro = typeof amountMicro === "bigint" ? amountMicro : BigInt(amountMicro);
+    if (topUpMicro <= 0n) throw new RangeError("funding amount must be greater than zero");
+    if (allowanceBefore < topUpMicro) {
+      onStage("approval_pending", { needed: topUpMicro.toString(), currentAllowance: allowanceBefore.toString() });
+      const approveData = encodeFunctionCall(ERC20_APPROVE_SELECTOR, ["address", "uint256"], [normalizedDiamond, topUpMicro]);
+      approveHash = await provider.request({
+        method: "eth_sendTransaction",
+        params: [{ from: normalizedWallet, to: normalizedUsdc, data: approveData, gas: "0x186a0" }],
+      });
+      await waitForReceipt(provider, approveHash);
+      await assertSepolia(provider, normalizedWallet, isCurrent);
+      const allowanceAfter = await readUint(provider, normalizedUsdc, allowanceData, normalizedWallet);
+      if (allowanceAfter < topUpMicro) {
+        throw new Error("USDC approval receipt confirmed, but allowance is insufficient for the deposit");
+      }
+      onStage("approval_confirmed", { approveHash, allowance: allowanceAfter.toString() });
+    } else {
+      onStage("approval_skipped", { allowance: allowanceBefore.toString() });
+    }
+
+    const escrowBalanceData = encodeFunctionCall(ESCROW_BALANCE_SELECTOR, ["address"], [normalizedWallet]);
+    const balanceBefore = await readUint(provider, normalizedDiamond, escrowBalanceData, normalizedWallet);
+
+    onStage("deposit_pending", { amount: topUpMicro.toString() });
+    const depositData = encodeFunctionCall(DEPOSIT_SELECTOR, ["uint256"], [topUpMicro]);
+    const depositHash = await provider.request({
+      method: "eth_sendTransaction",
+      params: [{ from: normalizedWallet, to: normalizedDiamond, data: depositData, gas: "0x30d40" }],
+    });
+    await waitForReceipt(provider, depositHash);
+    await assertSepolia(provider, normalizedWallet, isCurrent);
+
+    const balanceAfter = await readUint(provider, normalizedDiamond, escrowBalanceData, normalizedWallet);
+    if (balanceAfter < balanceBefore + topUpMicro) {
+      throw new Error("deposit receipt confirmed, but escrow balance did not increase by requested amount");
+    }
+    onStage("deposit_confirmed", { depositHash, balanceMicro: balanceAfter.toString() });
+    return { approveHash, depositHash, balanceMicro: balanceAfter.toString() };
+  } else {
+    // Legacy behavior when amountMicro is omitted
+    const approveData = encodeFunctionCall(ERC20_APPROVE_SELECTOR, ["address", "uint256"], [normalizedDiamond, FUNDING_AMOUNT_MICRO]);
+    approveHash = await provider.request({
+      method: "eth_sendTransaction",
+      params: [{ from: normalizedWallet, to: normalizedUsdc, data: approveData, gas: "0x186a0" }],
+    });
+    await waitForReceipt(provider, approveHash);
+    await assertSepolia(provider, normalizedWallet, isCurrent);
+    const allowanceAfter = await readUint(provider, normalizedUsdc, allowanceData, normalizedWallet);
+    if (allowanceAfter < FUNDING_AMOUNT_MICRO) {
+      throw new Error("USDC approval receipt confirmed, but allowance is insufficient for the deposit");
+    }
+    const escrowBalanceData = encodeFunctionCall(ESCROW_BALANCE_SELECTOR, ["address"], [normalizedWallet]);
+    const balanceBefore = await readUint(provider, normalizedDiamond, escrowBalanceData, normalizedWallet);
+    const depositData = encodeFunctionCall(DEPOSIT_SELECTOR, ["uint256"], [FUNDING_AMOUNT_MICRO]);
+    const depositHash = await provider.request({
+      method: "eth_sendTransaction",
+      params: [{ from: normalizedWallet, to: normalizedDiamond, data: depositData, gas: "0x30d40" }],
+    });
+    await waitForReceipt(provider, depositHash);
+    await assertSepolia(provider, normalizedWallet, isCurrent);
+    const balanceAfter = await readUint(provider, normalizedDiamond, escrowBalanceData, normalizedWallet);
+    if (balanceAfter < balanceBefore + FUNDING_AMOUNT_MICRO) {
+      throw new Error("deposit receipt confirmed, but escrow balance did not increase by 3 USDC");
+    }
+    return { approveHash, depositHash, balanceMicro: balanceAfter.toString() };
+  }
 }
 
 export async function performPaidAsk({
@@ -286,6 +480,7 @@ export async function performPaidAsk({
   intent,
   params,
   requestUrl,
+  runId,
   fetchImpl = fetch,
   storage = globalThis.localStorage,
   network = "eip155:11155111",
@@ -295,17 +490,31 @@ export async function performPaidAsk({
   isCurrent = () => true,
   onAttempt = () => {},
 }) {
-  const requestId = await paymentRequestId(wallet, intent, params);
+  const normalizedWallet = assertAddress(wallet, "wallet");
+  const requestId = await paymentRequestId(normalizedWallet, intent, params);
   const ledger = readAttemptLedger(storage);
   const previous = ledger.attempts[requestId];
-  if (previous?.authorizationStarted || previous?.status === "protocol_receipt" || previous?.status === "unknown") {
-    throw new Error("This request may already have been authorized. Reconcile its saved outcome before retrying.");
+  if (runId == null) {
+    if (previous?.authorizationStarted || previous?.status === "protocol_receipt" || previous?.status === "unknown") {
+      throw new Error("This request may already have been authorized. Reconcile its saved outcome before retrying.");
+    }
+  } else {
+    if (previous) {
+      if (previous.status === "authorization_pending" || previous.status === "unknown") {
+        throw new Error("This request may already have been authorized. Reconcile its saved outcome before retrying.");
+      }
+      if (previous.runId === runId && previous.authorizationStarted) {
+        throw new Error("This request was already authorized in the current assessment run.");
+      }
+    }
   }
+
   const body = JSON.stringify({ intent, params });
   saveAttempt(storage, requestId, {
-    wallet: wallet.toLowerCase(), intent, params, status: "request_started",
+    wallet: normalizedWallet, intent, params, runId: runId ?? null, status: "request_started",
     authorizationStarted: false, answer: null, receipt: null,
   });
+
   let first;
   try {
     first = await fetchImpl(requestUrl, {
@@ -315,15 +524,16 @@ export async function performPaidAsk({
     });
   } catch (error) {
     saveAttempt(storage, requestId, {
-      wallet: wallet.toLowerCase(), intent, params, status: "no_payment_response",
+      wallet: normalizedWallet, intent, params, runId: runId ?? null, status: "no_payment_response",
       authorizationStarted: false, answer: null, receipt: null, error: String(error?.message ?? error),
     });
     throw error;
   }
+
   if (first.status !== 402) {
     if (!first.ok) {
       saveAttempt(storage, requestId, {
-        wallet: wallet.toLowerCase(), intent, params, status: "no_payment_response",
+        wallet: normalizedWallet, intent, params, runId: runId ?? null, status: "no_payment_response",
         authorizationStarted: false, answer: null, receipt: null, error: `Engine HTTP ${first.status}`,
       });
       throw new Error(`Engine HTTP ${first.status}`);
@@ -331,21 +541,40 @@ export async function performPaidAsk({
     const answer = await first.json();
     const answerMatches = isMatchingAnswer(answer, { intent, params });
     const attempt = saveAttempt(storage, requestId, {
-      wallet: wallet.toLowerCase(), intent, params, status: "answered_without_payment",
+      wallet: normalizedWallet, intent, params, runId: runId ?? null, status: "answered_without_payment",
       authorizationStarted: false, answer, answerMatches, receipt: null,
     });
     onAttempt(attempt);
     return { requestId, answer, receipt: null, paymentStatus: "not_authorized", answerMatches, amountMicro: null };
   }
+
   const challenge = await first.json();
-  await assertSepolia(provider, wallet, isCurrent);
+  await assertSepolia(provider, normalizedWallet, isCurrent);
+
   const currentLedger = readAttemptLedger(storage);
-  const runReservedMicro = Object.values(currentLedger.attempts)
-    .filter((attempt) => attempt.authorizationStarted && attempt.status !== "definitive_unpaid")
-    .reduce((sum, attempt) => sum + (typeof attempt.amountMicro === "string" ? BigInt(attempt.amountMicro) : 0n), 0n);
+  // Calculate runReservedMicro scoped to current runId and wallet
+  let runReservedMicro = 0n;
+  if (runId != null) {
+    runReservedMicro = Object.values(currentLedger.attempts)
+      .filter((attempt) => {
+        if (!attempt.wallet || attempt.wallet.toLowerCase() !== normalizedWallet) return false;
+        if (attempt.runId !== runId) return false;
+        return attempt.authorizationStarted && attempt.status !== "definitive_unpaid" && attempt.status !== "signature_rejected";
+      })
+      .reduce((sum, attempt) => sum + (typeof attempt.amountMicro === "string" ? BigInt(attempt.amountMicro) : 0n), 0n);
+  } else {
+    // Legacy un-scoped fallback for callers without runId
+    runReservedMicro = Object.values(currentLedger.attempts)
+      .filter((attempt) => {
+        return attempt.authorizationStarted && attempt.status !== "definitive_unpaid" && attempt.status !== "signature_rejected";
+      })
+      .reduce((sum, attempt) => sum + (typeof attempt.amountMicro === "string" ? BigInt(attempt.amountMicro) : 0n), 0n);
+  }
+
   const validated = validateEscrowChallenge(challenge, {
-    wallet, network, payTo, origin, resource, requestUrl, runReservedMicro,
+    wallet: normalizedWallet, network, payTo, origin, resource, requestUrl, runReservedMicro,
   });
+
   const authorization = {
     from: validated.payer,
     to: validated.payTo,
@@ -354,36 +583,43 @@ export async function performPaidAsk({
     validBefore: String(Math.floor(Date.now() / 1000) + 100),
     nonce: Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) => byte.toString(16).padStart(2, "0")).join(""),
   };
+
   const message = validated.template
     .replace("{from}", authorization.from)
     .replace("{nonce}", authorization.nonce)
     .replace("{validAfter}", authorization.validAfter)
     .replace("{validBefore}", authorization.validBefore);
+
   const pending = saveAttempt(storage, requestId, {
-    wallet: wallet.toLowerCase(), intent, params, status: "authorization_pending",
+    wallet: normalizedWallet, intent, params, runId: runId ?? null, status: "authorization_pending",
     authorizationStarted: true, amountMicro: String(validated.amount),
     answer: null, receipt: null,
   });
   onAttempt(pending);
+
   let signature;
   try {
-    signature = await provider.request({ method: "personal_sign", params: [message, wallet] });
+    signature = await provider.request({ method: "personal_sign", params: [message, normalizedWallet] });
   } catch (error) {
+    const isRejection = error?.code === 4001;
     const rejected = saveAttempt(storage, requestId, {
-      ...pending, status: error?.code === 4001 ? "signature_rejected" : "unknown",
-      authorizationStarted: error?.code !== 4001,
+      ...pending,
+      status: isRejection ? "signature_rejected" : "unknown",
+      authorizationStarted: !isRejection,
       error: String(error?.message ?? error),
     });
     onAttempt(rejected);
     throw error;
   }
+
   if (typeof signature !== "string" || !/^0x(?:[0-9a-f]{2})+$/i.test(signature)) {
     const unknown = saveAttempt(storage, requestId, { ...pending, status: "unknown", error: "wallet returned a malformed signature" });
     onAttempt(unknown);
     throw new Error("wallet returned a malformed signature");
   }
+
   try {
-    await assertSepolia(provider, wallet, isCurrent);
+    await assertSepolia(provider, normalizedWallet, isCurrent);
     const envelope = {
       x402Version: 2,
       scheme: "escrow",
@@ -409,7 +645,7 @@ export async function performPaidAsk({
     }
     const responseData = response.ok ? await response.json() : null;
     const receiptValid = validateEscrowReceipt(receipt, {
-      intent, amount: validated.amount, payer: wallet, minerId: responseData?.miner_id,
+      intent, amount: validated.amount, payer: normalizedWallet, minerId: responseData?.miner_id,
     });
     const answerMatches = isMatchingAnswer(responseData, { intent, params });
     const status = receiptValid ? "protocol_receipt" : "unknown";

@@ -695,7 +695,28 @@ html{scroll-padding-top:20px}body{background:radial-gradient(ellipse at 76% 8%,#
 <p class="field-help" id="live-state">Connect MetaMask (top right) to enable live actions. Payments sign in your browser from your own wallet.</p>
 <div class="action-row">
 <button class="action-button" disabled="" id="mint-usdc" type="button">Mint 10 test USDC</button>
-<button class="action-button" disabled="" id="fund-escrow" type="button">Fund escrow · 3 USDC</button>
+<button class="action-button" disabled="" id="fund-escrow" type="button">Fund escrow</button>
+</div>
+<div class="balance-card" id="balance-card" style="margin: 16px 0; padding: 14px; border: 1px solid var(--ld-border); border-radius: 6px; background: rgba(9,8,14,.55); font-size: 12px;">
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+  <strong style="color: var(--ld-caution); text-transform: uppercase; letter-spacing: .08em; font-size: 11px;">Sepolia Balance &amp; Escrow Setup</strong>
+  <button class="action-button" id="refresh-balances" style="min-height: 28px; padding: 2px 10px; font-size: 11px;" type="button">Refresh</button>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 10px;">
+  <div><span style="color: var(--ld-secondary); display: block; font-size: 10px;">Gas (Sepolia ETH)</span><strong id="bal-eth">—</strong></div>
+  <div><span style="color: var(--ld-secondary); display: block; font-size: 10px;">Wallet Test-USDC</span><strong id="bal-usdc">—</strong></div>
+  <div><span style="color: var(--ld-secondary); display: block; font-size: 10px;">Spendable Escrow</span><strong id="bal-spendable" style="color: var(--ld-primary-strong);">—</strong></div>
+  <div><span style="color: var(--ld-secondary); display: block; font-size: 10px;">USDC Allowance</span><strong id="bal-allowance">—</strong></div>
+</div>
+<div id="bal-breakdown" style="color: var(--ld-secondary); font-size: 11px; margin-bottom: 8px; line-height: 1.4;">Connect wallet to inspect effective spendable balance.</div>
+<div id="funding-options" style="display: none; padding-top: 8px; border-top: 1px dashed var(--ld-border);">
+  <span style="display: block; font-size: 11px; margin-bottom: 6px; color: var(--ld-caution);">Top-up needed for planned assessment ($0.02 max):</span>
+  <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+    <button class="action-button" id="fund-002" style="min-height: 32px; padding: 4px 12px; font-size: 11px;" type="button">Top-up $0.02 (Exact run)</button>
+    <button class="action-button" id="fund-100" style="min-height: 32px; padding: 4px 12px; font-size: 11px;" type="button">Top-up $1.00 (Standard)</button>
+    <button class="action-button" id="fund-300" style="min-height: 32px; padding: 4px 12px; font-size: 11px;" type="button">Top-up $3.00 (Legacy)</button>
+  </div>
+</div>
 </div>
 <p class="action-note" id="action-note" role="status"></p>
 <label class="field-label" for="deployer-name">Sanctions: deployer entity name</label>
@@ -789,6 +810,7 @@ import {
   paymentRequestId,
   performPaidAsk,
   readAttemptLedger,
+  readWalletFundingState,
   validateEscrowReceipt,
 } from "/live-payment.mjs";
 
@@ -980,11 +1002,12 @@ async function mintTestUsdc(wallet) {
     isCurrent: () => walletContextIsCurrent(provider, wallet, revision),
   });
 }
-async function fundEscrow(wallet) {
+async function fundEscrow(wallet, amountMicro) {
   const provider = connectedProvider();
   const revision = currentWalletRevision();
   return fundEscrowWithWallet({
     provider, wallet, usdc: USDC, diamond: DIAMOND,
+    amountMicro,
     isCurrent: () => walletContextIsCurrent(provider, wallet, revision),
   });
 }
@@ -1110,6 +1133,7 @@ if (runLive) runLive.addEventListener("click", async () => {
     { intent: "SANCTIONS_SCREENING_MATCH_GENERAL", params: { name: deployer } },
     { intent: "SANCTIONS_SCREENING_MATCH_GENERAL", params: { name: treasury } },
   ];
+  const runId = "run_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
   runLive.disabled = true;
   out.setAttribute("aria-busy", "true");
   const state = Object.assign(document.createElement("p"), { className: "request-state request-state--real", role: "status" });
@@ -1127,6 +1151,7 @@ if (runLive) runLive.addEventListener("click", async () => {
       const run = await performPaidAsk({
         provider, wallet, intent: job.intent, params: job.params,
         requestUrl: new URL(ENGINE_BASE + "/v1/ask", window.location.origin).href,
+        runId,
         network: TRUSTED_NETWORK,
         payTo: DIAMOND,
         origin: window.location.origin,
@@ -1276,6 +1301,115 @@ function requireWallet() {
   return wallet;
 }
 
+let latestFundingState = null;
+
+function renderFundingState(state) {
+  latestFundingState = state;
+  const ethEl = document.getElementById("bal-eth");
+  const usdcEl = document.getElementById("bal-usdc");
+  const spendableEl = document.getElementById("bal-spendable");
+  const allowanceEl = document.getElementById("bal-allowance");
+  const breakdownEl = document.getElementById("bal-breakdown");
+  const optionsEl = document.getElementById("funding-options");
+
+  if (!state) {
+    if (ethEl) ethEl.textContent = "—";
+    if (usdcEl) usdcEl.textContent = "—";
+    if (spendableEl) spendableEl.textContent = "—";
+    if (allowanceEl) allowanceEl.textContent = "—";
+    if (breakdownEl) breakdownEl.textContent = "Connect wallet to inspect effective spendable balance.";
+    if (optionsEl) optionsEl.style.display = "none";
+    return;
+  }
+
+  if (ethEl) ethEl.textContent = state.ethBalanceWei != null
+    ? (Number(state.ethBalanceWei) / 1e18).toFixed(4) + " ETH"
+    : (state.ethBalanceReadError ? "Read error" : "—");
+
+  if (usdcEl) usdcEl.textContent = state.usdcBalanceMicro != null
+    ? (Number(state.usdcBalanceMicro) / 1e6).toFixed(2) + " USDC"
+    : (state.usdcBalanceReadError ? "Read error" : "—");
+
+  if (allowanceEl) allowanceEl.textContent = state.allowanceMicro != null
+    ? (Number(state.allowanceMicro) / 1e6).toFixed(2) + " USDC"
+    : (state.allowanceReadError ? "Read error" : "—");
+
+  if (spendableEl) spendableEl.textContent = state.spendableEscrowMicro != null
+    ? "$" + (Number(state.spendableEscrowMicro) / 1e6).toFixed(4) + " USDC"
+    : (state.effectiveEscrowReadError ? "Read error" : "—");
+
+  const notes = [];
+  if (state.rawEscrowBalanceMicro != null) {
+    notes.push(`Raw escrow: $${(Number(state.rawEscrowBalanceMicro) / 1e6).toFixed(4)}`);
+  }
+  if (state.agentDebtMicro && state.agentDebtMicro > 0n) {
+    notes.push(`Agent debt: $${(Number(state.agentDebtMicro) / 1e6).toFixed(4)} (reduces spendable balance)`);
+  }
+  if (state.pendingWithdrawalMicro && state.pendingWithdrawalMicro > 0n) {
+    notes.push(`Pending withdrawal: $${(Number(state.pendingWithdrawalMicro) / 1e6).toFixed(4)}`);
+  }
+  if (state.pendingLiabilitiesMicro && state.pendingLiabilitiesMicro > 0n) {
+    notes.push(`Unreconciled in-flight: $${(Number(state.pendingLiabilitiesMicro) / 1e6).toFixed(4)}`);
+  }
+
+  const runNeeds = 20_000n; // $0.02
+  const hasSufficientSpendable = state.spendableEscrowMicro != null && state.spendableEscrowMicro >= runNeeds;
+
+  if (breakdownEl) {
+    if (hasSufficientSpendable) {
+      notes.push("Sufficient spendable escrow for live assessment ($0.02 max). No top-up needed.");
+      breakdownEl.textContent = notes.join(" · ");
+      breakdownEl.style.color = "var(--ld-primary-strong)";
+    } else {
+      notes.push("Spendable balance is below assessment ceiling ($0.02). Choose a top-up below if funding.");
+      breakdownEl.textContent = notes.join(" · ");
+      breakdownEl.style.color = "var(--ld-caution)";
+    }
+  }
+
+  if (optionsEl) {
+    optionsEl.style.display = hasSufficientSpendable ? "none" : "block";
+  }
+
+  if (stepFund) {
+    stepFund.classList.toggle("done", Boolean(hasSufficientSpendable));
+  }
+}
+
+async function refreshBalances() {
+  const wallet = connectedAddress();
+  const provider = connectedProvider();
+  const revision = currentWalletRevision();
+  if (!wallet || !provider || String(connectedWallet()?.chainId).toLowerCase() !== LIVE_PAYMENT_LIMITS.chainId) {
+    renderFundingState(null);
+    return;
+  }
+  try {
+    const state = await readWalletFundingState({
+      provider, wallet, usdc: USDC, diamond: DIAMOND,
+      isCurrent: () => walletContextIsCurrent(provider, wallet, revision),
+    });
+    renderFundingState(state);
+  } catch (err) {
+    console.warn("Could not read wallet funding state:", err);
+  }
+}
+
+const refreshBtn = document.getElementById("refresh-balances");
+if (refreshBtn) refreshBtn.addEventListener("click", refreshBalances);
+
+const fund002 = document.getElementById("fund-002");
+const fund100 = document.getElementById("fund-100");
+const fund300 = document.getElementById("fund-300");
+
+if (fund002) fund002.addEventListener("click", () => walletAction("Escrow top-up $0.02", (w) => fundEscrow(w, 20_000n)));
+if (fund100) fund100.addEventListener("click", () => walletAction("Escrow top-up $1.00", (w) => fundEscrow(w, 1_000_000n)));
+if (fund300) fund300.addEventListener("click", () => walletAction("Escrow top-up $3.00", (w) => fundEscrow(w, 3_000_000n)));
+
+window.addEventListener("listings:wallet", () => {
+  refreshBalances();
+});
+
 async function walletAction(label, run) {
   const wallet = requireWallet();
   if (!wallet) return;
@@ -1287,10 +1421,10 @@ async function walletAction(label, run) {
     const tx = await run(wallet);
     if (actionNote) {
       actionNote.textContent = label.startsWith("Escrow")
-        ? `Escrow funding confirmed: 3 USDC deposited; refreshed escrow balance ${tx.balanceMicro} μUSDC. Deposit tx ${tx.depositHash}.`
+        ? `Escrow funding confirmed: refreshed escrow balance ${tx.balanceMicro} μUSDC. Deposit tx ${tx.depositHash}.`
         : `${label} confirmed in a mined Sepolia transaction: ${String(tx)}.`;
     }
-    if (label.startsWith("Escrow") && stepFund) stepFund.classList.add("done");
+    await refreshBalances();
   } catch (error) {
     if (actionNote) actionNote.textContent = label + " failed: " + String(error?.message ?? error).slice(0, 160);
   } finally {
@@ -1302,7 +1436,10 @@ async function walletAction(label, run) {
 }
 
 if (mintBtn) mintBtn.addEventListener("click", () => walletAction("Mint 10 test USDC", (w) => mintTestUsdc(w)));
-if (fundBtn) fundBtn.addEventListener("click", () => walletAction("Escrow funding", (w) => fundEscrow(w)));
+if (fundBtn) fundBtn.addEventListener("click", () => {
+  const optionsEl = document.getElementById("funding-options");
+  if (optionsEl) optionsEl.style.display = optionsEl.style.display === "none" ? "block" : "none";
+});
 
 // The leaderboard panel
 const lbRefresh = document.getElementById("lb-refresh");

@@ -36,6 +36,14 @@ test("mocked: offline and live workspaces are tabbed and keep their results sepa
   assert.match(html, /modeTabs\[next\]\.dataset\.workspaceTab/);
 });
 
+test("mocked: storage failure after authorization warns about reconciliation without clearing history", () => {
+  const html = readFileSync(new URL("../public/leaderlight-live.html", import.meta.url), "utf8");
+  assert.match(html, /wallet may have authorized this payment/i);
+  assert.match(html, /No payment history was cleared; do not clear these records/i);
+  assert.match(html, /This tab did not request a signature/i);
+  assert.match(html, /possibly from another tab/i);
+});
+
 const malformedChallengeCases = [
   ["fixed nonce", (s) => s.replace("{nonce}", "fixed-nonce")],
   ["fixed validBefore", (s) => s.replace("{validBefore}", "9999999999")],

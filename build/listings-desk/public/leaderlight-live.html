@@ -1318,6 +1318,20 @@ if (runLive) runLive.addEventListener("click", async () => {
     }
     runLive.dataset.paymentBlocked = "false";
   } catch (error) {
+    const failure = String(error?.message ?? error);
+    if (/payment outcome could not be saved/i.test(failure)) {
+      out.replaceChildren(Object.assign(document.createElement("p"), {
+        className: "request-error", role: "alert",
+        textContent: "The wallet may have authorized this payment, but the outcome could not be saved. Reconcile the saved request before trying again. No payment history was cleared; do not clear these records.",
+      }));
+      runLive.dataset.paymentBlocked = "true";
+    } else if (/unresolved authorization|prior request may already have been authorized|already authorized in the current assessment run|New assessment before repeating/i.test(failure)) {
+      out.replaceChildren(Object.assign(document.createElement("p"), {
+        className: "request-error", role: "alert",
+        textContent: "This tab did not request a signature. A saved unresolved payment is already blocking this wallet, possibly from another tab. Reconcile that request before retrying; the block remains in place.",
+      }));
+      runLive.dataset.paymentBlocked = "true";
+    } else {
     try {
       const ledger = readAttemptLedger();
       for (const job of jobs) {
@@ -1349,6 +1363,7 @@ if (runLive) runLive.addEventListener("click", async () => {
         textContent: "LIVE outcome is saved but could not be displayed. Reconcile the saved request before retrying. " +
           String(renderError?.message ?? renderError),
       }));
+    }
     }
   } finally {
     runLive.dataset.inFlight = "false";

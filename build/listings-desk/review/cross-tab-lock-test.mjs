@@ -22,7 +22,8 @@ try {
       if (method === "personal_sign") {
         const n = Number(localStorage.getItem("mock-cross-tab-sign-count") || 0) + 1;
         localStorage.setItem("mock-cross-tab-sign-count", String(n));
-        await new Promise((resolve) => setTimeout(resolve, 300));
+        window.__mockDidSign = true;
+        await new Promise((resolve) => setTimeout(resolve, 1500));
         return "0xdead";
       }
       throw new Error(`Unexpected mock provider method: ${method}`);
@@ -48,21 +49,59 @@ try {
     await page.goto(`http://127.0.0.1:${port}`);
     await page.click("#wallet-connect");
     await page.waitForFunction(() => !document.querySelector("#run-live").disabled);
-    await page.fill("#deployer-name", "Same mock entity");
-    await page.fill("#treasury-name", "Same mock entity");
+    await page.fill("#deployer-name", "Mock Deployer Ltd");
+    await page.fill("#treasury-name", "Mock Treasury Inc");
   }
   await Promise.all(pages.map((page) => page.evaluate(() => document.querySelector("#run-live").click())));
   await Promise.all(pages.map((page) => page.waitForFunction(() => document.querySelector("#out").getAttribute("aria-busy") === "false")));
-  assert.equal(await pages[0].evaluate(() => localStorage.getItem("mock-cross-tab-sign-count")), "1");
-  assert.equal(paidResponses, 1);
-
-  await pages[0].click("#new-assessment");
-  await pages[0].waitForFunction(() => Object.keys(JSON.parse(localStorage.getItem("leaderlight.live-assessment-intents.v1") || "{}")).length >= 1);
-  await pages[0].click("#run-live");
-  await pages[0].waitForFunction(() => document.querySelector("#out").getAttribute("aria-busy") === "false");
+  const firstRaceOutput = await Promise.all(pages.map((page) => page.locator("#out").innerText()));
+  assert.equal(firstRaceOutput.filter((text) => text.includes("This tab did not request a signature")).length, 1);
   assert.equal(await pages[0].evaluate(() => localStorage.getItem("mock-cross-tab-sign-count")), "2");
   assert.equal(paidResponses, 2);
-  console.log("PASS (mocked browser): two tabs shared localStorage and navigator.locks; overlapping Run clicks caused 1 personal_sign; New assessment allowed exactly one deliberate repeat (2 total). Provider was injected mock, not MetaMask; Engine responses were local fixtures, not Sepolia.");
+
+  const winner = pages[firstRaceOutput[0].includes("This tab did not request a signature") ? 1 : 0];
+  const signsBeforePlainRetry = Number(await winner.evaluate(() => localStorage.getItem("mock-cross-tab-sign-count")));
+  await winner.click("#run-live");
+  await winner.waitForFunction(() => document.querySelector("#out").getAttribute("aria-busy") === "false");
+  assert.match(await winner.locator("#out").innerText(), /This tab did not request a signature/);
+  assert.equal(Number(await winner.evaluate(() => localStorage.getItem("mock-cross-tab-sign-count"))), signsBeforePlainRetry);
+
+  await winner.click("#new-assessment");
+  await winner.waitForFunction(() => Object.keys(JSON.parse(localStorage.getItem("leaderlight.live-assessment-intents.v1") || "{}")).length >= 2);
+  await winner.click("#run-live");
+  await winner.waitForFunction(() => document.querySelector("#out").getAttribute("aria-busy") === "false");
+  assert.equal(await winner.evaluate(() => localStorage.getItem("mock-cross-tab-sign-count")), "4");
+  assert.equal(paidResponses, 4);
+
+  await winner.fill("#deployer-name", "Identical Mock Entity");
+  await winner.fill("#treasury-name", "Identical Mock Entity");
+  await winner.click("#run-live");
+  await winner.waitForFunction(() => document.querySelector("#out").getAttribute("aria-busy") === "false");
+  assert.equal(await winner.evaluate(() => localStorage.getItem("mock-cross-tab-sign-count")), "5");
+  assert.match(await winner.locator("#out").innerText(), /checked once and charged once/);
+
+  const quotaPage = await context.newPage();
+  await quotaPage.goto(`http://127.0.0.1:${port}`);
+  await quotaPage.click("#wallet-connect");
+  await quotaPage.waitForFunction(() => !document.querySelector("#run-live").disabled);
+  await quotaPage.fill("#deployer-name", "Quota Mock Deployer");
+  await quotaPage.fill("#treasury-name", "Quota Mock Treasury");
+  await quotaPage.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key, value) {
+      if (key === "leaderlight.live-attempts.v1" && window.__mockDidSign) {
+        throw new DOMException("QuotaExceededError", "QuotaExceededError");
+      }
+      return original.call(this, key, value);
+    };
+  });
+  await quotaPage.click("#run-live");
+  await quotaPage.waitForFunction(() => document.querySelector("#out").getAttribute("aria-busy") === "false");
+  const quotaText = await quotaPage.locator("#out").innerText();
+  assert.match(quotaText, /may have authorized this payment/i);
+  assert.match(quotaText, /No payment history was cleared/i);
+  assert.match(quotaText, /do not clear these records/i);
+  console.log("PASS (mocked browser): two same-wallet tabs with two distinct names permit one assessment's two signatures; the losing tab reports that it did not sign; plain retry is blocked; New assessment allows one deliberate repeat; identical names charge once; simulated post-sign quota failure warns reconciliation is needed and history was not cleared. Provider is mock, not MetaMask; Engine responses are local, not Sepolia.");
   await context.close();
 } finally {
   await browser?.close();

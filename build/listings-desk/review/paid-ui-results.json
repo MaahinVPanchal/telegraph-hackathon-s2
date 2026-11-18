@@ -5,16 +5,16 @@
       "scenario": "valid",
       "pass": true,
       "mockedSignatures": 2,
-      "authorizedMockResponses": 2,
-      "asks": 4,
+      "authorizedMockResponses": 4,
+      "asks": 8,
       "externalCalls": 0
     },
     {
       "scenario": "partial",
       "pass": true,
       "mockedSignatures": 2,
-      "authorizedMockResponses": 2,
-      "asks": 4,
+      "authorizedMockResponses": 3,
+      "asks": 6,
       "externalCalls": 0
     },
     {

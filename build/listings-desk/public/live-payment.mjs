@@ -218,6 +218,28 @@ export function readAttemptLedger(storage = globalThis.localStorage) {
   return ledger;
 }
 
+function compactPriorAttempt(attempt) {
+  return Object.fromEntries([
+    "attemptId", "requestId", "wallet", "runId", "status", "authorizationStarted",
+    "amountMicro", "receipt", "updatedAt", "createdAt",
+  ].filter((key) => attempt?.[key] !== undefined).map((key) => [key, attempt[key]]));
+}
+
+export function flattenPriorAttempts(attempt) {
+  const flat = [];
+  const seen = new Set();
+  const visit = (record) => {
+    if (!record || typeof record !== "object") return;
+    if (Array.isArray(record.priorAttempts)) record.priorAttempts.forEach(visit);
+    if (typeof record.attemptId === "string" && !seen.has(record.attemptId)) {
+      seen.add(record.attemptId);
+      flat.push(compactPriorAttempt(record));
+    }
+  };
+  visit(attempt);
+  return flat;
+}
+
 export function getLatestAttempt(ledger, requestId) {
   if (!ledger?.attempts) return null;
   const entry = ledger.attempts[requestId];
@@ -280,12 +302,7 @@ export function saveAttempt(storage, requestId, attempt) {
   }
 
   // Preserve prior attempts for this requestId non-destructively
-  const priorAttempts = existing
-    ? (Array.isArray(existing.priorAttempts) ? [...existing.priorAttempts] : (existing.attemptId !== attemptId ? [existing] : []))
-    : [];
-  if (existing && existing.attemptId !== attemptId && !priorAttempts.some((a) => a.attemptId === existing.attemptId)) {
-    priorAttempts.push(existing);
-  }
+  const priorAttempts = existing ? flattenPriorAttempts(existing).filter((a) => a.attemptId !== attemptId) : [];
 
   // Set the primary attempt object on attempts[requestId] for backward-compatible property access
   ledger.attempts[requestId] = {
@@ -704,15 +721,29 @@ export async function performPaidAsk({
   return await withLock(`lock:escrow:${normalizedWallet}`, async () => {
     // Authoritative re-read inside the critical section
     const currentLedger = readAttemptLedger(storage);
+    let migrated = false;
+    for (const [id, record] of Object.entries(currentLedger.attempts)) {
+      if (!record || typeof record !== "object") continue;
+      const flattened = flattenPriorAttempts(record).filter((prior) => prior.attemptId !== record.attemptId);
+      if (JSON.stringify(record.priorAttempts ?? []) !== JSON.stringify(flattened)) {
+        currentLedger.attempts[id] = { ...record, priorAttempts: flattened };
+        migrated = true;
+      }
+    }
+    if (migrated) {
+      const serialized = JSON.stringify(currentLedger);
+      try {
+        storage.setItem(STORAGE_KEY, serialized);
+        if (storage.getItem(STORAGE_KEY) !== serialized) throw new Error("persistence verification failed");
+      } catch (error) {
+        throw new Error(`payment history migration could not be saved; reconciliation required: ${error.message}`);
+      }
+    }
     const existing = currentLedger.attempts[requestId];
     let tokenAuthorized = false;
     let intents;
     try { intents = JSON.parse(storage.getItem(INTENT_KEY) || "{}"); } catch { throw new Error("assessment intent storage is unavailable; failing closed"); }
-    if (intentToken && intents[requestId] === intentToken) {
-      delete intents[requestId];
-      try { storage.setItem(INTENT_KEY, JSON.stringify(intents)); } catch { throw new Error("assessment intent could not be consumed; failing closed"); }
-      tokenAuthorized = true;
-    }
+    tokenAuthorized = Boolean(intentToken && intents[requestId] === intentToken);
 
     const history = Array.isArray(currentLedger.history) ? currentLedger.history : Object.values(currentLedger.attempts);
     if (history.some((attempt) => attempt.wallet?.toLowerCase() === normalizedWallet &&
@@ -732,6 +763,12 @@ export async function performPaidAsk({
       } else if (existing.status !== "definitive_unpaid" && existing.status !== "signature_rejected") {
         throw new Error("A prior request may already have been authorized. Reconcile its saved receipt or epoch delivery before retrying.");
       }
+    }
+
+    // Consume a matching repeat token only after all refusal checks pass, still under the wallet lock.
+    if (tokenAuthorized) {
+      delete intents[requestId];
+      try { storage.setItem(INTENT_KEY, JSON.stringify(intents)); } catch { throw new Error("assessment intent could not be consumed; failing closed"); }
     }
 
     const body = JSON.stringify({ intent, params });

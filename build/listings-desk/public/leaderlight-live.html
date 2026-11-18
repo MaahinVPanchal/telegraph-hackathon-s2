@@ -1143,8 +1143,13 @@ if (runLive) runLive.addEventListener("click", async () => {
   const identicalNames = deployer === treasury;
   window.__identicalAssessmentNames = identicalNames;
   if (identicalNames) jobs.pop();
-  window.__identicalAssessmentNames = deployer === treasury;
-  if (window.__identicalAssessmentNames) jobs.pop();
+  if (jobs.length === 0) {
+    out.replaceChildren(Object.assign(document.createElement("p"), {
+      className: "request-error", role: "alert",
+      textContent: "No assessment requests were prepared. Check both names and try again.",
+    }));
+    return;
+  }
   const runId = "run_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
   runLive.disabled = true;
   runLive.dataset.inFlight = "true";

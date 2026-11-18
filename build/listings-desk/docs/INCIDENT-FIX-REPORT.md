@@ -113,3 +113,76 @@ The funding flow previously executed a hardcoded approval of 3,000,000 μUSDC (3
 5. **Execute Second Assessment Run:**
    * Click **Run LIVE assessment** again with fresh inputs.
    * Confirm the second run executes successfully and is not blocked by the first run's budget.
+
+
+---
+
+# Follow-up Repair: Concurrency, Lifecycle, Debt & Deposit (18 November 2026)
+
+**Review Branch:** `review/concurrency-lifecycle-debt-fix` (review-only; not merged to `main`, not deployed)  
+**Baseline:** reviewed merge `0315805` + prior repair `03e231b`. This change set is uncommitted-to-main working-tree work, finalized and committed only to the review branch.
+
+This follow-up closes the four confirmed gaps the prior repair left open. All verification below uses **mocked** providers, signatures and Engine responses — it is not proof of real-wallet or on-chain settlement behaviour.
+
+## A. The four fixes
+
+### Fix 1 — Overlapping authorizations and ledger loss (`live-payment.mjs`)
+- `performPaidAsk` now runs the entire reserve/read/sign/receipt sequence inside a per-wallet cross-tab lock (`withLock("lock:escrow:<wallet>")`) backed by the Web Locks API (`navigator.locks.request`), with an in-process queue fallback for Node and a **fail-closed** throw in browsers that lack the primitive.
+- The authoritative ledger re-read happens inside the critical section, so a second tab or in-tab double-click cannot race past a first reservation.
+- `saveAttempt` is append-only: each attempt gets a stable `attemptId`, writes to `history`, and indexes by `runId` and `wallet`; a repeating input preserves prior attempts under `priorAttempts` instead of overwriting them. A receipt or unknown outcome can no longer disappear.
+- A reservation is released only on a definitive unpaid or signature-rejected result, never on timeout (transport failure after signing stays `unknown`, which keeps blocking re-authorization).
+
+**Design decision (deliberate reassessment):** a *different* `runId` with the same inputs is an intentional new assessment and is allowed to re-authorize (this is the module behaviour Fix 2 relies on and that regression #6 asserts). The concurrency guard that enforces “at most one signature” applies to overlap within the **same** run — the actual double-click / two-tabs-of-one-run bug.
+
+### Fix 2 — UI new-assessment lifecycle (`leaderlight-live.html`)
+- Added an explicit **New assessment** action that resets the result region and clears the stale `paymentBlocked` flag without erasing prior receipts.
+- The run-loop guard now blocks only on an **unresolved** saved attempt (`authorization_pending` / `unknown`); a completed `protocol_receipt` no longer blocks a fresh run. This removed the “every completed receipt blocks all future same-input runs” anti-pattern.
+- On input edit the re-check re-scans the ledger for unresolved authorizations rather than blindly clearing the block.
+- Identical deployer/treasury names assess once and reuse the validated result, so the second job no longer silently duplicates a paid request or stops halfway.
+
+### Fix 3 — Spendable balance honest about commitments and debt (`live-payment.mjs`, `leaderlight-live.html`)
+- `pendingLiabilitiesMicro` now includes unsettled `protocol_receipt` commitments (not only `authorization_pending`/`unknown`), so funds already committed to a receipt are not reported as spendable.
+- `spendableEscrowMicro` is `null` (not-ready) when any of the effective-balance, agent-debt or liabilities reads fails or the ledger is malformed — the previous silent `catch` that treated malformed data as zero is gone.
+- Positive `agentDebt` or any read error blocks the “ready” state and surfaces an “Unavailable” / explanatory note; `pendingWithdrawal` is not double-subtracted (effective balance already excludes it). Wallet/network context is re-checked after the async reads.
+- A local-only limitation is labelled: on-chain reads cannot see commitments made on other devices/apps.
+
+### Fix 4 — Verify deposits without misreporting debt repayment as failure (`live-payment.mjs`, `leaderlight-live.html`)
+- `fundEscrow` now reads raw escrow balance **and** `agentDebt` before and after the deposit, computes `debtRepaid` and `expectedMinRawIncrease = topUp - debtBefore`, and validates against that minimum — so a legitimate deposit that clears debt no longer throws “did not increase by requested amount”. Both the balance-aware and legacy paths do this.
+- `deposit_confirmed` reports `debtRepaid` and `debtRemaining`; the UI `walletAction` wires `onStage` (approval pending/confirmed/skipped, deposit pending/confirmed) into the action note instead of a single generic failure. All funding buttons are disabled during an active funding action and the stale “funding is always a separate 3 USDC transaction” copy was removed.
+
+## B. Test #10 correction
+
+The added adversarial test #10 originally deadlocked: its “barrier” waited for two concurrent *initial* `402` fetches, but Fix 1 now serializes the whole flow (including that first fetch) inside the lock, so the second fetch never fired and the barrier promise never resolved. Its assertion (`personalSignCount === 1` across two *different* run IDs) also conflicted with the deliberate-reassessment behaviour in #6.
+
+Rewritten to fire two concurrent calls for the **same** wallet/intent/params/**runId** (a double-click / two tabs of one assessment). With the lock, exactly one reaches `personal_sign` and returns a `protocol_receipt`; the other is refused with “already authorized in the current assessment run”; the receipt is preserved in append-only history. A new test #13 verifies concurrent **distinct** inputs in one run both authorize and preserve separate receipts (no false blocking, simultaneous ledger updates).
+
+## C. MetaMask connect warning (unchanged architecture)
+
+- **Why a warning appears:** MetaMask’s anti-phishing scanner flagged `leaderlight.vercel.app` as `BLOCK / DRAINER` on 2026-11-12. This is MetaMask’s external blocklist, not a defect in Leaderlight’s connect code, which uses standard EIP-6963 provider discovery and `eth_requestAccounts` and requests **account access only** (no signature, no transaction on connect).
+- **Current status:** review request [#311992](https://github.com/MetaMask/eth-phishing-detect/issues/311992) is **closed / completed** (`state_reason: completed`) as of `2026-11-13T14:05:14Z` (verified via the GitHub API on 2026-11-18).
+- **If a warning still shows:** it is a stale cached phishing list in the user’s MetaMask extension (extensions cache the list locally); restart/update MetaMask to refresh it. If it recurs, file a new review request — do **not** alter the connect code to work around an external classification. No connect-architecture change was made, per the repair brief.
+
+## D. Weather miner note (no change applied)
+
+The Instinct review proposed a Cloudflare Worker retry proxy between Telegraph and Open-Meteo to absorb upstream TLS timeouts, serving failure (never stale data) if retries exhaust. The **registered** `miner-yaml-public/weather-verify-openmeteo.yaml` still points `base_url` directly at `https://api.open-meteo.com`; no retry worker exists in this repository and the YAML was **not** changed. Per the proposal, the YAML must not be re-registered until its `base_url` matches an actually-deployed worker URL — so no registration or wallet action was taken here.
+
+## E. Test & verification results (mocked only)
+
+- **Node suite** (`node --test` over all four files): **74 pass, 0 fail, 0 skipped** (~3.6 s). Regression file now has 13 tests (1–9 unchanged, #10 corrected, #11 deposit-debt, #12 spendable-fail-closed, #13 concurrent-distinct).
+- **Browser suite** (`npm run test:browser`):
+  - `review/browser-test.mjs`: all checks pass, no uncaught exceptions, no external calls.
+  - `review/paid-browser-test.mjs`: `valid` (2 signatures, 2 receipts), `partial` (2 signatures, 1 unknown), `unknown` (1 signature, no receipt), `malformed-challenge` (0 signatures, network rejected) — all pass, `externalCalls: 0`. The reload re-run now asserts: `valid` re-runs (2 signatures, no “Reconcile”, append-only history ≥ 2), `partial` re-runs the cleared name then stops at the unknown one, `unknown` stays blocked — matching the Fix 2 lifecycle.
+- **Screenshots:** regenerated by the browser tests under `review/screenshots/` at 320 / 390 / 1280 px (disconnected, offline result, connected, wrong-network, and per-scenario paid states).
+- **Honesty caveat:** every wallet, signature, receipt, balance and Engine response in these runs is a local fixture. These passes do not certify real MetaMask connection, real on-chain deposit/debt behaviour, or final epoch settlement.
+
+## F. Remaining manual checklist (review-only; throwaway Sepolia wallet only)
+
+1. Connect MetaMask on Sepolia; confirm the prompt requests account access only (no sign/tx).
+2. Read the funding panel: spendable is `Unavailable` while any read is in error or debt > 0; top-up options appear only when spendable < $0.02.
+3. Top-up $0.02: if allowance is short, approve exactly 20,000 μUSDC, then deposit; confirm the note reports any debt repaid and the new raw balance.
+4. Run two distinct sanctions names; approve two `personal_sign` challenges; confirm two protocol receipts and an honest “not final settlement” label.
+5. Double-click Run on the same names within one assessment: confirm only one signature is requested and a “Reconcile” refusal appears, with the first receipt still in history.
+6. Click **New assessment**, re-enter the same names, Run again: confirm the fresh run re-authorizes (new runId) and the prior receipt is preserved.
+7. Change wallet/network mid-run: confirm the run aborts before any further request.
+
+**Release state:** review-only commit on `review/concurrency-lifecycle-debt-fix`. No merge to `main`, no deployment, no real wallet action, no key on any server. Separate user approval is required before any remote push beyond this review branch, merge, or release.

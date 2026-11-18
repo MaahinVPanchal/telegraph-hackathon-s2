@@ -723,9 +723,12 @@ html{scroll-padding-top:20px}body{background:radial-gradient(ellipse at 76% 8%,#
 <input autocomplete="off" class="text-input" id="deployer-name" placeholder="e.g. MaaHin Digital Labs Ltd" type="text"/>
 <label class="field-label" for="treasury-name">Sanctions: treasury entity name</label>
 <input autocomplete="off" class="text-input" id="treasury-name" placeholder="e.g. Pepe Treasury Holdings SA" type="text"/>
-<button class="primary-action" disabled="" id="run-live" type="button">Run LIVE assessment (signs + pays)</button>
+<div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+  <button class="primary-action" disabled="" id="run-live" type="button">Run LIVE assessment (signs + pays)</button>
+  <button class="action-button" id="new-assessment" style="min-height: 44px; padding: 8px 16px; font-size: 13px;" type="button">New assessment</button>
+</div>
 <p class="mode-help">Up to two explicit sanctions requests. The validated challenge is capped at $0.01 per call and $0.02 per run. A receipt is not final epoch settlement.</p>
-</div><aside class="panel wallet-guide"><p class="eyebrow">Wallet &amp; network</p><div aria-hidden="true" class="wallet-symbol">◇</div><h2>Your keys.<br/>Your approval.</h2><p>Use the wallet connection at the top of this workspace. Connecting grants account access only.</p><dl><div><dt>Network</dt><dd>Ethereum Sepolia / 11155111</dd></div><div><dt>Per-call ceiling</dt><dd>$0.01 test USDC</dd></div><div><dt>Per-run ceiling</dt><dd>$0.02 test USDC</dd></div></dl><p class="boundary-note">Funding is a separate 3 USDC testnet transaction. Each signature or transaction needs your own approval. Receipts, delivery evidence and final settlement are different states.</p></aside></section>
+</div><aside class="panel wallet-guide"><p class="eyebrow">Wallet &amp; network</p><div aria-hidden="true" class="wallet-symbol">◇</div><h2>Your keys.<br/>Your approval.</h2><p>Use the wallet connection at the top of this workspace. Connecting grants account access only.</p><dl><div><dt>Network</dt><dd>Ethereum Sepolia / 11155111</dd></div><div><dt>Per-call ceiling</dt><dd>$0.01 test USDC</dd></div><div><dt>Per-run ceiling</dt><dd>$0.02 test USDC</dd></div></dl><p class="boundary-note">Funding is an on-demand testnet transaction (with selectable $0.02, $1.00, or $3.00 amounts). Each signature or transaction needs your own approval. Receipts, delivery evidence and final settlement are different states.</p></aside></section>
 <section aria-busy="false" aria-label="Assessment result" aria-live="polite" class="out-region" id="out">
 <p class="empty-state">No result yet. Run the offline demo without a wallet, or connect MetaMask for a testnet request. Evidence, payment receipt and settlement status are reported separately.</p>
 </section>
@@ -1002,13 +1005,14 @@ async function mintTestUsdc(wallet) {
     isCurrent: () => walletContextIsCurrent(provider, wallet, revision),
   });
 }
-async function fundEscrow(wallet, amountMicro) {
+async function fundEscrow(wallet, amountMicro, options = {}) {
   const provider = connectedProvider();
   const revision = currentWalletRevision();
   return fundEscrowWithWallet({
     provider, wallet, usdc: USDC, diamond: DIAMOND,
     amountMicro,
     isCurrent: () => walletContextIsCurrent(provider, wallet, revision),
+    ...options,
   });
 }
 
@@ -1141,26 +1145,36 @@ if (runLive) runLive.addEventListener("click", async () => {
   out.replaceChildren(state);
   const results = [];
   try {
-    for (const job of jobs) {
+    for (let i = 0; i < jobs.length; i++) {
+      const job = jobs[i];
       if (!walletContextIsCurrent(provider, wallet, revision)) throw new Error("Wallet account or network changed; stopping before another request.");
       const requestId = await paymentRequestId(wallet, job.intent, job.params);
       const saved = readAttemptLedger().attempts[requestId];
-      if (saved?.authorizationStarted || saved?.status === "unknown" || saved?.status === "protocol_receipt") {
+      if (saved?.authorizationStarted && (saved.status === "authorization_pending" || saved.status === "unknown")) {
         throw new Error("A prior request may already have been authorized. Reconcile its saved receipt or epoch delivery before retrying.");
       }
-      const run = await performPaidAsk({
-        provider, wallet, intent: job.intent, params: job.params,
-        requestUrl: new URL(ENGINE_BASE + "/v1/ask", window.location.origin).href,
-        runId,
-        network: TRUSTED_NETWORK,
-        payTo: DIAMOND,
-        origin: window.location.origin,
-        resource: "/v1/ask",
-        isCurrent: () => walletContextIsCurrent(provider, wallet, revision),
-        onAttempt: (attempt) => {
-          if (attempt.authorizationStarted) runLive.dataset.paymentBlocked = "true";
-        },
-      });
+
+      // If deployer and treasury names are identical, assess once and reuse the validated result
+      let run;
+      if (i > 0 && JSON.stringify(jobs[0].params) === JSON.stringify(job.params)) {
+        run = results[0];
+      } else {
+        run = await performPaidAsk({
+          provider, wallet, intent: job.intent, params: job.params,
+          requestUrl: new URL(ENGINE_BASE + "/v1/ask", window.location.origin).href,
+          runId,
+          network: TRUSTED_NETWORK,
+          payTo: DIAMOND,
+          origin: window.location.origin,
+          resource: "/v1/ask",
+          isCurrent: () => walletContextIsCurrent(provider, wallet, revision),
+          onAttempt: (attempt) => {
+            if (attempt.authorizationStarted && (attempt.status === "authorization_pending" || attempt.status === "unknown")) {
+              runLive.dataset.paymentBlocked = "true";
+            }
+          },
+        });
+      }
       results.push({
         intent: job.intent,
         params: job.params,
@@ -1176,6 +1190,7 @@ if (runLive) runLive.addEventListener("click", async () => {
         throw new Error("No validated escrow receipt was returned; stopping before the next request.");
       }
     }
+    runLive.dataset.paymentBlocked = "false";
   } catch (error) {
     try {
       const ledger = readAttemptLedger();
@@ -1211,7 +1226,8 @@ if (runLive) runLive.addEventListener("click", async () => {
     }
   } finally {
     out.setAttribute("aria-busy", "false");
-    runLive.disabled = !connectedAddress() || runLive.dataset.paymentBlocked === "true";
+    const isBlocked = runLive.dataset.paymentBlocked === "true";
+    runLive.disabled = !connectedAddress() || isBlocked;
   }
 });
 
@@ -1220,11 +1236,29 @@ const liveState = document.getElementById("live-state");
 const modeBadge = document.getElementById("mode-badge");
 const mintBtn = document.getElementById("mint-usdc");
 const fundBtn = document.getElementById("fund-escrow");
+const fund002 = document.getElementById("fund-002");
+const fund100 = document.getElementById("fund-100");
+const fund300 = document.getElementById("fund-300");
+const refreshBtn = document.getElementById("refresh-balances");
+const newAssessmentBtn = document.getElementById("new-assessment");
 const actionNote = document.getElementById("action-note");
 const stepConnect = document.querySelector('.flow-steps [data-step="connect"]');
 const stepFund = document.querySelector('.flow-steps [data-step="fund"]');
 const stepRun = document.querySelector('.flow-steps [data-step="run"]');
-const liveControls = [runLive, mintBtn, fundBtn].filter(Boolean);
+const liveControls = [runLive, mintBtn, fundBtn, fund002, fund100, fund300, refreshBtn, newAssessmentBtn].filter(Boolean);
+
+if (newAssessmentBtn) {
+  newAssessmentBtn.addEventListener("click", () => {
+    runLive.dataset.paymentBlocked = "false";
+    out.replaceChildren(Object.assign(document.createElement("p"), {
+      className: "empty-state",
+      textContent: "Ready for a new assessment. Enter entity names and click Run LIVE.",
+    }));
+    if (actionNote) actionNote.textContent = "Started fresh assessment lifecycle.";
+    setLiveState(connectedAddress(), connectedWallet()?.chainId);
+    refreshBalances();
+  });
+}
 
 function setLiveState(address, chainId = connectedWallet()?.chainId) {
   const onSepolia = Boolean(address) && String(chainId).toLowerCase() === LIVE_PAYMENT_LIMITS.chainId;
@@ -1273,8 +1307,27 @@ try {
 }
 
 for (const input of [document.getElementById("deployer-name"), document.getElementById("treasury-name")]) {
-  input?.addEventListener("input", () => {
-    runLive.dataset.paymentBlocked = "false";
+  input?.addEventListener("input", async () => {
+    const wallet = connectedAddress();
+    if (wallet) {
+      const dep = document.getElementById("deployer-name")?.value.trim() ?? "";
+      const trs = document.getElementById("treasury-name")?.value.trim() ?? "";
+      let hasUnresolved = false;
+      try {
+        const ledger = readAttemptLedger();
+        for (const name of [dep, trs].filter(Boolean)) {
+          const reqId = await paymentRequestId(wallet, "SANCTIONS_SCREENING_MATCH_GENERAL", { name });
+          const att = ledger.attempts[reqId];
+          if (att?.authorizationStarted && (att.status === "authorization_pending" || att.status === "unknown")) {
+            hasUnresolved = true;
+            break;
+          }
+        }
+      } catch {
+        hasUnresolved = true;
+      }
+      runLive.dataset.paymentBlocked = hasUnresolved ? "true" : "false";
+    }
     setLiveState(connectedAddress(), connectedWallet()?.chainId);
   });
 }
@@ -1336,27 +1389,44 @@ function renderFundingState(state) {
 
   if (spendableEl) spendableEl.textContent = state.spendableEscrowMicro != null
     ? "$" + (Number(state.spendableEscrowMicro) / 1e6).toFixed(4) + " USDC"
-    : (state.effectiveEscrowReadError ? "Read error" : "—");
+    : (state.effectiveEscrowReadError || state.agentDebtReadError || state.liabilitiesReadError ? "Unavailable" : "—");
 
   const notes = [];
   if (state.rawEscrowBalanceMicro != null) {
     notes.push(`Raw escrow: $${(Number(state.rawEscrowBalanceMicro) / 1e6).toFixed(4)}`);
   }
   if (state.agentDebtMicro && state.agentDebtMicro > 0n) {
-    notes.push(`Agent debt: $${(Number(state.agentDebtMicro) / 1e6).toFixed(4)} (reduces spendable balance)`);
+    notes.push(`Agent debt: $${(Number(state.agentDebtMicro) / 1e6).toFixed(4)} (outstanding debt suspends delivery)`);
   }
   if (state.pendingWithdrawalMicro && state.pendingWithdrawalMicro > 0n) {
     notes.push(`Pending withdrawal: $${(Number(state.pendingWithdrawalMicro) / 1e6).toFixed(4)}`);
   }
   if (state.pendingLiabilitiesMicro && state.pendingLiabilitiesMicro > 0n) {
-    notes.push(`Unreconciled in-flight: $${(Number(state.pendingLiabilitiesMicro) / 1e6).toFixed(4)}`);
+    notes.push(`Unsettled commitments: $${(Number(state.pendingLiabilitiesMicro) / 1e6).toFixed(4)}`);
   }
+  if (state.liabilitiesReadError) {
+    notes.push("Liabilities ledger unreadable; reconcile storage before spending.");
+  }
+  if (state.agentDebtReadError) {
+    notes.push("Agent debt unreadable from contract; escrow not confirmed ready.");
+  }
+  notes.push("Local device commitments accounted. Multi-device spend cannot be tracked locally.");
 
   const runNeeds = 20_000n; // $0.02
-  const hasSufficientSpendable = state.spendableEscrowMicro != null && state.spendableEscrowMicro >= runNeeds;
+  const hasDebt = (state.agentDebtMicro ?? 0n) > 0n;
+  const hasReadErrors = Boolean(state.agentDebtReadError || state.liabilitiesReadError || state.effectiveEscrowReadError);
+  const hasSufficientSpendable = !hasDebt && !hasReadErrors && state.spendableEscrowMicro != null && state.spendableEscrowMicro >= runNeeds;
 
   if (breakdownEl) {
-    if (hasSufficientSpendable) {
+    if (hasDebt) {
+      notes.push("Outstanding agent debt must be cleared with a deposit before starting an assessment.");
+      breakdownEl.textContent = notes.join(" · ");
+      breakdownEl.style.color = "var(--ld-caution)";
+    } else if (hasReadErrors) {
+      notes.push("Accounting data could not be verified; spending is blocked until readable.");
+      breakdownEl.textContent = notes.join(" · ");
+      breakdownEl.style.color = "var(--ld-caution)";
+    } else if (hasSufficientSpendable) {
       notes.push("Sufficient spendable escrow for live assessment ($0.02 max). No top-up needed.");
       breakdownEl.textContent = notes.join(" · ");
       breakdownEl.style.color = "var(--ld-primary-strong)";
@@ -1395,16 +1465,11 @@ async function refreshBalances() {
   }
 }
 
-const refreshBtn = document.getElementById("refresh-balances");
 if (refreshBtn) refreshBtn.addEventListener("click", refreshBalances);
 
-const fund002 = document.getElementById("fund-002");
-const fund100 = document.getElementById("fund-100");
-const fund300 = document.getElementById("fund-300");
-
-if (fund002) fund002.addEventListener("click", () => walletAction("Escrow top-up $0.02", (w) => fundEscrow(w, 20_000n)));
-if (fund100) fund100.addEventListener("click", () => walletAction("Escrow top-up $1.00", (w) => fundEscrow(w, 1_000_000n)));
-if (fund300) fund300.addEventListener("click", () => walletAction("Escrow top-up $3.00", (w) => fundEscrow(w, 3_000_000n)));
+if (fund002) fund002.addEventListener("click", () => walletAction("Escrow top-up $0.02", (w, opts) => fundEscrow(w, 20_000n, opts)));
+if (fund100) fund100.addEventListener("click", () => walletAction("Escrow top-up $1.00", (w, opts) => fundEscrow(w, 1_000_000n, opts)));
+if (fund300) fund300.addEventListener("click", () => walletAction("Escrow top-up $3.00", (w, opts) => fundEscrow(w, 3_000_000n, opts)));
 
 window.addEventListener("listings:wallet", () => {
   refreshBalances();
@@ -1418,8 +1483,26 @@ async function walletAction(label, run) {
   for (const c of liveControls) c.disabled = true;
   if (actionNote) actionNote.textContent = label + " — approve in MetaMask…";
   try {
-    const tx = await run(wallet);
-    if (actionNote) {
+    const tx = await run(wallet, {
+      onStage: (stage, detail) => {
+        if (!actionNote) return;
+        if (stage === "approval_pending") {
+          actionNote.textContent = `${label} — approving USDC in MetaMask (${detail.needed} μUSDC)…`;
+        } else if (stage === "approval_confirmed") {
+          actionNote.textContent = `${label} — USDC approved, preparing deposit transaction…`;
+        } else if (stage === "approval_skipped") {
+          actionNote.textContent = `${label} — existing allowance sufficient, preparing deposit…`;
+        } else if (stage === "deposit_pending") {
+          actionNote.textContent = `${label} — confirming escrow deposit in MetaMask (${detail.amount} μUSDC)…`;
+        } else if (stage === "deposit_confirmed") {
+          const debtRepaidText = detail.debtRepaid && BigInt(detail.debtRepaid) > 0n
+            ? ` Repaid debt: ${detail.debtRepaid} μUSDC.`
+            : "";
+          actionNote.textContent = `${label} confirmed!${debtRepaidText} Refreshed spendable escrow: ${detail.balanceMicro} μUSDC. Tx: ${detail.depositHash}.`;
+        }
+      },
+    });
+    if (actionNote && !actionNote.textContent.includes("confirmed!")) {
       actionNote.textContent = label.startsWith("Escrow")
         ? `Escrow funding confirmed: refreshed escrow balance ${tx.balanceMicro} μUSDC. Deposit tx ${tx.depositHash}.`
         : `${label} confirmed in a mined Sepolia transaction: ${String(tx)}.`;

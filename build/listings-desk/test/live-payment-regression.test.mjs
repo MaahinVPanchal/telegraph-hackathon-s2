@@ -461,3 +461,198 @@ test("9. Tampered challenge, mismatched receipt and tampered answer never verify
     intent: "OTHER_INTENT", amount: 10_000n, payer: walletA, minerId: "377",
   }), false);
 });
+
+// 10. Overlapping identical requests in the SAME assessment run serialize on the per-wallet lock:
+// at most one reaches personal_sign; the duplicate is refused with a reconcile error; the receipt is preserved.
+// (A different runId is a deliberate reassessment, tested in #6; the lock only makes concurrent calls wait.)
+test("10. Overlapping identical requests in one run synchronize; at most one reaches personal_sign", async () => {
+  const saved = storage();
+  const runId = "overlap_run";
+  let personalSignCount = 0;
+  const synchronizedSigner = {
+    request: async (req) => {
+      if (req.method === "eth_chainId") return "0xaa36a7";
+      if (req.method === "eth_accounts") return [walletA];
+      if (req.method === "personal_sign") {
+        personalSignCount++;
+        // Simulate signing duration so the second call is queued at the lock while the first signs.
+        await new Promise((r) => setTimeout(r, 20));
+        return "0x" + "11".repeat(65);
+      }
+      throw new Error(`unexpected ${req.method}`);
+    },
+  };
+
+  const overlapFetch = async (_url, init) => {
+    if (!init.headers["X-PAYMENT"]) return response(402, challenge());
+    return response(200, {
+      intent,
+      input: { name: "Overlapping Entity" },
+      miner_id: "377",
+      result: { name: "Overlapping Entity", matched: false },
+    }, {
+      "x-payment-response": btoa(JSON.stringify(validReceipt(walletA))),
+    });
+  };
+
+  const params = { name: "Overlapping Entity" };
+
+  // Fire two concurrent calls for the same wallet/intent/params/runId (a double-click or two tabs of one run).
+  const results = await Promise.allSettled([
+    performPaidAsk({
+      provider: synchronizedSigner, wallet: walletA, intent, params,
+      requestUrl, runId, storage: saved, payTo: diamond, origin, fetchImpl: overlapFetch,
+    }),
+    performPaidAsk({
+      provider: synchronizedSigner, wallet: walletA, intent, params,
+      requestUrl, runId, storage: saved, payTo: diamond, origin, fetchImpl: overlapFetch,
+    }),
+  ]);
+
+  // The lock serializes them: only the first call reaches personal_sign; the second is refused.
+  assert.equal(personalSignCount, 1);
+  const fulfilled = results.filter((r) => r.status === "fulfilled");
+  const rejected = results.filter((r) => r.status === "rejected");
+  assert.equal(fulfilled.length, 1);
+  assert.equal(rejected.length, 1);
+  assert.equal(fulfilled[0].value.paymentStatus, "protocol_receipt");
+  assert.match(rejected[0].reason.message, /already authorized in the current assessment run/i);
+
+  // Non-destructive ledger history: the receipt survived, it was not overwritten or lost.
+  const ledger = readAttemptLedger(saved);
+  assert.ok(Array.isArray(ledger.history));
+  assert.ok(ledger.history.length >= 1);
+  const reqId = await paymentRequestId(walletA, intent, params);
+  assert.equal(ledger.attempts[reqId].status, "protocol_receipt");
+});
+
+// 11. Debt repayment on deposit: deposit of 20000 with 10000 debt reports success and debt cleared
+test("11. Deposit clearing outstanding debt succeeds without misreporting failure", async () => {
+  let rawEscrow = 0n;
+  let debt = 10_000n; // 10,000 uUSDC debt
+  const stages = [];
+
+  const debtRepaymentProvider = {
+    request: async (req) => {
+      if (req.method === "eth_chainId") return "0xaa36a7";
+      if (req.method === "eth_accounts") return [walletA];
+      if (req.method === "eth_call") {
+        const to = req.params[0].to.toLowerCase();
+        const data = req.params[0].data;
+        if (to === usdc) return "0x" + (1_000_000n).toString(16); // allowance sufficient
+        if (to === diamond) {
+          if (data.startsWith("0x55af6353")) return "0x" + rawEscrow.toString(16); // raw escrow
+          if (data.startsWith("0xdb9104c6")) return "0x" + debt.toString(16); // agent debt
+        }
+        return "0x0";
+      }
+      if (req.method === "eth_sendTransaction") {
+        // Upon deposit of 20000: contract clears 10000 debt, remainder 10000 increases rawEscrow
+        debt = 0n;
+        rawEscrow = 10_000n;
+        return `0x${"d".repeat(64)}`;
+      }
+      throw new Error(`unexpected ${req.method}`);
+    },
+  };
+
+  const result = await fundEscrow({
+    provider: debtRepaymentProvider, wallet: walletA, usdc, diamond,
+    amountMicro: 20_000n,
+    onStage: (s, d) => stages.push({ stage: s, detail: d }),
+    waitForReceipt: async () => ({ status: "0x1" }),
+  });
+
+  assert.equal(result.debtRepaid, "10000");
+  assert.equal(result.debtRemaining, "0");
+  assert.equal(result.balanceMicro, "10000");
+  const depositConfirmed = stages.find((s) => s.stage === "deposit_confirmed");
+  assert.ok(depositConfirmed);
+  assert.equal(depositConfirmed.detail.debtRepaid, "10000");
+});
+
+// 12. Spendable balance: unsettled protocol receipts reduce spendable balance; malformed ledger fails closed
+test("12. Spendable balance accounts for unsettled protocol receipts and fails closed on malformed ledger", async () => {
+  const mockProvider = {
+    request: async (req) => {
+      if (req.method === "eth_chainId") return "0xaa36a7";
+      if (req.method === "eth_accounts") return [walletA];
+      if (req.method === "eth_getBalance") return "0x1";
+      if (req.method === "eth_call") {
+        const to = req.params[0].to.toLowerCase();
+        const data = req.params[0].data;
+        if (to === usdc) return "0x" + (1_000_000n).toString(16);
+        if (to === diamond) {
+          if (data.startsWith("0x55af6353")) return "0x" + (20_000n).toString(16);
+          if (data.startsWith("0x16a398f7")) return "0x" + (20_000n).toString(16); // effective balance = 20,000 ($0.02)
+          if (data.startsWith("0xdb9104c6")) return "0x0"; // zero debt
+          if (data.startsWith("0x0964c95b")) return "0x0";
+        }
+        return "0x0";
+      }
+      throw new Error("unexpected");
+    },
+  };
+
+  // Case A: 20,000 effective balance but 20,000 in unsettled protocol_receipt
+  const saved = storage();
+  saveAttempt(saved, `sha256:${"e".repeat(64)}`, {
+    wallet: walletA, status: "protocol_receipt", settledOnChain: false,
+    authorizationStarted: true, amountMicro: "20000",
+  });
+
+  const state = await readWalletFundingState({
+    provider: mockProvider, wallet: walletA, usdc, diamond, storage: saved,
+  });
+  assert.equal(state.effectiveEscrowBalanceMicro, 20_000n);
+  assert.equal(state.pendingLiabilitiesMicro, 20_000n);
+  assert.equal(state.spendableEscrowMicro, 0n); // 20000 - 20000 = 0, NOT ready for another $0.02 run!
+
+  // Case B: Malformed ledger in storage -> fails closed (liabilitiesReadError, spendableEscrowMicro is null)
+  const brokenSaved = {
+    getItem: () => "invalid json {",
+    setItem: () => {},
+  };
+  const brokenState = await readWalletFundingState({
+    provider: mockProvider, wallet: walletA, usdc, diamond, storage: brokenSaved,
+  });
+  assert.ok(brokenState.liabilitiesReadError != null);
+  assert.equal(brokenState.spendableEscrowMicro, null); // Unknown / not ready!
+});
+
+// 13. Concurrent distinct inputs in one run do not block each other: both authorize and both receipts are preserved separately
+test("13. Concurrent distinct inputs in one run both authorize and preserve separate receipts", async () => {
+  const saved = storage();
+  const runId = "concurrent_distinct";
+  let personalSignCount = 0;
+  const signer = {
+    request: async (req) => {
+      if (req.method === "eth_chainId") return "0xaa36a7";
+      if (req.method === "eth_accounts") return [walletA];
+      if (req.method === "personal_sign") { personalSignCount++; return "0x" + "22".repeat(65); }
+      throw new Error(`unexpected ${req.method}`);
+    },
+  };
+  const distinctFetch = (name) => async (_url, init) => {
+    if (!init.headers["X-PAYMENT"]) return response(402, challenge());
+    return response(200, { intent, input: { name }, miner_id: "377", result: { name, matched: false } }, {
+      "x-payment-response": btoa(JSON.stringify(validReceipt(walletA))),
+    });
+  };
+
+  // Two distinct entities in the same run, fired concurrently, each $0.01 (together the $0.02 run cap).
+  const [r1, r2] = await Promise.all([
+    performPaidAsk({ provider: signer, wallet: walletA, intent, params: { name: "Distinct A" }, requestUrl, runId, storage: saved, payTo: diamond, origin, fetchImpl: distinctFetch("Distinct A") }),
+    performPaidAsk({ provider: signer, wallet: walletA, intent, params: { name: "Distinct B" }, requestUrl, runId, storage: saved, payTo: diamond, origin, fetchImpl: distinctFetch("Distinct B") }),
+  ]);
+
+  assert.equal(personalSignCount, 2);
+  assert.equal(r1.paymentStatus, "protocol_receipt");
+  assert.equal(r2.paymentStatus, "protocol_receipt");
+
+  const ledger = readAttemptLedger(saved);
+  const idA = await paymentRequestId(walletA, intent, { name: "Distinct A" });
+  const idB = await paymentRequestId(walletA, intent, { name: "Distinct B" });
+  assert.equal(ledger.attempts[idA].status, "protocol_receipt");
+  assert.equal(ledger.attempts[idB].status, "protocol_receipt");
+});

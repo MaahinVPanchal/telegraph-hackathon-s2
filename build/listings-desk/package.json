@@ -11,7 +11,7 @@
     "demo": "node src/cli.mjs 0xTokenListingCandidate --mode mock",
     "cli": "node src/cli.mjs",
     "web": "node src/serve.mjs",
-    "test": "node --test test/desk.test.mjs test/live-payment.test.mjs test/live-payment-regression.test.mjs test/review-hardening.test.mjs test/wakanda-integration.test.mjs",
+    "test": "node --test test/desk.test.mjs test/live-payment.test.mjs test/live-payment-regression.test.mjs test/review-hardening.test.mjs test/review-b7-deposit.test.mjs test/wakanda-integration.test.mjs",
     "test:browser": "node review/browser-test.mjs && node review/paid-browser-test.mjs && node review/cross-tab-lock-test.mjs"
   },
   "dependencies": {

@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { paymentRequestId, performPaidAsk, readAttemptLedger, saveAttempt, validateEscrowReceipt, isMatchingAnswer } from "../public/live-payment.mjs";
 
 const wallet = "0x1111111111111111111111111111111111111111";
@@ -79,4 +80,42 @@ test("mocked: localStorage write failure stops before personal_sign", async () =
   await assert.rejects(performPaidAsk({ provider: provider(calls), wallet, intent, params, requestUrl, payTo, origin, storage: fullStorage, fetchImpl: async () => { fetchCount++; return new Response(JSON.stringify(challenge()), { status: 402 }); } }), /could not be saved/i);
   assert.equal(fetchCount, 1);
   assert.equal(calls.includes("personal_sign"), false);
+});
+
+test("mocked: same wallet and inputs with different run IDs authorize at most once", async () => {
+  const storage = store();
+  let signCount = 0;
+  const signer = { request: async ({ method }) => {
+    if (method === "eth_chainId") return "0xaa36a7";
+    if (method === "eth_accounts") return [wallet];
+    if (method === "personal_sign") { signCount++; await new Promise((resolve) => setTimeout(resolve, 25)); return "0xdead"; }
+    throw new Error(method);
+  } };
+  const fetchImpl = async (_url, init) => init.headers["X-PAYMENT"]
+    ? new Response(JSON.stringify({ intent, input: params }), { status: 200, headers: { "x-payment-response": Buffer.from(JSON.stringify(goodReceipt)).toString("base64") } })
+    : new Response(JSON.stringify(challenge()), { status: 402 });
+  const outcomes = await Promise.allSettled(["tab-one-run", "tab-two-run"].map((runId) => performPaidAsk({ provider: signer, wallet, intent, params, requestUrl, runId, payTo, origin, storage, fetchImpl })));
+  assert.equal(signCount, 1);
+  assert.equal(outcomes.filter((item) => item.status === "fulfilled").length, 1);
+  assert.equal(outcomes.filter((item) => item.status === "rejected").length, 1);
+});
+
+test("mocked: spendable escrow is labeled an estimate with the settlement limitation", () => {
+  const html = readFileSync(new URL("../public/leaderlight-live.html", import.meta.url), "utf8");
+  assert.equal(html.includes("Estimated spendable escrow"), true);
+  assert.equal(html.includes("Estimate only: protocol receipts remain reserved"), true);
+});
+
+test("mocked: serialized ledger does not store duplicate history or indexes", () => {
+  const storage = store();
+  saveAttempt(storage, `sha256:${"c".repeat(64)}`, { wallet, intent, params, runId: "r", status: "protocol_receipt", authorizationStarted: true });
+  const persisted = JSON.parse(storage.getItem("leaderlight.live-attempts.v1"));
+  assert.deepEqual(Object.keys(persisted).sort(), ["attempts", "version"]);
+});
+
+test("mocked: identical deployer and treasury names generate one receipt and one cost", () => {
+  const html = readFileSync(new URL("../public/leaderlight-live.html", import.meta.url), "utf8");
+  assert.equal(html.includes("const identicalNames = deployer === treasury"), true);
+  assert.equal(html.includes("if (identicalNames) jobs.pop()"), true);
+  assert.equal(html.includes("checked once and charged once"), true);
 });

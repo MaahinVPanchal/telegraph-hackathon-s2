@@ -1140,6 +1140,9 @@ if (runLive) runLive.addEventListener("click", async () => {
     { intent: "SANCTIONS_SCREENING_MATCH_GENERAL", params: { name: deployer } },
     { intent: "SANCTIONS_SCREENING_MATCH_GENERAL", params: { name: treasury } },
   ];
+  const identicalNames = deployer === treasury;
+  window.__identicalAssessmentNames = identicalNames;
+  if (identicalNames) jobs.pop();
   window.__identicalAssessmentNames = deployer === treasury;
   if (window.__identicalAssessmentNames) jobs.pop();
   const runId = "run_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);

@@ -597,6 +597,27 @@ test("14. Order-independent deposit accounting accepts the no-debt balance incre
   assert.equal(result.debtRemaining, "0");
 });
 
+test("15. Deposit accounting rejects a partially accounted top-up when debt did not decrease", async () => {
+  let balance = 0n;
+  const debt = 10_000n;
+  const provider = {
+    request: async (req) => {
+      if (req.method === "eth_chainId") return "0xaa36a7";
+      if (req.method === "eth_accounts") return [walletA];
+      if (req.method === "eth_call") {
+        const { to, data } = req.params[0];
+        if (to.toLowerCase() === usdc && data.startsWith("0xdd62ed3e")) return "0x100000";
+        if (to.toLowerCase() === diamond && data.startsWith("0x55af6353")) return `0x${balance.toString(16)}`;
+        if (to.toLowerCase() === diamond && data.startsWith("0xdb9104c6")) return `0x${debt.toString(16)}`;
+        return "0x0";
+      }
+      if (req.method === "eth_sendTransaction") { balance = 10_000n; return `0x${"e".repeat(64)}`; }
+      throw new Error(`unexpected ${req.method}`);
+    },
+  };
+  await assert.rejects(fundEscrow({ provider, wallet: walletA, usdc, diamond, amountMicro: 20_000n, waitForReceipt: async () => ({ status: "0x1" }) }), /do not account for the top-up/);
+});
+
 // 12. Spendable balance: unsettled protocol receipts reduce spendable balance; malformed ledger fails closed
 test("12. Spendable balance accounts for unsettled protocol receipts and fails closed on malformed ledger", async () => {
   const mockProvider = {

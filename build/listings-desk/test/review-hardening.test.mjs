@@ -33,12 +33,12 @@ for (const [label, mutate] of malformedChallengeCases) test(`mocked: ${label} ch
 });
 
 const goodReceipt = { receipt_hash: `0x${"a".repeat(64)}`, rail: "escrow", payer: wallet, miner: "377", intent, amount_uusdc: "10000", epoch_id: 1, settlement: "epoch", chain: "telegraph", timestamp: 1789466181 };
-for (const [label, invalid] of [["missing miner", { ...goodReceipt, miner: undefined }], ["unsafe epoch", { ...goodReceipt, epoch_id: Number.MAX_SAFE_INTEGER + 1 }], ["fractional timestamp", { ...goodReceipt, timestamp: 1.5 }], ["wrong amount", { ...goodReceipt, amount_uusdc: "10001" }], ["array", []]]) {
+for (const [label, invalid] of [["missing miner", { ...goodReceipt, miner: undefined }], ["unsafe epoch", { ...goodReceipt, epoch_id: Number.MAX_SAFE_INTEGER + 1 }], ["fractional timestamp", { ...goodReceipt, timestamp: 1.5 }], ["wrong amount", { ...goodReceipt, amount_uusdc: "10001" }], ["array", Object.assign([], goodReceipt)]]) {
   test(`mocked: receipt ${label} is rejected`, () => assert.equal(validateEscrowReceipt(invalid, { intent, amount: 10000n, payer: wallet }), false));
 }
 test("mocked: array answers and array inputs are rejected", () => {
   assert.equal(isMatchingAnswer([], { intent, params }), false);
-  assert.equal(isMatchingAnswer({ intent, input: [] }, { intent, params }), false);
+  assert.equal(isMatchingAnswer({ intent, input: [] }, { intent, params: [] }), false);
 });
 
 test("mocked: old stable-object request IDs continue blocking pending and unknown ledger entries", async () => {

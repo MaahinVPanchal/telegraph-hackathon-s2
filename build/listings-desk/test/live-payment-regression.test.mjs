@@ -4,6 +4,7 @@ import {
   encodeFunctionCall,
   fundEscrow,
   LIVE_PAYMENT_LIMITS,
+  mintAssessmentIntent,
   parseMicroUsdc,
   performPaidAsk,
   paymentRequestId,
@@ -290,14 +291,14 @@ test("5. User rejection is recorded accurately; transport failure after signing 
 });
 
 // 6. A deliberate fresh assessment of the same inputs is possible after previous result is safely accounted for
-test("6. Fresh assessment of same inputs is possible in new run after prior settled result", async () => {
+test("6. Repeating prior inputs requires a single-use New assessment intent", async () => {
   const saved = storage();
   const successFetch = async (_url, init) => {
     if (!init.headers["X-PAYMENT"]) return response(402, challenge());
     return response(200, { intent, miner_id: "377" }, { "x-payment-response": btoa(JSON.stringify(validReceipt())) });
   };
 
-  // Run 1: Settled
+  // Run 1: protocol receipt recorded (settlement is not inferred).
   const res1 = await performPaidAsk({
     provider: fakeWallet(), wallet: walletA, intent, params: { name: "Same Entity" },
     requestUrl, runId: "run_first", storage: saved, payTo: diamond, origin,
@@ -305,18 +306,19 @@ test("6. Fresh assessment of same inputs is possible in new run after prior sett
   });
   assert.equal(res1.paymentStatus, "protocol_receipt");
 
-  // Attempting within SAME runId throws duplicate run authorization error
+  // Without fresh user intent, a new run is also refused.
   await assert.rejects(() => performPaidAsk({
     provider: fakeWallet(), wallet: walletA, intent, params: { name: "Same Entity" },
     requestUrl, runId: "run_first", storage: saved, payTo: diamond, origin,
     fetchImpl: successFetch,
-  }), /already authorized in the current assessment run/);
+  }), /New assessment/);
 
-  // Fresh reassessment with Run 2 succeeds because Run 1 is safely accounted for
+  // Explicit UI action mints a one-use token; subsequent identical request succeeds.
+  const token = await mintAssessmentIntent(saved, walletA, intent, { name: "Same Entity" });
   const res2 = await performPaidAsk({
     provider: fakeWallet(), wallet: walletA, intent, params: { name: "Same Entity" },
     requestUrl, runId: "run_second", storage: saved, payTo: diamond, origin,
-    fetchImpl: successFetch,
+    fetchImpl: successFetch, intentToken: token,
   });
   assert.equal(res2.paymentStatus, "protocol_receipt");
 });
@@ -569,6 +571,30 @@ test("11. Deposit clearing outstanding debt succeeds without misreporting failur
   const depositConfirmed = stages.find((s) => s.stage === "deposit_confirmed");
   assert.ok(depositConfirmed);
   assert.equal(depositConfirmed.detail.debtRepaid, "10000");
+});
+
+test("14. Order-independent deposit accounting accepts the no-debt balance increase", async () => {
+  let balance = 5_000n;
+  const topUp = 20_000n;
+  const provider = {
+    request: async (req) => {
+      if (req.method === "eth_chainId") return "0xaa36a7";
+      if (req.method === "eth_accounts") return [walletA];
+      if (req.method === "eth_call") {
+        const { to, data } = req.params[0];
+        if (to.toLowerCase() === usdc && data.startsWith("0xdd62ed3e")) return `0x${topUp.toString(16)}`;
+        if (to.toLowerCase() === diamond && data.startsWith("0x55af6353")) return `0x${balance.toString(16)}`;
+        if (to.toLowerCase() === diamond && data.startsWith("0xdb9104c6")) return "0x0";
+        return "0x0";
+      }
+      if (req.method === "eth_sendTransaction") { balance += topUp; return `0x${"c".repeat(64)}`; }
+      throw new Error(`unexpected ${req.method}`);
+    },
+  };
+  const result = await fundEscrow({ provider, wallet: walletA, usdc, diamond, amountMicro: topUp, waitForReceipt: async () => ({ status: "0x1" }) });
+  assert.equal(result.balanceMicro, "25000");
+  assert.equal(result.debtRepaid, "0");
+  assert.equal(result.debtRemaining, "0");
 });
 
 // 12. Spendable balance: unsettled protocol receipts reduce spendable balance; malformed ledger fails closed

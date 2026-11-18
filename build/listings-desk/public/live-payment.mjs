@@ -2,6 +2,7 @@ const ADDRESS_PATTERN = /^0x[0-9a-f]{40}$/i;
 const HASH_PATTERN = /^0x[0-9a-f]{64}$/i;
 const UINT_PATTERN = /^(0|[1-9]\d*)$/;
 const STORAGE_KEY = "leaderlight.live-attempts.v1";
+const INTENT_KEY = "leaderlight.live-assessment-intents.v1";
 const LEDGER_VERSION = 1;
 const LIVE_CHAIN_ID = "0xaa36a7";
 const RUN_CAP_MICRO = 20_000n;
@@ -108,6 +109,12 @@ export function validateEscrowChallenge(challenge, {
       exactlyOneLine(template, "Resource") !== resource) {
     throw new TypeError("challenge template does not match its trusted envelope");
   }
+  for (const [field, placeholder] of [["Wallet", "{from}"], ["Nonce", "{nonce}"], ["Valid After", "{validAfter}"], ["Valid Before", "{validBefore}"]]) {
+    const value = exactlyOneLine(template, field);
+    if (value !== placeholder || template.split(placeholder).length - 1 !== 1) {
+      throw new TypeError(`challenge template must bind ${field} to exactly ${placeholder}`);
+    }
+  }
   const amountText = exactlyOneLine(template, "Amount");
   const amountMatch = /^(\d+) uUSDC$/.exec(amountText);
   if (!amountMatch) throw new TypeError("challenge amount is malformed");
@@ -119,17 +126,21 @@ export function validateEscrowChallenge(challenge, {
 }
 
 export function validateEscrowReceipt(receipt, { intent, amount, payer, minerId } = {}) {
-  if (!receipt || typeof receipt !== "object") return false;
+  if (!receipt || typeof receipt !== "object" || Array.isArray(receipt)) return false;
   if (typeof receipt.receipt_hash !== "string" || !HASH_PATTERN.test(receipt.receipt_hash)) return false;
   if (receipt.rail !== "escrow") return false;
   if (typeof receipt.payer !== "string" || receipt.payer.toLowerCase() !== payer.toLowerCase()) return false;
   if (typeof receipt.intent !== "string" || receipt.intent !== intent) return false;
-  if (typeof receipt.amount_uusdc !== "string" || receipt.amount_uusdc !== String(amount)) return false;
-  if (typeof receipt.epoch_id !== "number" || receipt.epoch_id < 0) return false;
+  if (typeof receipt.amount_uusdc !== "string" || !UINT_PATTERN.test(receipt.amount_uusdc)) return false;
+  try { if (BigInt(receipt.amount_uusdc) !== BigInt(amount)) return false; } catch { return false; }
+  if (!Number.isSafeInteger(receipt.epoch_id) || receipt.epoch_id < 0) return false;
   if (receipt.settlement !== "epoch") return false;
   if (receipt.chain !== "telegraph") return false;
-  if (typeof receipt.timestamp !== "number" || receipt.timestamp <= 0) return false;
-  if (minerId != null && receipt.miner != null && String(receipt.miner) !== String(minerId)) return false;
+  if (!Number.isSafeInteger(receipt.timestamp) || receipt.timestamp < 0) return false;
+  const minerValid = (typeof receipt.miner === "string" && receipt.miner.trim().length > 0) ||
+    (Number.isSafeInteger(receipt.miner) && receipt.miner > 0);
+  if (!minerValid) return false;
+  if (minerId != null && String(receipt.miner) !== String(minerId)) return false;
   return true;
 }
 
@@ -144,7 +155,7 @@ function stable(value) {
 }
 
 export function isMatchingAnswer(data, { intent, params } = {}) {
-  if (!data || typeof data !== "object") return false;
+  if (!data || typeof data !== "object" || Array.isArray(data) || !data.input || typeof data.input !== "object" || Array.isArray(data.input)) return false;
   if (data.intent !== intent) return false;
   return JSON.stringify(stable(data.input)) === JSON.stringify(stable(params));
 }
@@ -195,11 +206,15 @@ export function readAttemptLedger(storage = globalThis.localStorage) {
       typeof ledger.attempts !== "object" || Array.isArray(ledger.attempts)) {
     throw new Error("payment attempt ledger version or schema is invalid; reconcile storage manually");
   }
-  if (!Array.isArray(ledger.history)) {
-    ledger.history = Object.values(ledger.attempts);
+  ledger.history = Object.values(ledger.attempts).flatMap((entry) => [
+    ...(Array.isArray(entry.priorAttempts) ? entry.priorAttempts : []), entry,
+  ]);
+  ledger.byRun = {};
+  ledger.byWallet = {};
+  for (const attempt of ledger.history) {
+    if (attempt.runId) (ledger.byRun[attempt.runId] ??= []).push(attempt);
+    if (attempt.wallet) (ledger.byWallet[attempt.wallet.toLowerCase()] ??= []).push(attempt);
   }
-  if (!ledger.byRun || typeof ledger.byRun !== "object") ledger.byRun = {};
-  if (!ledger.byWallet || typeof ledger.byWallet !== "object") ledger.byWallet = {};
   return ledger;
 }
 
@@ -279,8 +294,10 @@ export function saveAttempt(storage, requestId, attempt) {
   };
 
   try {
-    storage.setItem(STORAGE_KEY, JSON.stringify(ledger));
-    if (storage.getItem(STORAGE_KEY) !== JSON.stringify(ledger)) {
+    const persisted = { version: LEDGER_VERSION, attempts: ledger.attempts };
+    const encoded = JSON.stringify(persisted);
+    storage.setItem(STORAGE_KEY, encoded);
+    if (storage.getItem(STORAGE_KEY) !== encoded) {
       throw new Error("persistence verification failed");
     }
   } catch (error) {
@@ -290,10 +307,27 @@ export function saveAttempt(storage, requestId, attempt) {
 }
 
 export async function paymentRequestId(wallet, intent, params) {
-  const payload = JSON.stringify([assertAddress(wallet, "wallet"), intent, stable(params)]);
+  const payload = JSON.stringify(stable({ wallet: assertAddress(wallet, "wallet"), intent, params }));
   const bytes = new TextEncoder().encode(payload);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   return "sha256:" + Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+export async function mintAssessmentIntent(storage, wallet, intent, params) {
+  const requestId = await paymentRequestId(wallet, intent, params);
+  const token = globalThis.crypto?.randomUUID?.() ?? `intent_${Date.now()}_${Math.random()}`;
+  let intents;
+  try { intents = JSON.parse(storage.getItem(INTENT_KEY) || "{}"); } catch { throw new Error("assessment intent storage is unavailable; failing closed"); }
+  intents[requestId] = token;
+  try { storage.setItem(INTENT_KEY, JSON.stringify(intents)); } catch { throw new Error("assessment intent could not be saved; failing closed"); }
+  return token;
+}
+
+export async function getAssessmentIntent(storage, wallet, intent, params) {
+  const requestId = await paymentRequestId(wallet, intent, params);
+  let intents;
+  try { intents = JSON.parse(storage.getItem(INTENT_KEY) || "{}"); } catch { throw new Error("assessment intent storage is unavailable; failing closed"); }
+  return intents[requestId] ?? null;
 }
 
 export async function assertSepolia(provider, wallet, isCurrent = () => true) {
@@ -550,7 +584,7 @@ export async function fundEscrow({
 
     const [balanceBefore, debtBefore] = await Promise.all([
       readUint(provider, normalizedDiamond, escrowBalanceData, normalizedWallet),
-      readUint(provider, normalizedDiamond, debtData, normalizedWallet).catch(() => 0n),
+      readUint(provider, normalizedDiamond, debtData, normalizedWallet),
     ]);
 
     onStage("deposit_pending", { amount: topUpMicro.toString(), debtBefore: debtBefore.toString() });
@@ -568,16 +602,14 @@ export async function fundEscrow({
     // Post-deposit reads
     const [balanceAfter, debtAfter] = await Promise.all([
       readUint(provider, normalizedDiamond, escrowBalanceData, normalizedWallet),
-      readUint(provider, normalizedDiamond, debtData, normalizedWallet).catch(() => 0n),
+      readUint(provider, normalizedDiamond, debtData, normalizedWallet),
     ]);
 
-    // Documented Telegraph Escrow logic:
-    // Deposit clears outstanding agentDebt first, remainder increases raw escrowBalance.
+    // Accounting assumption (not documented contract ordering): compare raw balance delta plus debt reduction.
+    // Same order-independent accounting assumption as the explicit top-up path.
     const debtRepaid = debtBefore > debtAfter ? debtBefore - debtAfter : 0n;
-    const expectedMinRawIncrease = topUpMicro > debtBefore ? topUpMicro - debtBefore : 0n;
-
-    if (balanceAfter < balanceBefore + expectedMinRawIncrease) {
-      throw new Error("deposit receipt confirmed, but escrow balance did not increase by expected amount after debt repayment");
+    if ((balanceAfter - balanceBefore) + debtRepaid < topUpMicro) {
+      throw new Error("deposit receipt confirmed, but balance and debt changes do not account for the top-up");
     }
 
     onStage("deposit_confirmed", {
@@ -614,7 +646,7 @@ export async function fundEscrow({
 
     const [balanceBefore, debtBefore] = await Promise.all([
       readUint(provider, normalizedDiamond, escrowBalanceData, normalizedWallet),
-      readUint(provider, normalizedDiamond, debtData, normalizedWallet).catch(() => 0n),
+      readUint(provider, normalizedDiamond, debtData, normalizedWallet),
     ]);
 
     const depositData = encodeFunctionCall(DEPOSIT_SELECTOR, ["uint256"], [FUNDING_AMOUNT_MICRO]);
@@ -627,14 +659,12 @@ export async function fundEscrow({
 
     const [balanceAfter, debtAfter] = await Promise.all([
       readUint(provider, normalizedDiamond, escrowBalanceData, normalizedWallet),
-      readUint(provider, normalizedDiamond, debtData, normalizedWallet).catch(() => 0n),
+      readUint(provider, normalizedDiamond, debtData, normalizedWallet),
     ]);
 
     const debtRepaid = debtBefore > debtAfter ? debtBefore - debtAfter : 0n;
-    const expectedMinRawIncrease = FUNDING_AMOUNT_MICRO > debtBefore ? FUNDING_AMOUNT_MICRO - debtBefore : 0n;
-
-    if (balanceAfter < balanceBefore + expectedMinRawIncrease) {
-      throw new Error("deposit receipt confirmed, but escrow balance did not increase by 3 USDC");
+    if ((balanceAfter - balanceBefore) + debtRepaid < FUNDING_AMOUNT_MICRO) {
+      throw new Error("deposit receipt confirmed, but balance and debt changes do not account for the 3 USDC top-up");
     }
 
     return {
@@ -656,13 +686,15 @@ export async function performPaidAsk({
   runId,
   storage = globalThis.localStorage,
   network = "eip155:11155111",
-  payTo = "0x3624eb012b5e998bb57b6be6c9cfc9c4bc5eb99b",
-  origin = "https://leaderlight.vercel.app",
+  payTo,
+  origin,
   resource = "/v1/ask",
-  fetchImpl = globalThis.fetch,
+  fetchImpl,
+  intentToken,
   isCurrent = () => true,
   onAttempt = () => {},
 }) {
+  if (typeof fetchImpl !== "function") throw new TypeError("trusted Engine fetch implementation is required");
   await assertSepolia(provider, wallet, isCurrent);
   const normalizedWallet = assertAddress(wallet, "wallet");
   const requestId = await paymentRequestId(normalizedWallet, intent, params);
@@ -673,15 +705,30 @@ export async function performPaidAsk({
     // Authoritative re-read inside the critical section
     const currentLedger = readAttemptLedger(storage);
     const existing = currentLedger.attempts[requestId];
+    let tokenAuthorized = false;
+    let intents;
+    try { intents = JSON.parse(storage.getItem(INTENT_KEY) || "{}"); } catch { throw new Error("assessment intent storage is unavailable; failing closed"); }
+    if (intentToken && intents[requestId] === intentToken) {
+      delete intents[requestId];
+      try { storage.setItem(INTENT_KEY, JSON.stringify(intents)); } catch { throw new Error("assessment intent could not be consumed; failing closed"); }
+      tokenAuthorized = true;
+    }
+
+    const history = Array.isArray(currentLedger.history) ? currentLedger.history : Object.values(currentLedger.attempts);
+    if (history.some((attempt) => attempt.wallet?.toLowerCase() === normalizedWallet &&
+      attempt.authorizationStarted && ["authorization_pending", "unknown"].includes(attempt.status))) {
+      throw new Error("A payment for this wallet has an unresolved authorization; Reconcile it before starting another.");
+    }
+
+    if (existing?.status === "protocol_receipt") {
+      if (!tokenAuthorized) {
+        throw new Error("This request was already authorized in the current assessment run or has a saved protocol receipt. Reconcile it, or click New assessment before repeating these exact inputs.");
+      }
+    }
 
     if (existing?.authorizationStarted) {
       if (existing.status === "protocol_receipt") {
-        if (existing.runId === runId) {
-          throw new Error("A request for these exact inputs was already authorized in the current assessment run. Reconcile its saved receipt or epoch delivery before retrying.");
-        }
-        if (!runId) {
-          throw new Error("A prior request may already have been authorized. Reconcile its saved receipt or epoch delivery before retrying.");
-        }
+        // A single-use New assessment token, checked and consumed above, authorizes repeats.
       } else if (existing.status !== "definitive_unpaid" && existing.status !== "signature_rejected") {
         throw new Error("A prior request may already have been authorized. Reconcile its saved receipt or epoch delivery before retrying.");
       }

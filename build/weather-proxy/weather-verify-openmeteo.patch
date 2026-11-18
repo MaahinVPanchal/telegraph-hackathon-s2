@@ -1,0 +1,5 @@
+--- a/weather-verify-openmeteo.yaml
++++ b/weather-verify-openmeteo.yaml
+@@ -8 +8 @@
+-base_url: https://api.open-meteo.com
++base_url: <WORKER_URL>

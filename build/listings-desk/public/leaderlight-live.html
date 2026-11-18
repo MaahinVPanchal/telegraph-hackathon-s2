@@ -705,7 +705,7 @@ html{scroll-padding-top:20px}body{background:radial-gradient(ellipse at 76% 8%,#
 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 10px;">
   <div><span style="color: var(--ld-secondary); display: block; font-size: 10px;">Gas (Sepolia ETH)</span><strong id="bal-eth">—</strong></div>
   <div><span style="color: var(--ld-secondary); display: block; font-size: 10px;">Wallet Test-USDC</span><strong id="bal-usdc">—</strong></div>
-  <div><span style="color: var(--ld-secondary); display: block; font-size: 10px;">Spendable Escrow</span><strong id="bal-spendable" style="color: var(--ld-primary-strong);">—</strong></div>
+  <div><span style="color: var(--ld-secondary); display: block; font-size: 10px;">Estimated spendable escrow</span><strong id="bal-spendable" style="color: var(--ld-primary-strong);">—</strong></div>
   <div><span style="color: var(--ld-secondary); display: block; font-size: 10px;">USDC Allowance</span><strong id="bal-allowance">—</strong></div>
 </div>
 <div id="bal-breakdown" style="color: var(--ld-secondary); font-size: 11px; margin-bottom: 8px; line-height: 1.4;">Connect wallet to inspect effective spendable balance.</div>
@@ -806,9 +806,11 @@ form.addEventListener("submit", async (event) => {
 </script><script type="module">
 import {
   fundEscrow as fundEscrowWithWallet,
+  getAssessmentIntent,
   isMatchingAnswer,
   LIVE_PAYMENT_LIMITS,
   mintTestUsdc as mintTestUsdcWithWallet,
+  mintAssessmentIntent,
   parseMicroUsdc,
   paymentRequestId,
   performPaidAsk,
@@ -1121,11 +1123,12 @@ function renderLiveMemo(list, wallet, runError = null) {
   const totalText = receiptAmounts.length
     ? `${totalMicro.toString()} μUSDC across ${receiptAmounts.length} validated protocol receipt(s); this is not final settlement.`
     : "Verified receipt total unavailable; no amount has been inferred.";
-  shell.append(element("p", "memo-footer", `Validated receipt amounts: ${totalText}`));
+  shell.append(element("p", "memo-footer", `Validated receipt amounts: ${totalText}${window.__identicalAssessmentNames ? " Identical deployer and treasury names were checked once and charged once." : ""}`));
   return shell;
 }
 
 if (runLive) runLive.addEventListener("click", async () => {
+  if (runLive.dataset.inFlight === "true") return;
   const wallet = connectedAddress();
   const provider = connectedProvider();
   const revision = currentWalletRevision();
@@ -1137,8 +1140,11 @@ if (runLive) runLive.addEventListener("click", async () => {
     { intent: "SANCTIONS_SCREENING_MATCH_GENERAL", params: { name: deployer } },
     { intent: "SANCTIONS_SCREENING_MATCH_GENERAL", params: { name: treasury } },
   ];
+  window.__identicalAssessmentNames = deployer === treasury;
+  if (window.__identicalAssessmentNames) jobs.pop();
   const runId = "run_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
   runLive.disabled = true;
+  runLive.dataset.inFlight = "true";
   out.setAttribute("aria-busy", "true");
   const state = Object.assign(document.createElement("p"), { className: "request-state request-state--real", role: "status" });
   state.textContent = "LIVE — checking the selected MetaMask account and testnet; no signature occurs until a trusted challenge is validated.";
@@ -1163,6 +1169,8 @@ if (runLive) runLive.addEventListener("click", async () => {
           provider, wallet, intent: job.intent, params: job.params,
           requestUrl: new URL(ENGINE_BASE + "/v1/ask", window.location.origin).href,
           runId,
+          fetchImpl: fetch,
+          intentToken: await getAssessmentIntent(localStorage, wallet, job.intent, job.params),
           network: TRUSTED_NETWORK,
           payTo: DIAMOND,
           origin: window.location.origin,
@@ -1225,6 +1233,7 @@ if (runLive) runLive.addEventListener("click", async () => {
       }));
     }
   } finally {
+    runLive.dataset.inFlight = "false";
     out.setAttribute("aria-busy", "false");
     const isBlocked = runLive.dataset.paymentBlocked === "true";
     runLive.disabled = !connectedAddress() || isBlocked;
@@ -1248,7 +1257,15 @@ const stepRun = document.querySelector('.flow-steps [data-step="run"]');
 const liveControls = [runLive, mintBtn, fundBtn, fund002, fund100, fund300, refreshBtn, newAssessmentBtn].filter(Boolean);
 
 if (newAssessmentBtn) {
-  newAssessmentBtn.addEventListener("click", () => {
+  newAssessmentBtn.addEventListener("click", async () => {
+    const wallet = connectedAddress();
+    const names = [document.getElementById("deployer-name")?.value.trim(), document.getElementById("treasury-name")?.value.trim()].filter(Boolean);
+    try {
+      if (wallet) for (const name of new Set(names)) await mintAssessmentIntent(localStorage, wallet, "SANCTIONS_SCREENING_MATCH_GENERAL", { name });
+    } catch (error) {
+      out.replaceChildren(Object.assign(document.createElement("p"), { className: "request-error", role: "alert", textContent: String(error?.message ?? error) }));
+      return;
+    }
     runLive.dataset.paymentBlocked = "false";
     out.replaceChildren(Object.assign(document.createElement("p"), {
       className: "empty-state",
@@ -1410,7 +1427,7 @@ function renderFundingState(state) {
   if (state.agentDebtReadError) {
     notes.push("Agent debt unreadable from contract; escrow not confirmed ready.");
   }
-  notes.push("Local device commitments accounted. Multi-device spend cannot be tracked locally.");
+  notes.push("Estimate only: protocol receipts remain reserved because no verified on-chain settlement signal is wired here. Local device commitments are counted; multi-device spend cannot be tracked locally.");
 
   const runNeeds = 20_000n; // $0.02
   const hasDebt = (state.agentDebtMicro ?? 0n) > 0n;

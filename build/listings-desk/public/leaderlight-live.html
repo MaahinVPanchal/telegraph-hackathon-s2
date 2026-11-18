@@ -643,6 +643,41 @@ html{scroll-padding-top:20px}body{background:radial-gradient(ellipse at 76% 8%,#
 
 .memo-pill{white-space:normal;overflow-wrap:anywhere;max-width:100%;line-height:1.5}
 
+/* Workspace mode switch: make Offline and LIVE separate, focused workspaces. */
+.workspace-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:26px 0 18px;padding:7px;border:1px solid var(--ld-border);background:#100c17}
+.workspace-tab{display:flex;flex-direction:column;align-items:flex-start;gap:5px;min-height:64px;padding:12px 16px;border:1px solid transparent;background:transparent;color:var(--ld-secondary);text-align:left;font:inherit;font-size:14px;font-weight:750;cursor:pointer;transition:background .15s,border-color .15s,color .15s}
+.workspace-tab span{font-size:11px;font-weight:400;color:var(--ld-secondary)}
+.workspace-tab:hover{background:rgba(173,123,234,.08);color:var(--ld-text)}
+.workspace-tab.is-active{border-color:#725695;background:linear-gradient(110deg,rgba(173,123,234,.16),rgba(173,123,234,.04));color:var(--ld-primary-strong)}
+.workspace-tab.is-active span{color:var(--ld-text)}
+.workspace-tab:focus-visible{outline:2px solid var(--ld-caution);outline-offset:2px}
+.workspace-panel[hidden],.workspace-results[hidden]{display:none!important}
+.workspace-panel{margin-top:0!important}
+.live-grid{grid-template-columns:minmax(0,1.2fr) minmax(280px,.8fr);gap:24px;align-items:stretch}
+.live-block{padding:clamp(22px,2.6vw,34px)}
+.live-block>h2{margin:14px 0 12px}
+.live-block>#live-state{max-width:62ch;line-height:1.65;margin-bottom:20px}
+.live-block .action-row{gap:12px;margin:0 0 18px}
+.live-block .action-row .action-button{min-height:48px}
+.balance-card{margin:18px 0 22px!important;padding:18px!important;border-radius:8px!important}
+.balance-card>div:nth-child(2){gap:10px 12px!important}
+.balance-card>div:nth-child(2)>div{min-width:0;min-height:62px;padding:10px 12px;border:1px solid var(--ld-border);border-radius:6px;background:rgba(255,255,255,.025)}
+.balance-card>div:nth-child(2)>div span{font-size:11px!important;line-height:1.4;min-height:30px}
+.balance-card>div:nth-child(2)>div strong{display:block;margin-top:5px;font-size:14px;line-height:1.35;overflow-wrap:anywhere}
+.balance-card #bal-breakdown{margin:12px 0 2px!important;line-height:1.6!important}
+.live-block>.field-label{display:block;margin:18px 0 8px}
+.live-block #run-live{flex:1 1 260px;min-height:50px}
+.live-block #new-assessment{min-height:50px!important}
+.live-block>.mode-help{margin-top:18px;line-height:1.6}
+.wallet-guide{padding:clamp(24px,3vw,38px)}
+.wallet-guide h2{font-size:clamp(32px,3.3vw,42px);line-height:1.12;margin:20px 0}
+.wallet-guide dl{margin-top:34px}
+.workspace-main.mode-live .hero-split,.workspace-main.mode-live .flowline,.workspace-main.mode-live .hero-chips{display:none!important}
+.workspace-main.mode-live .workspace-tabs{margin-top:8px}
+.workspace-results{margin-top:22px}
+@media(max-width:1100px){.live-grid{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:520px){.workspace-tabs{gap:5px;margin:20px 0 14px;padding:5px}.workspace-tab{min-height:62px;padding:10px;font-size:13px}.workspace-tab span{font-size:10px}.live-block{padding:20px}.balance-card{padding:14px!important}.balance-card>div:first-child{align-items:flex-start!important;gap:10px}.balance-card>div:first-child strong{max-width:65%;line-height:1.4}.balance-card>div:nth-child(2){grid-template-columns:minmax(0,1fr)!important}.balance-card>div:nth-child(2)>div{min-height:0}.balance-card>div:nth-child(2)>div span{min-height:0}}
+
 .memo-verdict{white-space:normal;overflow-wrap:anywhere;max-width:100%;line-height:1.5}.memo-result-head{flex-wrap:wrap;gap:14px}.memo-result-head>div{min-width:0}
 </style></head><body>
 <main class="app-shell">
@@ -669,6 +704,10 @@ html{scroll-padding-top:20px}body{background:radial-gradient(ellipse at 76% 8%,#
 </ol>
 <div class="rail-footer"><span>INTELLIGENCE<br/>BEFORE CONVICTION</span><i aria-hidden="true">◇</i><small>LEADERLIGHT / 01.2<br/>ETHEREUM SEPOLIA TESTNET</small></div></nav>
 <div class="workspace-main">
+<nav aria-label="Assessment mode" class="workspace-tabs" role="tablist">
+<button aria-controls="offline-panel" aria-selected="true" class="workspace-tab is-active" data-workspace-tab="offline" id="offline-tab" role="tab" type="button">Offline assessment<span>Private fixtures · no wallet or payment</span></button>
+<button aria-controls="live-panel" aria-selected="false" class="workspace-tab" data-workspace-tab="live" id="live-tab" role="tab" type="button">LIVE · Sepolia<span>Connect MetaMask · approval required per action</span></button>
+</nav>
 <div class="hero-split"><section aria-labelledby="hero-title" class="hero">
 <p class="eyebrow">Sovereign intelligence</p>
 <h1 id="hero-title">See the risk.<br/><span>Keep the signal.</span></h1>
@@ -679,7 +718,7 @@ html{scroll-padding-top:20px}body{background:radial-gradient(ellipse at 76% 8%,#
 <span class="chip"><span id="chip-miners">…</span> in network catalogue</span>
 <span class="chip">Challenge priced before signing</span>
 </div>
-<section aria-label="Assessment setup" class="setup-grid">
+<section aria-label="Assessment setup" aria-labelledby="offline-tab" class="setup-grid workspace-panel" data-workspace-panel="offline" id="offline-panel" role="tabpanel">
 <form class="panel" id="candidate-form" novalidate="">
 <p class="eyebrow">01 / Candidate · offline</p>
 <h2>Start with the token.</h2>
@@ -701,7 +740,7 @@ html{scroll-padding-top:20px}body{background:radial-gradient(ellipse at 76% 8%,#
 </ul>
 <p class="boundary-note">Connecting requests account access only. Testnet actions use the selected MetaMask provider and Sepolia; each signature or transaction requires its own approval.</p>
 </aside>
-</section><section aria-label="Live assessment and wallet boundaries" class="live-grid"><div class="panel live-block" id="live-assessment">
+</section><section aria-label="Live assessment and wallet boundaries" aria-labelledby="live-tab" class="live-grid workspace-panel" data-workspace-panel="live" hidden id="live-panel" role="tabpanel"><div class="panel live-block" id="live-assessment">
 <p class="eyebrow">02 / Live · Ethereum Sepolia testnet</p>
 <h2>Ask with explicit identities.</h2>
 <p class="field-help" id="live-state">Connect MetaMask (top right) to enable live actions. Payments sign in your browser from your own wallet.</p>
@@ -741,8 +780,8 @@ html{scroll-padding-top:20px}body{background:radial-gradient(ellipse at 76% 8%,#
 </div>
 <p class="mode-help">Up to two explicit sanctions requests. The validated challenge is capped at $0.01 per call and $0.02 per run. A receipt is not final epoch settlement.</p>
 </div><aside class="panel wallet-guide"><p class="eyebrow">Wallet &amp; network</p><div aria-hidden="true" class="wallet-symbol">◇</div><h2>Your keys.<br/>Your approval.</h2><p>Use the wallet connection at the top of this workspace. Connecting grants account access only.</p><dl><div><dt>Network</dt><dd>Ethereum Sepolia / 11155111</dd></div><div><dt>Per-call ceiling</dt><dd>$0.01 test USDC</dd></div><div><dt>Per-run ceiling</dt><dd>$0.02 test USDC</dd></div></dl><p class="boundary-note">Funding is an on-demand testnet transaction (with selectable $0.02, $1.00, or $3.00 amounts). Each signature or transaction needs your own approval. Receipts, delivery evidence and final settlement are different states.</p></aside></section>
-<section aria-busy="false" aria-label="Assessment result" aria-live="polite" class="out-region" id="out">
-<p class="empty-state">No result yet. Run the offline demo without a wallet, or connect MetaMask for a testnet request. Evidence, payment receipt and settlement status are reported separately.</p>
+<section aria-busy="false" aria-label="Assessment result" aria-live="polite" class="out-region workspace-results" id="out">
+<p class="empty-state">Choose Offline assessment or LIVE · Sepolia above to begin. Results appear here for the selected mode.</p>
 </section>
 </div>
 </div>
@@ -778,6 +817,8 @@ form.addEventListener("submit", async (event) => {
   if (!form.reportValidity()) return;
 
   button.disabled = true;
+  output.dataset.resultMode = "offline";
+  output.hidden = false;
   button.textContent = mockMode ? "Running offline demo…" : "Running assessment…";
   output.setAttribute("aria-busy", "true");
   const loading = document.createElement("p");
@@ -815,6 +856,40 @@ form.addEventListener("submit", async (event) => {
     output.setAttribute("aria-busy", "false");
   }
 });
+const modeTabs = [...document.querySelectorAll("[data-workspace-tab]")];
+const modePanels = [...document.querySelectorAll("[data-workspace-panel]")];
+const workspaceMain = document.querySelector(".workspace-main");
+function selectWorkspaceMode(mode, focus = false) {
+  modeTabs.forEach((tab) => {
+    const active = tab.dataset.workspaceTab === mode;
+    tab.classList.toggle("is-active", active);
+    tab.setAttribute("aria-selected", String(active));
+    tab.tabIndex = active ? 0 : -1;
+    if (active && focus) tab.focus();
+  });
+  modePanels.forEach((panel) => { panel.hidden = panel.dataset.workspacePanel !== mode; });
+  workspaceMain.classList.toggle("mode-live", mode === "live");
+  output.hidden = Boolean(output.dataset.resultMode && output.dataset.resultMode !== mode);
+}
+modeTabs.forEach((tab, index) => {
+  tab.addEventListener("click", () => selectWorkspaceMode(tab.dataset.workspaceTab));
+  tab.addEventListener("keydown", (event) => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const next = event.key === "Home" ? 0 : event.key === "End" ? modeTabs.length - 1 :
+      (index + (event.key === "ArrowRight" ? 1 : modeTabs.length - 1)) % modeTabs.length;
+    selectWorkspaceMode(modeTabs[next].dataset.workspaceTab, true);
+  });
+});
+window.addEventListener("listings:wallet", (event) => {
+  if (event.detail?.address) selectWorkspaceMode("live");
+});
+window.addEventListener("hashchange", () => {
+  if (["#candidate-form", "#run-button"].includes(location.hash)) selectWorkspaceMode("offline");
+  if (["#live-assessment", "#balance-card", "#deployer-name", "#treasury-name"].includes(location.hash)) selectWorkspaceMode("live");
+  if (location.hash === "#out" && output.dataset.resultMode) selectWorkspaceMode(output.dataset.resultMode);
+});
+selectWorkspaceMode("offline");
 </script><script type="module">
 import {
   fundEscrow as fundEscrowWithWallet,
@@ -1185,6 +1260,8 @@ if (runLive) runLive.addEventListener("click", async () => {
   }
   const runId = "run_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
   runLive.disabled = true;
+  out.dataset.resultMode = "live";
+  out.hidden = false;
   runLive.dataset.inFlight = "true";
   out.setAttribute("aria-busy", "true");
   const state = Object.assign(document.createElement("p"), { className: "request-state request-state--real", role: "status" });

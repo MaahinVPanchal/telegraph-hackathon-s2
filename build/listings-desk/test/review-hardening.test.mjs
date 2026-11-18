@@ -25,6 +25,17 @@ test("mocked: wallet disconnect control clears Leaderlight access and leaves Met
   assert.match(html, /revoke access in MetaMask/);
 });
 
+test("mocked: offline and live workspaces are tabbed and keep their results separated", () => {
+  const html = readFileSync(new URL("../public/leaderlight-live.html", import.meta.url), "utf8");
+  assert.match(html, /data-workspace-tab="offline"/);
+  assert.match(html, /data-workspace-tab="live"/);
+  assert.match(html, /data-workspace-panel="offline"/);
+  assert.match(html, /data-workspace-panel="live" hidden/);
+  assert.match(html, /output\.dataset\.resultMode = "offline"/);
+  assert.match(html, /out\.dataset\.resultMode = "live"/);
+  assert.match(html, /modeTabs\[next\]\.dataset\.workspaceTab/);
+});
+
 const malformedChallengeCases = [
   ["fixed nonce", (s) => s.replace("{nonce}", "fixed-nonce")],
   ["fixed validBefore", (s) => s.replace("{validBefore}", "9999999999")],

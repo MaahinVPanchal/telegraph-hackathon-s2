@@ -4,7 +4,7 @@ import { fundEscrow } from "../public/live-payment.mjs";
 
 const wallet = "0x1111111111111111111111111111111111111111";
 const usdc = "0xcc194e1a843b658526d0d5c431f670028582ae17";
-const diamond = "0x3624eb012b5e998bb57b6be6c9cfc9c4bc5eb99b";
+const diamond = "0x72a70e949362670bf8bcead24efc5b8f950aa08b";
 
 test("mocked: reject deposit when balance delta plus debt reduction does not account for full top-up", async () => {
   let balance = 0n;

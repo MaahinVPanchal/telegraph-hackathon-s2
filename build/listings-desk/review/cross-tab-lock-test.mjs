@@ -5,7 +5,7 @@ import { chromium } from "playwright";
 const root = process.cwd();
 const port = "7789";
 const wallet = "0x1111111111111111111111111111111111111111";
-const diamond = "0x3624eb012b5e998bb57b6be6c9cfc9c4bc5eb99b";
+const diamond = "0x72a70e949362670bf8bcead24efc5b8f950aa08b";
 const intent = "SANCTIONS_SCREENING_MATCH_GENERAL";
 const server = spawn(process.execPath, ["src/serve.mjs"], { cwd: root, env: { ...process.env, PORT: port }, stdio: ["ignore", "pipe", "pipe"] });
 let browser;

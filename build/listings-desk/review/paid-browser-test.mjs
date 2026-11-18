@@ -1,7 +1,7 @@
 import {chromium} from 'playwright';
 import {spawn} from 'node:child_process';import fs from 'node:fs';import assert from 'node:assert/strict';
 fs.mkdirSync('review/screenshots',{recursive:true});
-const root=process.cwd(),wallet='0x1111111111111111111111111111111111111111',intent='SANCTIONS_SCREENING_MATCH_GENERAL',diamond='0x3624eb012b5e998bb57b6be6c9cfc9c4bc5eb99b';
+const root=process.cwd(),wallet='0x1111111111111111111111111111111111111111',intent='SANCTIONS_SCREENING_MATCH_GENERAL',diamond='0x72a70e949362670bf8bcead24efc5b8f950aa08b';
 const server=spawn(process.execPath,['src/serve.mjs'],{cwd:root,env:{...process.env,PORT:'7788'},stdio:['ignore','pipe','pipe']});await new Promise(r=>server.stdout.once('data',r));
 const browser=await chromium.launch({...(process.env.CHROME_BIN ? {executablePath:process.env.CHROME_BIN} : {}),headless:true,args:['--no-sandbox']});const results=[];
 try{for(const scenario of ['valid','partial','unknown','malformed-challenge']){

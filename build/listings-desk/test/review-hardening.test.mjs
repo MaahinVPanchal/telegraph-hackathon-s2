@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { paymentRequestId, performPaidAsk, readAttemptLedger, saveAttempt, validateEscrowReceipt, isMatchingAnswer } from "../public/live-payment.mjs";
 
 const wallet = "0x1111111111111111111111111111111111111111";
-const payTo = "0x3624eb012b5e998bb57b6be6c9cfc9c4bc5eb99b";
+const payTo = "0x72a70e949362670bf8bcead24efc5b8f950aa08b";
 const origin = "https://desk.example";
 const requestUrl = `${origin}/api/engine/v1/ask`;
 const intent = "SANCTIONS_SCREENING_MATCH_GENERAL";
@@ -23,6 +23,17 @@ test("mocked: wallet disconnect control clears Leaderlight access and leaves Met
   assert.match(html, /window\.__listingsWallet = null/);
   assert.match(html, /removeListener\("accountsChanged"/);
   assert.match(html, /revoke access in MetaMask/);
+});
+
+test("mocked: assessment UI separates offline and live tabs and trusts current Sepolia Diamond", () => {
+  const html = readFileSync(new URL("../public/leaderlight-live.html", import.meta.url), "utf8");
+  assert.match(html, /data-workspace-tab="offline"/);
+  assert.match(html, /data-workspace-tab="live"/);
+  assert.match(html, /data-workspace-panel="offline"/);
+  assert.match(html, /data-workspace-panel="live"/);
+  assert.match(html, /const DIAMOND = "0x72a70e949362670Bf8bceAd24eFC5b8f950aa08b"/);
+  assert.match(html, /rejected before signing, so no payment was authorized/);
+  assert.match(html, /Deposits on Telegraph's previous Diamond do not carry over/);
 });
 
 const malformedChallengeCases = [

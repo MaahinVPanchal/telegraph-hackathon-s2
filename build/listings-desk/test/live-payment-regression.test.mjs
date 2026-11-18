@@ -68,7 +68,7 @@ test("a blocked assessment does not consume its New assessment intent", async ()
 
 const walletA = "0x1111111111111111111111111111111111111111";
 const walletB = "0x2222222222222222222222222222222222222222";
-const diamond = "0x3624eb012b5e998bb57b6be6c9cfc9c4bc5eb99b";
+const diamond = "0x72a70e949362670bf8bcead24efc5b8f950aa08b";
 const usdc = "0xcc194e1a843b658526d0d5c431f670028582ae17";
 const origin = "https://desk.example";
 const requestUrl = `${origin}/api/engine/v1/ask`;

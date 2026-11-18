@@ -13,7 +13,7 @@ const env = Object.fromEntries(
 );
 
 const RPC = env.RPC_URL;
-const DIAMOND = "0x3624EB012B5E998BB57B6bE6C9Cfc9c4bc5eb99b";
+const DIAMOND = "0x72a70e949362670Bf8bceAd24eFC5b8f950aa08b";
 const USDC = "0xcc194e1a843B658526D0D5C431f670028582Ae17";
 const MACHINA = "0xd68305cA83C7AF42A4F720144E7416fB53F8AaF4";
 const MINER_ID = process.argv[2] ?? "9602";

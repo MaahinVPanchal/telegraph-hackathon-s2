@@ -659,6 +659,8 @@ html{scroll-padding-top:20px}body{background:radial-gradient(ellipse at 76% 8%,#
 .balance-card>div:nth-child(2)>div span{font-size:11px!important;line-height:1.4;min-height:30px}
 .balance-card>div:nth-child(2)>div strong{display:block;margin-top:5px;font-size:14px;line-height:1.35;overflow-wrap:anywhere}
 .balance-card #bal-breakdown{margin:12px 0 2px!important;line-height:1.6!important}
+.contract-migration-note{margin:12px 0 0;padding:10px 12px;border-left:2px solid var(--ld-caution);background:rgba(217,186,118,.06);color:var(--ld-secondary);font-size:11px;line-height:1.55;overflow-wrap:anywhere}
+.contract-migration-note code{color:var(--ld-primary-strong);font-size:10px}
 .live-block>.field-label{display:block;margin:18px 0 8px}
 .live-block>.text-input{margin-bottom:2px}
 .live-block #run-live{flex:1 1 260px;min-height:50px}
@@ -676,6 +678,15 @@ html{scroll-padding-top:20px}body{background:radial-gradient(ellipse at 76% 8%,#
   .balance-card>div:nth-child(2)>div{min-height:0}
   .balance-card>div:nth-child(2)>div span{min-height:0}
 }
+.workspace-tabs{display:flex;gap:10px;margin:28px 0 14px;padding:6px;border:1px solid var(--ld-border);background:#100c17}
+.workspace-tab{flex:1;display:flex;align-items:flex-start;flex-direction:column;gap:4px;min-height:58px;padding:12px 16px;border:1px solid transparent;background:transparent;color:var(--ld-secondary);text-align:left;font:inherit;font-weight:750;cursor:pointer}
+.workspace-tab span{font-size:11px;font-weight:400;color:var(--ld-secondary)}
+.workspace-tab:hover{background:rgba(173,123,234,.08);color:var(--ld-text)}
+.workspace-tab.is-active{border-color:#725695;background:linear-gradient(110deg,rgba(173,123,234,.16),rgba(173,123,234,.04));color:var(--ld-primary-strong)}
+.workspace-tab.is-active span{color:var(--ld-text)}
+.workspace-panel[hidden]{display:none!important}
+.workspace-panel{margin-top:0!important}
+@media(max-width:520px){.workspace-tabs{gap:4px;padding:4px;margin:22px 0 12px}.workspace-tab{padding:10px;min-height:58px;font-size:13px}.workspace-tab span{font-size:10px}}
 
 .memo-verdict{white-space:normal;overflow-wrap:anywhere;max-width:100%;line-height:1.5}.memo-result-head{flex-wrap:wrap;gap:14px}.memo-result-head>div{min-width:0}
 </style></head><body>
@@ -713,7 +724,11 @@ html{scroll-padding-top:20px}body{background:radial-gradient(ellipse at 76% 8%,#
 <span class="chip"><span id="chip-miners">…</span> in network catalogue</span>
 <span class="chip">Challenge priced before signing</span>
 </div>
-<section aria-label="Assessment setup" class="setup-grid">
+<nav aria-label="Assessment mode" class="workspace-tabs" role="tablist">
+<button aria-controls="offline-panel" aria-selected="true" class="workspace-tab is-active" data-workspace-tab="offline" id="offline-tab" role="tab" type="button">Offline assessment<span>No wallet or payment</span></button>
+<button aria-controls="live-panel" aria-selected="false" class="workspace-tab" data-workspace-tab="live" id="live-tab" role="tab" type="button">LIVE · Sepolia<span>MetaMask approval required</span></button>
+</nav>
+<section aria-label="Assessment setup" class="setup-grid workspace-panel" data-workspace-panel="offline" id="offline-panel" role="tabpanel" aria-labelledby="offline-tab">
 <form class="panel" id="candidate-form" novalidate="">
 <p class="eyebrow">01 / Candidate · offline</p>
 <h2>Start with the token.</h2>
@@ -735,7 +750,7 @@ html{scroll-padding-top:20px}body{background:radial-gradient(ellipse at 76% 8%,#
 </ul>
 <p class="boundary-note">Connecting requests account access only. Testnet actions use the selected MetaMask provider and Sepolia; each signature or transaction requires its own approval.</p>
 </aside>
-</section><section aria-label="Live assessment and wallet boundaries" class="live-grid"><div class="panel live-block" id="live-assessment">
+</section><section aria-label="Live assessment and wallet boundaries" class="live-grid workspace-panel" data-workspace-panel="live" hidden id="live-panel" role="tabpanel" aria-labelledby="live-tab"><div class="panel live-block" id="live-assessment">
 <p class="eyebrow">02 / Live · Ethereum Sepolia testnet</p>
 <h2>Ask with explicit identities.</h2>
 <p class="field-help" id="live-state">Connect MetaMask (top right) to enable live actions. Payments sign in your browser from your own wallet.</p>
@@ -755,6 +770,7 @@ html{scroll-padding-top:20px}body{background:radial-gradient(ellipse at 76% 8%,#
   <div><span style="color: var(--ld-secondary); display: block; font-size: 10px;">USDC Allowance</span><strong id="bal-allowance">—</strong></div>
 </div>
 <div id="bal-breakdown" style="color: var(--ld-secondary); font-size: 11px; margin-bottom: 8px; line-height: 1.4;">Connect wallet to inspect effective spendable balance.</div>
+<p class="contract-migration-note">Current Sepolia escrow: <code>0x72a70e949362670Bf8bceAd24eFC5b8f950aa08b</code>. Deposits on Telegraph's previous Diamond do not carry over to this contract.</p>
 <div id="funding-options" style="display: none; padding-top: 8px; border-top: 1px dashed var(--ld-border);">
   <span style="display: block; font-size: 11px; margin-bottom: 6px; color: var(--ld-caution);">Top-up needed for planned assessment ($0.02 max):</span>
   <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
@@ -849,6 +865,36 @@ form.addEventListener("submit", async (event) => {
     output.setAttribute("aria-busy", "false");
   }
 });
+const modeTabs = [...document.querySelectorAll("[data-workspace-tab]")];
+const modePanels = [...document.querySelectorAll("[data-workspace-panel]")];
+function selectWorkspaceMode(mode, focus = false) {
+  modeTabs.forEach((tab) => {
+    const active = tab.dataset.workspaceTab === mode;
+    tab.classList.toggle("is-active", active);
+    tab.setAttribute("aria-selected", String(active));
+    tab.tabIndex = active ? 0 : -1;
+    if (active && focus) tab.focus();
+  });
+  modePanels.forEach((panel) => { panel.hidden = panel.dataset.workspacePanel !== mode; });
+}
+modeTabs.forEach((tab, index) => {
+  tab.addEventListener("click", () => selectWorkspaceMode(tab.dataset.workspaceTab));
+  tab.addEventListener("keydown", (event) => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const next = event.key === "Home" ? 0 : event.key === "End" ? modeTabs.length - 1 :
+      (index + (event.key === "ArrowRight" ? 1 : modeTabs.length - 1)) % modeTabs.length;
+    selectWorkspaceMode(modeTabs[next].dataset.workspaceTab, true);
+  });
+});
+window.addEventListener("listings:wallet", (event) => {
+  if (event.detail?.address) selectWorkspaceMode("live");
+});
+window.addEventListener("hashchange", () => {
+  if (["#candidate-form", "#run-button"].includes(location.hash)) selectWorkspaceMode("offline");
+  if (["#live-assessment", "#balance-card", "#deployer-name", "#treasury-name"].includes(location.hash)) selectWorkspaceMode("live");
+});
+selectWorkspaceMode(location.hash === "#live-assessment" ? "live" : "offline");
 </script><script type="module">
 import {
   fundEscrow as fundEscrowWithWallet,
@@ -1047,7 +1093,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined") {
 }
 
 // === Telegraph LIVE wiring (Ethereum Sepolia, post-migration) ===
-const DIAMOND = "0x3624EB012B5E998BB57B6bE6C9Cfc9c4bc5eb99b";
+const DIAMOND = "0x72a70e949362670Bf8bceAd24eFC5b8f950aa08b";
 const USDC = "0xcc194e1a843B658526D0D5C431f670028582Ae17";
 // Same-origin proxy (api/engine) → devnode. The node's CORS preflight omits
 // the Access-Control-Allow-* headers, which blocks browser fetches; the proxy
@@ -1275,6 +1321,10 @@ if (runLive) runLive.addEventListener("click", async () => {
     }
     runLive.dataset.paymentBlocked = "false";
   } catch (error) {
+    const failure = String(error?.message ?? error);
+    const visibleFailure = /challenge network or payee does not match trusted configuration/i.test(failure)
+      ? "The Telegraph challenge names a different Sepolia escrow contract than this app trusts. It was rejected before signing, so no payment was authorized. The app is configured for the current documented Sepolia Diamond; reload the updated app and try again only after verifying the displayed network and amount."
+      : failure;
     try {
       const ledger = readAttemptLedger();
       for (const job of jobs) {
@@ -1295,10 +1345,12 @@ if (runLive) runLive.addEventListener("click", async () => {
           });
         }
       }
-      if (results.length) out.replaceChildren(renderLiveMemo(results, wallet, String(error?.message ?? error)));
+      if (results.length) out.replaceChildren(renderLiveMemo(results, wallet, visibleFailure));
       else out.replaceChildren(Object.assign(document.createElement("p"), {
         className: "request-error", role: "alert",
-        textContent: "LIVE failed before a result was received: " + String(error?.message ?? error),
+        textContent: /challenge network or payee does not match trusted configuration/i.test(failure)
+          ? visibleFailure
+          : "LIVE failed before a result was received: " + visibleFailure,
       }));
     } catch (renderError) {
       out.replaceChildren(Object.assign(document.createElement("p"), {

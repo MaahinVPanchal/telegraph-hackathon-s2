@@ -643,6 +643,40 @@ html{scroll-padding-top:20px}body{background:radial-gradient(ellipse at 76% 8%,#
 
 .memo-pill{white-space:normal;overflow-wrap:anywhere;max-width:100%;line-height:1.5}
 
+/* Live workspace: give the assessment room and turn the balance panel into readable groups. */
+@media(min-width:761px){
+  .live-grid{grid-template-columns:minmax(0,1.25fr) minmax(300px,.85fr);gap:24px;align-items:stretch}
+}
+@media(max-width:1000px){.live-grid{grid-template-columns:minmax(0,1fr)}}
+.live-block{padding:clamp(22px,2.6vw,34px)}
+.live-block>h2{margin:14px 0 12px}
+.live-block>#live-state{max-width:62ch;line-height:1.65;margin-bottom:20px}
+.live-block .action-row{gap:12px;margin:0 0 18px}
+.live-block .action-row .action-button{min-height:48px}
+.balance-card{margin:18px 0 22px!important;padding:18px!important;border-radius:8px!important}
+.balance-card>div:nth-child(2){gap:10px 12px!important}
+.balance-card>div:nth-child(2)>div{min-width:0;min-height:62px;padding:10px 12px;border:1px solid var(--ld-border);border-radius:6px;background:rgba(255,255,255,.025)}
+.balance-card>div:nth-child(2)>div span{font-size:11px!important;line-height:1.4;min-height:30px}
+.balance-card>div:nth-child(2)>div strong{display:block;margin-top:5px;font-size:14px;line-height:1.35;overflow-wrap:anywhere}
+.balance-card #bal-breakdown{margin:12px 0 2px!important;line-height:1.6!important}
+.live-block>.field-label{display:block;margin:18px 0 8px}
+.live-block>.text-input{margin-bottom:2px}
+.live-block #run-live{flex:1 1 260px;min-height:50px}
+.live-block #new-assessment{min-height:50px!important}
+.live-block>.mode-help{margin-top:18px;line-height:1.6}
+.wallet-guide{padding:clamp(24px,3vw,38px)}
+.wallet-guide h2{font-size:clamp(32px,3.3vw,42px);line-height:1.12;margin:20px 0}
+.wallet-guide dl{margin-top:34px}
+@media(max-width:520px){
+  .live-block{padding:20px}
+  .balance-card{padding:14px!important}
+  .balance-card>div:first-child{align-items:flex-start!important;gap:10px}
+  .balance-card>div:first-child strong{max-width:65%;line-height:1.4}
+  .balance-card>div:nth-child(2){grid-template-columns:minmax(0,1fr)!important}
+  .balance-card>div:nth-child(2)>div{min-height:0}
+  .balance-card>div:nth-child(2)>div span{min-height:0}
+}
+
 .memo-verdict{white-space:normal;overflow-wrap:anywhere;max-width:100%;line-height:1.5}.memo-result-head{flex-wrap:wrap;gap:14px}.memo-result-head>div{min-width:0}
 </style></head><body>
 <main class="app-shell">

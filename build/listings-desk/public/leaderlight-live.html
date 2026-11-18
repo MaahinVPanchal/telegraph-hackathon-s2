@@ -94,6 +94,17 @@ button, input, a, summary { -webkit-tap-highlight-color: transparent; }
 }
 .wallet-connect:hover:not(:disabled) { border-color: var(--ld-primary); background: rgba(173, 123, 234, .12); }
 .wallet-connect:disabled { cursor: progress; opacity: .7; }
+.wallet-disconnect {
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--ld-border);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--ld-secondary);
+  cursor: pointer;
+  font-size: .78rem;
+}
+.wallet-disconnect:hover { border-color: var(--ld-danger); color: var(--ld-danger); }
 .wallet-status {
   margin: 10px 0 0;
   color: var(--ld-secondary);
@@ -627,7 +638,7 @@ html{scroll-padding-top:20px}body{background:radial-gradient(ellipse at 76% 8%,#
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
 /* Reserve real columns for the mobile brand and wallet. No overlapping flex items. */
 .flow-steps li{padding:8px 8px 8px 32px;min-height:44px;font-size:11px;line-height:1.5}.flow-steps li::before{left:7px;top:10px}
-@media(max-width:760px){.site-header{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px 10px}.brand{grid-column:1;grid-row:1;min-width:0}.wallet-connect{grid-column:2;grid-row:1;width:auto;max-width:150px;margin:0}.network-lockup{grid-column:1;grid-row:2;margin:0;width:auto;min-width:0;padding:0;border:0;flex:none}.network-lockup small{max-width:125px;line-height:1.4}.mode-badge{grid-column:2;grid-row:2;justify-self:end;width:auto}.brand-name{white-space:nowrap}.leaderlight-mark{flex-shrink:0}}
+@media(max-width:760px){.site-header{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px 10px}.brand{grid-column:1;grid-row:1;min-width:0}.wallet-connect{grid-column:2;grid-row:1;width:auto;max-width:150px;margin:0}.network-lockup{grid-column:1;grid-row:2;margin:0;width:auto;min-width:0;padding:0;border:0;flex:none}.network-lockup small{max-width:125px;line-height:1.4}.mode-badge{grid-column:2;grid-row:2;justify-self:end;width:auto}.wallet-disconnect{grid-column:2;grid-row:3;justify-self:end}.brand-name{white-space:nowrap}.leaderlight-mark{flex-shrink:0}}
 
 
 .memo-pill{white-space:normal;overflow-wrap:anywhere;max-width:100%;line-height:1.5}
@@ -640,6 +651,7 @@ html{scroll-padding-top:20px}body{background:radial-gradient(ellipse at 76% 8%,#
 <div class="header-actions">
 <span class="mode-badge" id="mode-badge">SIMULATED / OFFLINE</span>
 <button class="wallet-connect" id="wallet-connect" type="button">Connect MetaMask</button>
+<button class="wallet-disconnect" hidden id="wallet-disconnect" type="button">Disconnect</button>
 </div>
 </header>
 <p aria-atomic="true" aria-live="polite" class="wallet-status" id="wallet-status" role="status">Wallet not connected. Connect to unlock the live flow — signing happens only when you approve it.</p>
@@ -862,6 +874,7 @@ function formatProviderError(error) {
 
 function initializeWalletConnection() {
   const button = document.getElementById("wallet-connect");
+  const disconnectButton = document.getElementById("wallet-disconnect");
   const status = document.getElementById("wallet-status");
   if (!button || !status) return;
 
@@ -894,6 +907,7 @@ function initializeWalletConnection() {
       window.dispatchEvent(new CustomEvent("listings:wallet", { detail: { address: null } }));
       button.textContent = "Connect MetaMask";
       button.removeAttribute("aria-label");
+      disconnectButton.hidden = true;
       showStatus("MetaMask account access was removed for this page.", "idle");
       return;
     }
@@ -903,6 +917,7 @@ function initializeWalletConnection() {
     window.dispatchEvent(new CustomEvent("listings:wallet", { detail: { address: first, chainId } }));
     button.textContent = `Connected · ${first.slice(0, 6)}…${first.slice(-4)}`;
     button.setAttribute("aria-label", `Connected MetaMask account ${first}`);
+    disconnectButton.hidden = false;
     const additionalAccounts = accounts.length > 1 ? ` (${accounts.length} accounts)` : "";
     showStatus(
       String(chainId).toLowerCase() === LIVE_PAYMENT_LIMITS.chainId
@@ -945,6 +960,24 @@ function initializeWalletConnection() {
     if (typeof provider.on === "function") provider.on("accountsChanged", accountsChangedHandler);
     if (typeof provider.on === "function") provider.on("chainChanged", chainChangedHandler);
   }
+
+  disconnectButton.addEventListener("click", () => {
+    if (activeProvider && typeof activeProvider.removeListener === "function") {
+      if (accountsChangedHandler) activeProvider.removeListener("accountsChanged", accountsChangedHandler);
+      if (chainChangedHandler) activeProvider.removeListener("chainChanged", chainChangedHandler);
+    }
+    activeProvider = null;
+    accountsChangedHandler = null;
+    chainChangedHandler = null;
+    window.__listingsWallet = null;
+    window.__listingsProvider = null;
+    window.__listingsWalletRevision = (window.__listingsWalletRevision ?? 0) + 1;
+    window.dispatchEvent(new CustomEvent("listings:wallet", { detail: { address: null } }));
+    button.textContent = "Connect MetaMask";
+    button.removeAttribute("aria-label");
+    disconnectButton.hidden = true;
+    showStatus("Disconnected from Leaderlight. MetaMask may still authorize this site; revoke access in MetaMask to remove that permission.", "idle");
+  });
 
   button.addEventListener("click", async () => {
     button.disabled = true;

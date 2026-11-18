@@ -17,6 +17,14 @@ function challenge(message = ["Telegraph Escrow Payment", "Wallet: {from}", `Pay
 }
 const provider = (calls) => ({ request: async ({ method }) => { calls.push(method); if (method === "eth_chainId") return "0xaa36a7"; if (method === "eth_accounts") return [wallet]; if (method === "personal_sign") return "0xdead"; throw Error(method); } });
 
+test("mocked: wallet disconnect control clears Leaderlight access and leaves MetaMask permission explicit", () => {
+  const html = readFileSync(new URL("../public/leaderlight-live.html", import.meta.url), "utf8");
+  assert.match(html, /id="wallet-disconnect"/);
+  assert.match(html, /window\.__listingsWallet = null/);
+  assert.match(html, /removeListener\("accountsChanged"/);
+  assert.match(html, /revoke access in MetaMask/);
+});
+
 const malformedChallengeCases = [
   ["fixed nonce", (s) => s.replace("{nonce}", "fixed-nonce")],
   ["fixed validBefore", (s) => s.replace("{validBefore}", "9999999999")],

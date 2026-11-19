@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+﻿import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 const html=readFileSync(new URL('../public/leaderlight-live.html',import.meta.url),'utf8');
@@ -16,7 +16,7 @@ test('refined Wakanda preserves unique runtime controls and embeds its verified 
  assert.match(html,/See the risk/);assert.match(html,/Keep the signal/);assert.match(html,/Independent app/);assert.match(html,/data:font\/ttf;base64/);assert.match(html,/data:image\/png;base64/);
 });
 test('/memo serves a full styled document, not a bare fragment',async()=>{
- // Regression (2026-11-12): the endpoint returned renderHtmlFragment — a bare
+ // Regression (2026-11-12): the endpoint returned renderHtmlFragment â€” a bare
  // <section> with no document or stylesheet, which rendered unreadably.
  const { renderHtml } = await import('../src/memo.mjs');
  const { memo } = await import('../src/desk.mjs').then((d) => d.runDesk('PEPE', { mode: 'mock' }));

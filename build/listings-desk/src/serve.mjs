@@ -9,6 +9,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runDesk } from "./desk.mjs";
 import engineProxy from "../api/engine.js";
+import ledgerProxy from "../api/ledger.js";
 import { MEMO_CSS, renderHtml, THEME_TOKENS } from "./memo.mjs";
 
 const PORT = Number(process.env.PORT ?? 7788);
@@ -417,6 +418,14 @@ function startLocalServer() {
     if (url.pathname === "/api/engine/v1/ask") {
       res.status = (code) => { res.statusCode = code; return res; };
       await engineProxy(req, res);
+      return;
+    }
+    const ledgerPath = /^\/api\/ledger\/account\/(0x[0-9a-f]{40})$/i.exec(url.pathname);
+    if (ledgerPath) {
+      req.method = "GET";
+      req.query = { address: ledgerPath[1] };
+      res.status = (code) => { res.statusCode = code; return res; };
+      await ledgerProxy(req, res);
       return;
     }
     const staticFiles = {

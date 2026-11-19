@@ -1,4 +1,4 @@
-import { test } from "node:test";
+﻿import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   encodeFunctionCall,
@@ -15,13 +15,14 @@ import {
 } from "../public/live-payment.mjs";
 
 const wallet = "0x1111111111111111111111111111111111111111";
-const diamond = "0x3624eb012b5e998bb57b6be6c9cfc9c4bc5eb99b";
+const diamond = "0x72a70e949362670bf8bcead24efc5b8f950aa08b";
 const usdc = "0xcc194e1a843b658526d0d5c431f670028582ae17";
 const origin = "https://desk.example";
 const requestUrl = `${origin}/api/engine/v1/ask`;
 const intent = "SANCTIONS_SCREENING_MATCH_GENERAL";
 const params = { name: "Example Entity" };
 const network = "eip155:11155111";
+const ledgerFetch = (read) => async () => ({ ok: true, json: async () => { const deposited = String(read()); return { deposited, withdrawn: "0", charged: "0", credited: "0", unbilled: "0", balance: deposited, available: deposited, charge_limit: "0", charged_this_block: "0" }; } });
 const storage = () => {
   const entries = new Map();
   return {
@@ -251,6 +252,7 @@ test("failed approval receipt never submits the escrow deposit", async () => {
   };
   await assert.rejects(() => fundEscrow({
     provider, wallet, usdc, diamond, isCurrent: () => true,
+    fetchImpl: ledgerFetch(() => 0n),
     waitForReceipt: async () => { throw new Error("approval reverted"); },
   }), /approval reverted/);
   const sent = calls.filter((call) => call.method === "eth_sendTransaction");
@@ -272,6 +274,7 @@ test("insufficient allowance and failed deposit receipt never report funded", as
   };
   await assert.rejects(() => fundEscrow({
     provider, wallet, usdc, diamond, isCurrent: () => true,
+    fetchImpl: ledgerFetch(() => 0n),
     waitForReceipt: async () => ({ status: "0x1" }),
   }), /allowance is insufficient/);
   assert.equal(calls.filter((call) => call.method === "eth_sendTransaction").length, 1);
@@ -292,8 +295,18 @@ test("insufficient allowance and failed deposit receipt never report funded", as
     throw new Error(`unexpected provider request: ${request.method}`);
   };
   let receiptCount = 0;
+  let deposited = 0n;
+  depositProvider.request = async (request) => {
+    depositCalls.push(request);
+    if (request.method === "eth_chainId") return "0xaa36a7";
+    if (request.method === "eth_accounts") return [wallet];
+    if (request.method === "eth_call") return request.params[0].to.toLowerCase() === usdc ? "0x2dc6c0" : "0x0";
+    if (request.method === "eth_sendTransaction") { if (request.params[0].to.toLowerCase() === diamond) deposited = 3_000_000n; return `0x${"d".repeat(64)}`; }
+    throw new Error(`unexpected provider request: ${request.method}`);
+  };
   await assert.rejects(() => fundEscrow({
     provider: depositProvider, wallet, usdc, diamond, isCurrent: () => true,
+    fetchImpl: ledgerFetch(() => deposited),
     waitForReceipt: async () => {
       receiptCount++;
       if (receiptCount === 2) throw new Error("deposit reverted");
@@ -306,6 +319,7 @@ test("insufficient allowance and failed deposit receipt never report funded", as
 test("funding confirms approval, allowance, deposit receipt, and credited balance", async () => {
   const calls = [];
   let readCount = 0;
+  let deposited = 0n;
   const provider = fakeWallet(calls);
   provider.request = async (request) => {
     calls.push(request);
@@ -316,11 +330,12 @@ test("funding confirms approval, allowance, deposit receipt, and credited balanc
       readCount++;
       return readCount === 1 ? "0x0" : "0x2dc6c0";
     }
-    if (request.method === "eth_sendTransaction") return `0x${String(calls.length).padStart(64, "0")}`;
+    if (request.method === "eth_sendTransaction") { if (request.params[0].to.toLowerCase() === diamond) deposited = 3_000_000n; return `0x${String(calls.length).padStart(64, "0")}`; }
     throw new Error(`unexpected provider request: ${request.method}`);
   };
   const result = await fundEscrow({
     provider, wallet, usdc, diamond, isCurrent: () => true,
+    fetchImpl: ledgerFetch(() => deposited),
     waitForReceipt: async () => ({ status: "0x1" }),
   });
   const sent = calls.filter((call) => call.method === "eth_sendTransaction");

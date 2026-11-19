@@ -1,4 +1,4 @@
-const ADDRESS_PATTERN = /^0x[0-9a-f]{40}$/i;
+﻿const ADDRESS_PATTERN = /^0x[0-9a-f]{40}$/i;
 const HASH_PATTERN = /^0x[0-9a-f]{64}$/i;
 const UINT_PATTERN = /^(0|[1-9]\d*)$/;
 const STORAGE_KEY = "leaderlight.live-attempts.v1";
@@ -14,10 +14,8 @@ const DEPOSIT_SELECTOR = "0xf688bcfb";
 const ERC20_ALLOWANCE_SELECTOR = "0xdd62ed3e";
 const ERC20_APPROVE_SELECTOR = "0x095ea7b3";
 const ERC20_BALANCE_OF_SELECTOR = "0x70a08231";
-const ESCROW_BALANCE_SELECTOR = "0x55af6353";
-const ESCROW_EFFECTIVE_BALANCE_SELECTOR = "0x16a398f7";
-const ESCROW_AGENT_DEBT_SELECTOR = "0xdb9104c6";
-const ESCROW_PENDING_WITHDRAWAL_SELECTOR = "0x0964c95b";
+const LEDGER_ACCOUNT_BASE = "/api/ledger/account/";
+const LEDGER_ACCOUNT_FIELDS = ["deposited", "withdrawn", "charged", "credited", "unbilled", "balance", "available", "charge_limit", "charged_this_block"];
 
 function assertAddress(value, label) {
   if (typeof value !== "string" || !ADDRESS_PATTERN.test(value)) {
@@ -206,9 +204,19 @@ export function readAttemptLedger(storage = globalThis.localStorage) {
       typeof ledger.attempts !== "object" || Array.isArray(ledger.attempts)) {
     throw new Error("payment attempt ledger version or schema is invalid; reconcile storage manually");
   }
-  ledger.history = Object.values(ledger.attempts).flatMap((entry) => [
-    ...(Array.isArray(entry.priorAttempts) ? entry.priorAttempts : []), entry,
-  ]);
+  const seenAttemptIds = new Set();
+  ledger.history = [];
+  for (const entry of Object.values(ledger.attempts)) {
+    const ordered = [
+      ...flattenPriorAttempts(entry).filter((attempt) => attempt.attemptId !== entry.attemptId),
+      entry,
+    ];
+    for (const attempt of ordered) {
+      if (typeof attempt?.attemptId === "string" && seenAttemptIds.has(attempt.attemptId)) continue;
+      if (typeof attempt?.attemptId === "string") seenAttemptIds.add(attempt.attemptId);
+      ledger.history.push(attempt);
+    }
+  }
   ledger.byRun = {};
   ledger.byWallet = {};
   for (const attempt of ledger.history) {
@@ -219,10 +227,13 @@ export function readAttemptLedger(storage = globalThis.localStorage) {
 }
 
 function compactPriorAttempt(attempt) {
-  return Object.fromEntries([
+  const compact = Object.fromEntries([
     "attemptId", "requestId", "wallet", "runId", "status", "authorizationStarted",
-    "amountMicro", "receipt", "updatedAt", "createdAt",
+    "amountMicro", "updatedAt", "createdAt",
   ].filter((key) => attempt?.[key] !== undefined).map((key) => [key, attempt[key]]));
+  if (typeof attempt?.receipt?.receipt_hash === "string") compact.receiptHash = attempt.receipt.receipt_hash;
+  if (Number.isSafeInteger(attempt?.receipt?.epoch_id)) compact.receiptEpoch = attempt.receipt.epoch_id;
+  return compact;
 }
 
 export function flattenPriorAttempts(attempt) {
@@ -413,287 +424,80 @@ export async function mintTestUsdc({ provider, wallet, usdc, isCurrent = () => t
   return hash;
 }
 
-export async function readWalletFundingState({
-  provider,
-  wallet,
-  usdc,
-  diamond,
-  storage = globalThis.localStorage,
-  isCurrent = () => true,
-}) {
+export async function readWalletFundingState({ provider, wallet, usdc, diamond, storage = globalThis.localStorage, isCurrent = () => true, fetchImpl = globalThis.fetch }) {
   const normalizedWallet = assertAddress(wallet, "wallet");
   const normalizedUsdc = assertAddress(usdc, "usdc");
   const normalizedDiamond = assertAddress(diamond, "diamond");
-
   await assertSepolia(provider, normalizedWallet, isCurrent);
-
-  let ethBalanceWei = null;
-  let ethBalanceReadError = null;
-  try {
-    const res = await provider.request({ method: "eth_getBalance", params: [normalizedWallet, "latest"] });
-    ethBalanceWei = BigInt(res);
-  } catch (err) {
-    ethBalanceReadError = String(err?.message ?? err);
-  }
-
-  let usdcBalanceMicro = null;
-  let usdcBalanceReadError = null;
-  try {
-    const data = encodeFunctionCall(ERC20_BALANCE_OF_SELECTOR, ["address"], [normalizedWallet]);
-    usdcBalanceMicro = await readUint(provider, normalizedUsdc, data, normalizedWallet);
-  } catch (err) {
-    usdcBalanceReadError = String(err?.message ?? err);
-  }
-
-  let allowanceMicro = null;
-  let allowanceReadError = null;
-  try {
-    const data = encodeFunctionCall(ERC20_ALLOWANCE_SELECTOR, ["address", "address"], [normalizedWallet, normalizedDiamond]);
-    allowanceMicro = await readUint(provider, normalizedUsdc, data, normalizedWallet);
-  } catch (err) {
-    allowanceReadError = String(err?.message ?? err);
-  }
-
-  let rawEscrowBalanceMicro = null;
-  let rawEscrowReadError = null;
-  try {
-    const data = encodeFunctionCall(ESCROW_BALANCE_SELECTOR, ["address"], [normalizedWallet]);
-    rawEscrowBalanceMicro = await readUint(provider, normalizedDiamond, data, normalizedWallet);
-  } catch (err) {
-    rawEscrowReadError = String(err?.message ?? err);
-  }
-
-  let effectiveEscrowBalanceMicro = null;
-  let effectiveEscrowReadError = null;
-  try {
-    const data = encodeFunctionCall(ESCROW_EFFECTIVE_BALANCE_SELECTOR, ["address"], [normalizedWallet]);
-    effectiveEscrowBalanceMicro = await readUint(provider, normalizedDiamond, data, normalizedWallet);
-  } catch (err) {
-    effectiveEscrowReadError = String(err?.message ?? err);
-  }
-
-  let agentDebtMicro = null;
-  let agentDebtReadError = null;
-  try {
-    const data = encodeFunctionCall(ESCROW_AGENT_DEBT_SELECTOR, ["address"], [normalizedWallet]);
-    agentDebtMicro = await readUint(provider, normalizedDiamond, data, normalizedWallet);
-  } catch (err) {
-    agentDebtReadError = String(err?.message ?? err);
-  }
-
-  let pendingWithdrawalMicro = null;
-  let pendingWithdrawalReadError = null;
-  try {
-    const data = encodeFunctionCall(ESCROW_PENDING_WITHDRAWAL_SELECTOR, ["address"], [normalizedWallet]);
-    pendingWithdrawalMicro = await readUint(provider, normalizedDiamond, data, normalizedWallet);
-  } catch (err) {
-    pendingWithdrawalReadError = String(err?.message ?? err);
-  }
-
-  // Calculate unbilled liabilities from stored attempts:
-  // Include authorization_pending, unknown, and protocol_receipt (billed but unsettled on-chain).
-  // If ledger is malformed or storage unavailable, liabilities are marked as read error!
-  let pendingLiabilitiesMicro = 0n;
-  let liabilitiesReadError = null;
-  try {
-    const ledger = readAttemptLedger(storage);
-    const allAttempts = Array.isArray(ledger.history) && ledger.history.length > 0
-      ? ledger.history
-      : Object.values(ledger.attempts);
-    pendingLiabilitiesMicro = allAttempts
-      .filter((attempt) => {
-        if (!attempt.wallet || attempt.wallet.toLowerCase() !== normalizedWallet) return false;
-        if (!attempt.authorizationStarted) return false;
-        return (
-          attempt.status === "authorization_pending" ||
-          attempt.status === "unknown" ||
-          (attempt.status === "protocol_receipt" && attempt.settledOnChain !== true)
-        );
-      })
-      .reduce((sum, attempt) => sum + (typeof attempt.amountMicro === "string" ? BigInt(attempt.amountMicro) : 0n), 0n);
-  } catch (err) {
-    liabilitiesReadError = String(err?.message ?? err);
-  }
-
-  // Post-read context guard
-  if (!isCurrent()) {
-    throw new Error("Wallet account or network changed; aborting");
-  }
-
-  let spendableEscrowMicro = null;
-  // If effectiveEscrow failed, debt read failed, or liabilities read failed, spendable is unknown/null
-  if (effectiveEscrowBalanceMicro != null && !effectiveEscrowReadError && !agentDebtReadError && !liabilitiesReadError) {
-    // effectiveBalance already excludes pending withdrawals and gas reserve on Telegraph Diamond.
-    const safeBase = effectiveEscrowBalanceMicro > pendingLiabilitiesMicro
-      ? effectiveEscrowBalanceMicro - pendingLiabilitiesMicro
-      : 0n;
-    spendableEscrowMicro = safeBase;
-  }
-
+  const read = async (fn) => { try { return await fn(); } catch (error) { return { error: String(error?.message ?? error) }; } };
+  const [eth, usdcRead, allowance, nodeLedger, local] = await Promise.all([
+    read(async () => BigInt(await provider.request({ method: "eth_getBalance", params: [normalizedWallet, "latest"] }))),
+    read(async () => readUint(provider, normalizedUsdc, encodeFunctionCall(ERC20_BALANCE_OF_SELECTOR, ["address"], [normalizedWallet]), normalizedWallet)),
+    read(async () => readUint(provider, normalizedUsdc, encodeFunctionCall(ERC20_ALLOWANCE_SELECTOR, ["address", "address"], [normalizedWallet, normalizedDiamond]), normalizedWallet)),
+    read(async () => {
+      if (typeof fetchImpl !== "function") throw new Error("ledger fetch unavailable");
+      const response = await fetchImpl(`${LEDGER_ACCOUNT_BASE}${normalizedWallet}`, { method: "GET", cache: "no-store" });
+      if (!response.ok) throw new Error(`ledger HTTP ${response.status}`);
+      const body = await response.json();
+      if (!body || typeof body !== "object" || Array.isArray(body) || LEDGER_ACCOUNT_FIELDS.some((field) => typeof body[field] !== "string" || !UINT_PATTERN.test(body[field]))) throw new Error("ledger response is missing a documented decimal-string field");
+      return Object.fromEntries(LEDGER_ACCOUNT_FIELDS.map((field) => [field, BigInt(body[field])]));
+    }),
+    read(async () => {
+      const ledger = readAttemptLedger(storage);
+      const attempts = ledger.history?.length ? ledger.history : Object.values(ledger.attempts);
+      return attempts.filter((a) => a.wallet?.toLowerCase() === normalizedWallet && a.authorizationStarted && (a.status === "authorization_pending" || a.status === "unknown" || (a.status === "protocol_receipt" && a.settledOnChain !== true))).reduce((sum, a) => sum + (typeof a.amountMicro === "string" ? BigInt(a.amountMicro) : 0n), 0n);
+    }),
+  ]);
+  if (!isCurrent()) throw new Error("Wallet account or network changed; aborting");
+  const ledgerAccount = nodeLedger.error ? null : nodeLedger;
+  const spendable = ledgerAccount && !local.error ? (ledgerAccount.available > local ? ledgerAccount.available - local : 0n) : null;
   return {
-    wallet: normalizedWallet,
-    ethBalanceWei,
-    ethBalanceReadError,
-    usdcBalanceMicro,
-    usdcBalanceReadError,
-    allowanceMicro,
-    allowanceReadError,
-    rawEscrowBalanceMicro,
-    rawEscrowReadError,
-    effectiveEscrowBalanceMicro,
-    effectiveEscrowReadError,
-    agentDebtMicro,
-    agentDebtReadError,
-    pendingWithdrawalMicro,
-    pendingWithdrawalReadError,
-    pendingLiabilitiesMicro,
-    liabilitiesReadError,
-    spendableEscrowMicro,
+    wallet: normalizedWallet, ethBalanceWei: eth.error ? null : eth, ethBalanceReadError: eth.error ?? null,
+    usdcBalanceMicro: usdcRead.error ? null : usdcRead, usdcBalanceReadError: usdcRead.error ?? null,
+    allowanceMicro: allowance.error ? null : allowance, allowanceReadError: allowance.error ?? null,
+    ledgerAccount, ledgerReadError: nodeLedger.error ?? null,
+    rawEscrowBalanceMicro: ledgerAccount?.balance ?? null, rawEscrowReadError: nodeLedger.error ?? null,
+    effectiveEscrowBalanceMicro: ledgerAccount?.available ?? null, effectiveEscrowReadError: nodeLedger.error ?? null,
+    pendingLiabilitiesMicro: local.error ? 0n : local, liabilitiesReadError: local.error ?? null,
+    spendableEscrowMicro: spendable,
   };
 }
 
-export async function fundEscrow({
-  provider,
-  wallet,
-  usdc,
-  diamond,
-  amountMicro,
-  isCurrent = () => true,
-  waitForReceipt = waitForTransaction,
-  onStage = () => {},
-}) {
+async function fetchNodeLedger(wallet, fetchImpl = globalThis.fetch) {
+  if (typeof fetchImpl !== "function") throw new Error("ledger fetch unavailable");
+  const response = await fetchImpl(`${LEDGER_ACCOUNT_BASE}${wallet}`, { method: "GET", cache: "no-store" });
+  if (!response.ok) throw new Error(`ledger HTTP ${response.status}`);
+  const body = await response.json();
+  if (!body || typeof body !== "object" || Array.isArray(body) || LEDGER_ACCOUNT_FIELDS.some((field) => typeof body[field] !== "string" || !UINT_PATTERN.test(body[field]))) throw new Error("ledger response is missing a documented decimal-string field");
+  return Object.fromEntries(LEDGER_ACCOUNT_FIELDS.map((field) => [field, BigInt(body[field])]));
+}
+export async function fundEscrow({ provider, wallet, usdc, diamond, amountMicro, isCurrent = () => true, waitForReceipt = waitForTransaction, onStage = () => {}, fetchImpl = globalThis.fetch }) {
   await assertSepolia(provider, wallet, isCurrent);
   const normalizedWallet = assertAddress(wallet, "wallet");
   const normalizedUsdc = assertAddress(usdc, "usdc");
   const normalizedDiamond = assertAddress(diamond, "diamond");
-
+  const amount = amountMicro === undefined ? FUNDING_AMOUNT_MICRO : BigInt(amountMicro);
+  if (amount <= 0n) throw new RangeError("funding amount must be greater than zero");
   const allowanceData = encodeFunctionCall(ERC20_ALLOWANCE_SELECTOR, ["address", "address"], [normalizedWallet, normalizedDiamond]);
-  const allowanceBefore = await readUint(provider, normalizedUsdc, allowanceData, normalizedWallet);
-
-  let approveHash = null;
-  if (amountMicro !== undefined) {
-    // Balance-aware path with explicit funding amount
-    const topUpMicro = typeof amountMicro === "bigint" ? amountMicro : BigInt(amountMicro);
-    if (topUpMicro <= 0n) throw new RangeError("funding amount must be greater than zero");
-
-    if (allowanceBefore < topUpMicro) {
-      onStage("approval_pending", { needed: topUpMicro.toString(), currentAllowance: allowanceBefore.toString() });
-      await assertSepolia(provider, normalizedWallet, isCurrent);
-      const approveData = encodeFunctionCall(ERC20_APPROVE_SELECTOR, ["address", "uint256"], [normalizedDiamond, topUpMicro]);
-      approveHash = await provider.request({
-        method: "eth_sendTransaction",
-        params: [{ from: normalizedWallet, to: normalizedUsdc, data: approveData, gas: "0x186a0" }],
-      });
-      await waitForReceipt(provider, approveHash);
-      await assertSepolia(provider, normalizedWallet, isCurrent);
-      const allowanceAfter = await readUint(provider, normalizedUsdc, allowanceData, normalizedWallet);
-      if (allowanceAfter < topUpMicro) {
-        throw new Error("USDC approval receipt confirmed, but allowance is insufficient for the deposit");
-      }
-      onStage("approval_confirmed", { approveHash, allowance: allowanceAfter.toString() });
-    } else {
-      onStage("approval_skipped", { allowance: allowanceBefore.toString() });
-    }
-
-    // Pre-deposit reads: raw escrow balance AND agent debt
-    const escrowBalanceData = encodeFunctionCall(ESCROW_BALANCE_SELECTOR, ["address"], [normalizedWallet]);
-    const debtData = encodeFunctionCall(ESCROW_AGENT_DEBT_SELECTOR, ["address"], [normalizedWallet]);
-
-    const [balanceBefore, debtBefore] = await Promise.all([
-      readUint(provider, normalizedDiamond, escrowBalanceData, normalizedWallet),
-      readUint(provider, normalizedDiamond, debtData, normalizedWallet),
-    ]);
-
-    onStage("deposit_pending", { amount: topUpMicro.toString(), debtBefore: debtBefore.toString() });
-    await assertSepolia(provider, normalizedWallet, isCurrent);
-
-    const depositData = encodeFunctionCall(DEPOSIT_SELECTOR, ["uint256"], [topUpMicro]);
-    const depositHash = await provider.request({
-      method: "eth_sendTransaction",
-      params: [{ from: normalizedWallet, to: normalizedDiamond, data: depositData, gas: "0x30d40" }],
-    });
-
-    await waitForReceipt(provider, depositHash);
-    await assertSepolia(provider, normalizedWallet, isCurrent);
-
-    // Post-deposit reads
-    const [balanceAfter, debtAfter] = await Promise.all([
-      readUint(provider, normalizedDiamond, escrowBalanceData, normalizedWallet),
-      readUint(provider, normalizedDiamond, debtData, normalizedWallet),
-    ]);
-
-    // Accounting assumption (not documented contract ordering): compare raw balance delta plus debt reduction.
-    // Same order-independent accounting assumption as the explicit top-up path.
-    const debtRepaid = debtBefore > debtAfter ? debtBefore - debtAfter : 0n;
-    if ((balanceAfter - balanceBefore) + debtRepaid < topUpMicro) {
-      throw new Error("deposit receipt confirmed, but balance and debt changes do not account for the top-up");
-    }
-
-    onStage("deposit_confirmed", {
-      depositHash,
-      balanceMicro: balanceAfter.toString(),
-      debtRepaid: debtRepaid.toString(),
-      debtRemaining: debtAfter.toString(),
-    });
-
-    return {
-      approveHash,
-      depositHash,
-      balanceMicro: balanceAfter.toString(),
-      debtRepaid: debtRepaid.toString(),
-      debtRemaining: debtAfter.toString(),
-    };
-  } else {
-    // Legacy behavior when amountMicro is omitted (unconditional approval for 3 USDC)
-    await assertSepolia(provider, normalizedWallet, isCurrent);
-    const approveData = encodeFunctionCall(ERC20_APPROVE_SELECTOR, ["address", "uint256"], [normalizedDiamond, FUNDING_AMOUNT_MICRO]);
-    approveHash = await provider.request({
-      method: "eth_sendTransaction",
-      params: [{ from: normalizedWallet, to: normalizedUsdc, data: approveData, gas: "0x186a0" }],
-    });
-    await waitForReceipt(provider, approveHash);
-    await assertSepolia(provider, normalizedWallet, isCurrent);
-    const allowanceAfter = await readUint(provider, normalizedUsdc, allowanceData, normalizedWallet);
-    if (allowanceAfter < FUNDING_AMOUNT_MICRO) {
-      throw new Error("USDC approval receipt confirmed, but allowance is insufficient for the deposit");
-    }
-
-    const escrowBalanceData = encodeFunctionCall(ESCROW_BALANCE_SELECTOR, ["address"], [normalizedWallet]);
-    const debtData = encodeFunctionCall(ESCROW_AGENT_DEBT_SELECTOR, ["address"], [normalizedWallet]);
-
-    const [balanceBefore, debtBefore] = await Promise.all([
-      readUint(provider, normalizedDiamond, escrowBalanceData, normalizedWallet),
-      readUint(provider, normalizedDiamond, debtData, normalizedWallet),
-    ]);
-
-    const depositData = encodeFunctionCall(DEPOSIT_SELECTOR, ["uint256"], [FUNDING_AMOUNT_MICRO]);
-    const depositHash = await provider.request({
-      method: "eth_sendTransaction",
-      params: [{ from: normalizedWallet, to: normalizedDiamond, data: depositData, gas: "0x30d40" }],
-    });
-    await waitForReceipt(provider, depositHash);
-    await assertSepolia(provider, normalizedWallet, isCurrent);
-
-    const [balanceAfter, debtAfter] = await Promise.all([
-      readUint(provider, normalizedDiamond, escrowBalanceData, normalizedWallet),
-      readUint(provider, normalizedDiamond, debtData, normalizedWallet),
-    ]);
-
-    const debtRepaid = debtBefore > debtAfter ? debtBefore - debtAfter : 0n;
-    if ((balanceAfter - balanceBefore) + debtRepaid < FUNDING_AMOUNT_MICRO) {
-      throw new Error("deposit receipt confirmed, but balance and debt changes do not account for the 3 USDC top-up");
-    }
-
-    return {
-      approveHash,
-      depositHash,
-      balanceMicro: balanceAfter.toString(),
-      debtRepaid: debtRepaid.toString(),
-      debtRemaining: debtAfter.toString(),
-    };
-  }
+  const before = await fetchNodeLedger(normalizedWallet, fetchImpl);
+  onStage("approval_pending", { needed: amount.toString() });
+  await assertSepolia(provider, normalizedWallet, isCurrent);
+  const approveHash = await provider.request({ method: "eth_sendTransaction", params: [{ from: normalizedWallet, to: normalizedUsdc, data: encodeFunctionCall(ERC20_APPROVE_SELECTOR, ["address", "uint256"], [normalizedDiamond, amount]), gas: "0x186a0" }] });
+  await waitForReceipt(provider, approveHash);
+  await assertSepolia(provider, normalizedWallet, isCurrent);
+  const allowanceAfter = await readUint(provider, normalizedUsdc, allowanceData, normalizedWallet);
+  if (allowanceAfter < amount) throw new Error("USDC approval receipt confirmed, but allowance is insufficient for the deposit");
+  onStage("approval_confirmed", { approveHash, allowance: allowanceAfter.toString() });
+  onStage("deposit_pending", { amount: amount.toString(), depositedBefore: before.deposited.toString() });
+  await assertSepolia(provider, normalizedWallet, isCurrent);
+  const depositHash = await provider.request({ method: "eth_sendTransaction", params: [{ from: normalizedWallet, to: normalizedDiamond, data: encodeFunctionCall(DEPOSIT_SELECTOR, ["uint256"], [amount]), gas: "0x30d40" }] });
+  await waitForReceipt(provider, depositHash);
+  await assertSepolia(provider, normalizedWallet, isCurrent);
+  const after = await fetchNodeLedger(normalizedWallet, fetchImpl);
+  if (after.deposited - before.deposited < amount) throw new Error("deposit receipt confirmed, but node ledger deposited did not increase by the requested amount");
+  onStage("deposit_confirmed", { depositHash, depositedMicro: after.deposited.toString(), balanceMicro: after.balance.toString(), availableMicro: after.available.toString() });
+  return { approveHash, depositHash, depositedMicro: after.deposited.toString(), balanceMicro: after.balance.toString(), availableMicro: after.available.toString() };
 }
-
 export async function performPaidAsk({
   provider,
   wallet,
@@ -724,6 +528,7 @@ export async function performPaidAsk({
     let migrated = false;
     for (const [id, record] of Object.entries(currentLedger.attempts)) {
       if (!record || typeof record !== "object") continue;
+      if (record.wallet?.toLowerCase() !== normalizedWallet) continue;
       const flattened = flattenPriorAttempts(record).filter((prior) => prior.attemptId !== record.attemptId);
       if (JSON.stringify(record.priorAttempts ?? []) !== JSON.stringify(flattened)) {
         currentLedger.attempts[id] = { ...record, priorAttempts: flattened };
@@ -731,7 +536,7 @@ export async function performPaidAsk({
       }
     }
     if (migrated) {
-      const serialized = JSON.stringify(currentLedger);
+      const serialized = JSON.stringify({ version: LEDGER_VERSION, attempts: currentLedger.attempts });
       try {
         storage.setItem(STORAGE_KEY, serialized);
         if (storage.getItem(STORAGE_KEY) !== serialized) throw new Error("persistence verification failed");
@@ -844,12 +649,17 @@ export async function performPaidAsk({
       .replace("{validAfter}", authorization.validAfter)
       .replace("{validBefore}", authorization.validBefore);
 
-    const pending = saveAttempt(storage, requestId, {
-      attemptId,
-      wallet: normalizedWallet, intent, params, runId: runId ?? null, status: "authorization_pending",
-      authorizationStarted: true, amountMicro: String(validated.amount),
-      answer: null, receipt: null,
-    });
+    let pending;
+    try {
+      pending = saveAttempt(storage, requestId, {
+        attemptId,
+        wallet: normalizedWallet, intent, params, runId: runId ?? null, status: "authorization_pending",
+        authorizationStarted: true, amountMicro: String(validated.amount),
+        answer: null, receipt: null,
+      });
+    } catch (error) {
+      throw new Error(`payment outcome could not be saved before signing; no payment was authorized: ${error.message}`);
+    }
     onAttempt(pending);
 
     let signature;
@@ -906,7 +716,7 @@ export async function performPaidAsk({
       const status = receiptValid ? "protocol_receipt" : "unknown";
       const saved = saveAttempt(storage, requestId, {
         ...pending, status, authorizationStarted: true, answer: responseData,
-        answerMatches, receipt: receiptValid ? receipt : null,
+        answerMatches, receipt,
         receiptValid, httpStatus: response.status,
       });
       onAttempt(saved);

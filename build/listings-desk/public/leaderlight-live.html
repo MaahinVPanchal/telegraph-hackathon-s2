@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1" name="viewport"/><meta content="#09080e" name="theme-color"/><title>Leaderlight | Listings Desk</title>
 <style>
 :root {
@@ -324,7 +324,7 @@ body.has-result .workspace-nav a.nav-result { display: flex; }
   background: rgba(173, 123, 234, .08);
   color: var(--ld-primary-strong);
 }
-.flow-steps li.done::before { content: "✓"; background: var(--ld-primary); color: #170f20; }
+.flow-steps li.done::before { content: "âœ“"; background: var(--ld-primary); color: #170f20; }
 .hero-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
 .chip {
   display: inline-flex;
@@ -682,11 +682,12 @@ html{scroll-padding-top:20px}body{background:radial-gradient(ellipse at 76% 8%,#
 </style></head><body>
 <main class="app-shell">
 <header class="site-header">
-<div class="brand"><span aria-hidden="true" class="leaderlight-mark">L<span>↗</span></span><span><span class="brand-name">LEADERLIGHT</span><span class="brand-subtitle">LISTINGS DESK</span></span></div><div class="network-lockup"><img alt="Telegraph" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACkAAAAwCAYAAACMuVOlAAAACXBIWXMAABYlAAAWJQFJUiTwAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAOdEVYdFNvZnR3YXJlAEZpZ21hnrGWYwAAAX9JREFUeAHtmdFtgzAQhs/EL0g8dARGaEdgk2SCdoOqE3SEjtARmhHYIN6gkUDiCdH7I0gTQpuAwb5I/iTnYmyJDxuks63KsmxIME3TvEV0B0DSkHD0arXK6rr+4v/paQOGmYshD0RR9M7hoasr/FRVlQ6IGjxAHMeGHMPfya5zOb6TEIEQnU/9QRwPQJ45fjiSRHn0cg5bFKWUUf0O0qYeqKGL0kTVXw2SRNV/jVJE1bUOEkSvSgLfojdJAp+iN0sCX6KjJIEP0dGSwLXoJEngUnSyJHAlaiUJXIhaS4KlRWeRBEuKziYJlhKdVRK0orve5TxJkieayOxLWhZ8Pa1zlr3nsCEp8ALqA5sNXSmK4pvjI0khCNoSBG0JgrYEQVuCoC1B0JYgOJKLpBeCHNZdHfkg77ZmnLTm5Ah2eOH7dhv7W03CBFue+b5p6/CbmQsSvOAwkn1BwGcpGy57H6cPvAQ5q+shQcAj+dnv7AtM95qEcxcHoJqnNSPBaK3NDxWIZQFxCp7vAAAAAElFTkSuQmCC"/><span>TELEGRAPH<small>Independent app / not endorsed</small></span></div>
+<div class="brand"><span aria-hidden="true" class="leaderlight-mark">L<span>â†—</span></span><span><span class="brand-name">LEADERLIGHT</span><span class="brand-subtitle">LISTINGS DESK</span></span></div><div class="network-lockup"><img alt="Telegraph" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACkAAAAwCAYAAACMuVOlAAAACXBIWXMAABYlAAAWJQFJUiTwAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAOdEVYdFNvZnR3YXJlAEZpZ21hnrGWYwAAAX9JREFUeAHtmdFtgzAQhs/EL0g8dARGaEdgk2SCdoOqE3SEjtARmhHYIN6gkUDiCdH7I0gTQpuAwb5I/iTnYmyJDxuks63KsmxIME3TvEV0B0DSkHD0arXK6rr+4v/paQOGmYshD0RR9M7hoasr/FRVlQ6IGjxAHMeGHMPfya5zOb6TEIEQnU/9QRwPQJ45fjiSRHn0cg5bFKWUUf0O0qYeqKGL0kTVXw2SRNV/jVJE1bUOEkSvSgLfojdJAp+iN0sCX6KjJIEP0dGSwLXoJEngUnSyJHAlaiUJXIhaS4KlRWeRBEuKziYJlhKdVRK0orve5TxJkieayOxLWhZ8Pa1zlr3nsCEp8ALqA5sNXSmK4pvjI0khCNoSBG0JgrYEQVuCoC1B0JYgOJKLpBeCHNZdHfkg77ZmnLTm5Ah2eOH7dhv7W03CBFue+b5p6/CbmQsSvOAwkn1BwGcpGy57H6cPvAQ5q+shQcAj+dnv7AtM95qEcxcHoJqnNSPBaK3NDxWIZQFxCp7vAAAAAElFTkSuQmCC"/><span>TELEGRAPH<small>Independent app / not endorsed</small></span></div>
 <div class="header-actions">
 <span class="mode-badge" id="mode-badge">SIMULATED / OFFLINE</span>
 <button class="wallet-connect" id="wallet-connect" type="button">Connect MetaMask</button>
-<button class="wallet-disconnect" hidden id="wallet-disconnect" type="button">Disconnect</button>
+<button class="wallet-disconnect" hidden id="wallet-disconnect" type="button">Disconnect (this page)</button>
+<button class="action-button" hidden id="wallet-switch" type="button">Switch to Ethereum Sepolia</button>
 </div>
 </header>
 <p aria-atomic="true" aria-live="polite" class="wallet-status" id="wallet-status" role="status">Wallet not connected. Connect to unlock the live flow — signing happens only when you approve it.</p>
@@ -702,11 +703,11 @@ html{scroll-padding-top:20px}body{background:radial-gradient(ellipse at 76% 8%,#
 <li data-step="fund">Mint &amp; fund escrow</li>
 <li data-step="run">Run assessment</li>
 </ol>
-<div class="rail-footer"><span>INTELLIGENCE<br/>BEFORE CONVICTION</span><i aria-hidden="true">◇</i><small>LEADERLIGHT / 01.2<br/>ETHEREUM SEPOLIA TESTNET</small></div></nav>
+<div class="rail-footer"><span>INTELLIGENCE<br/>BEFORE CONVICTION</span><i aria-hidden="true">â—‡</i><small>LEADERLIGHT / 01.2<br/>ETHEREUM SEPOLIA TESTNET</small></div></nav>
 <div class="workspace-main">
 <nav aria-label="Assessment mode" class="workspace-tabs" role="tablist">
-<button aria-controls="offline-panel" aria-selected="true" class="workspace-tab is-active" data-workspace-tab="offline" id="offline-tab" role="tab" type="button">Offline assessment<span>Private fixtures · no wallet or payment</span></button>
-<button aria-controls="live-panel" aria-selected="false" class="workspace-tab" data-workspace-tab="live" id="live-tab" role="tab" type="button">LIVE · Sepolia<span>Connect MetaMask · approval required per action</span></button>
+<button aria-controls="offline-panel" aria-selected="true" class="workspace-tab is-active" data-workspace-tab="offline" id="offline-tab" role="tab" type="button">Offline assessment<span>Private fixtures Â· no wallet or payment</span></button>
+<button aria-controls="live-panel" aria-selected="false" class="workspace-tab" data-workspace-tab="live" id="live-tab" role="tab" type="button">LIVE Â· Sepolia<span>Connect MetaMask Â· approval required per action</span></button>
 </nav>
 <div class="hero-split"><section aria-labelledby="hero-title" class="hero">
 <p class="eyebrow">Sovereign intelligence</p>
@@ -715,15 +716,15 @@ html{scroll-padding-top:20px}body{background:radial-gradient(ellipse at 76% 8%,#
 
 </section><div class="signal-map"><div class="map-label">INTELLIGENCE, ROUTED BY INTENT</div><svg aria-hidden="true" viewbox="0 0 340 300"><defs><radialgradient id="glow"><stop stop-color="#9b6bfc" stop-opacity=".36"></stop><stop offset="1" stop-color="#9b6bfc" stop-opacity="0"></stop></radialgradient></defs><circle cx="170" cy="148" fill="url(#glow)" r="120"></circle><path d="M170 23L280 86V212L170 275L60 212V86Z" fill="none" stroke="#433057"></path><path d="M170 48L258 99V199L170 250L82 199V99Z" fill="none" stroke="#8c65b5"></path><path d="M170 48V110M258 199L200 165M82 199L140 165" stroke="#cfb271" stroke-width="1.5"></path><circle cx="170" cy="148" fill="#120d1d" r="43" stroke="#b493ff"></circle><circle cx="170" cy="148" fill="none" r="54" stroke="#614282" stroke-dasharray="2 8"></circle><g fill="#d9bb77"><circle cx="170" cy="48" r="5"></circle><circle cx="258" cy="199" r="5"></circle><circle cx="82" cy="199" r="5"></circle></g><g fill="#b493ff"><circle cx="60" cy="86" r="2"></circle><circle cx="280" cy="86" r="2"></circle><circle cx="170" cy="275" r="2"></circle></g></svg><div class="core"><img alt="" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACkAAAAwCAYAAACMuVOlAAAACXBIWXMAABYlAAAWJQFJUiTwAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAOdEVYdFNvZnR3YXJlAEZpZ21hnrGWYwAAAX9JREFUeAHtmdFtgzAQhs/EL0g8dARGaEdgk2SCdoOqE3SEjtARmhHYIN6gkUDiCdH7I0gTQpuAwb5I/iTnYmyJDxuks63KsmxIME3TvEV0B0DSkHD0arXK6rr+4v/paQOGmYshD0RR9M7hoasr/FRVlQ6IGjxAHMeGHMPfya5zOb6TEIEQnU/9QRwPQJ45fjiSRHn0cg5bFKWUUf0O0qYeqKGL0kTVXw2SRNV/jVJE1bUOEkSvSgLfojdJAp+iN0sCX6KjJIEP0dGSwLXoJEngUnSyJHAlaiUJXIhaS4KlRWeRBEuKziYJlhKdVRK0orve5TxJkieayOxLWhZ8Pa1zlr3nsCEp8ALqA5sNXSmK4pvjI0khCNoSBG0JgrYEQVuCoC1B0JYgOJKLpBeCHNZdHfkg77ZmnLTm5Ah2eOH7dhv7W03CBFue+b5p6/CbmQsSvOAwkn1BwGcpGy57H6cPvAQ5q+shQcAj+dnv7AtM95qEcxcHoJqnNSPBaK3NDxWIZQFxCp7vAAAAAElFTkSuQmCC"/></div><span class="node node-a">INTENT</span><span class="node node-b">EVIDENCE</span><span class="node node-c">RECEIPT</span><div class="map-footer">Routing illustration / not live network activity</div></div></div><div aria-label="Assessment journey" class="flowline"><div><b>01</b><span>Start offline<small>No wallet needed</small></span></div><div><b>02</b><span>Review &amp; approve<small>Explicit identities + payment</small></span></div><div><b>03</b><span>Inspect evidence<small>Keep unknowns visible</small></span></div></div><div aria-label="Workspace facts" class="hero-chips">
 <span class="chip">3 miners tracked</span>
-<span class="chip"><span id="chip-miners">…</span> in network catalogue</span>
+<span class="chip"><span id="chip-miners">â€¦</span> in network catalogue</span>
 <span class="chip">Challenge priced before signing</span>
 </div>
 <section aria-label="Assessment setup" aria-labelledby="offline-tab" class="setup-grid workspace-panel" data-workspace-panel="offline" id="offline-panel" role="tabpanel">
 <form class="panel" id="candidate-form" novalidate="">
-<p class="eyebrow">01 / Candidate · offline</p>
+<p class="eyebrow">01 / Candidate Â· offline</p>
 <h2>Start with the token.</h2>
 <label class="field-label" for="token">Token symbol or contract address</label>
-<input aria-describedby="token-help" autocomplete="off" class="token-input" id="token" maxlength="120" name="token" placeholder="e.g. PEPE or 0x…" required="" type="text"/>
+<input aria-describedby="token-help" autocomplete="off" class="token-input" id="token" maxlength="120" name="token" placeholder="e.g. PEPE or 0xâ€¦" required="" type="text"/>
 <p class="field-help" id="token-help">Token-only input. Treasury, deployer, social identities, chain and repository are not inferred.</p>
 <button class="primary-action" id="run-button" type="submit">Run offline demo</button>
 <p class="mode-help">Offline fixtures only. No Engine calls, payments, or signatures.</p>
@@ -741,7 +742,7 @@ html{scroll-padding-top:20px}body{background:radial-gradient(ellipse at 76% 8%,#
 <p class="boundary-note">Connecting requests account access only. Testnet actions use the selected MetaMask provider and Sepolia; each signature or transaction requires its own approval.</p>
 </aside>
 </section><section aria-label="Live assessment and wallet boundaries" aria-labelledby="live-tab" class="live-grid workspace-panel" data-workspace-panel="live" hidden id="live-panel" role="tabpanel"><div class="panel live-block" id="live-assessment">
-<p class="eyebrow">02 / Live · Ethereum Sepolia testnet</p>
+<p class="eyebrow">02 / Live Â· Ethereum Sepolia testnet</p>
 <h2>Ask with explicit identities.</h2>
 <p class="field-help" id="live-state">Connect MetaMask (top right) to enable live actions. Payments sign in your browser from your own wallet.</p>
 <div class="action-row">
@@ -754,12 +755,13 @@ html{scroll-padding-top:20px}body{background:radial-gradient(ellipse at 76% 8%,#
   <button class="action-button" id="refresh-balances" style="min-height: 28px; padding: 2px 10px; font-size: 11px;" type="button">Refresh</button>
 </div>
 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 10px;">
-  <div><span style="color: var(--ld-secondary); display: block; font-size: 10px;">Gas (Sepolia ETH)</span><strong id="bal-eth">—</strong></div>
-  <div><span style="color: var(--ld-secondary); display: block; font-size: 10px;">Wallet Test-USDC</span><strong id="bal-usdc">—</strong></div>
-  <div><span style="color: var(--ld-secondary); display: block; font-size: 10px;">Estimated spendable escrow</span><strong id="bal-spendable" style="color: var(--ld-primary-strong);">—</strong></div>
-  <div><span style="color: var(--ld-secondary); display: block; font-size: 10px;">USDC Allowance</span><strong id="bal-allowance">—</strong></div>
+  <div><span style="color: var(--ld-secondary); display: block; font-size: 10px;">Sepolia ETH (gas)</span><strong id="bal-eth">—</strong></div>
+  <div><span style="color: var(--ld-secondary); display: block; font-size: 10px;">Wallet test USDC</span><strong id="bal-usdc">—</strong></div>
+  <div><span style="color: var(--ld-secondary); display: block; font-size: 10px;">Escrow, raw</span><strong id="bal-raw">—</strong></div><div><span style="color: var(--ld-secondary); display: block; font-size: 10px;">Reserved (unsettled commitments, local estimate)</span><strong id="bal-reserved">—</strong></div><div><span style="color: var(--ld-secondary); display: block; font-size: 10px;">Estimated spendable escrow</span><strong id="bal-spendable" style="color: var(--ld-primary-strong);">—</strong></div>
+  <div><span style="color: var(--ld-secondary); display: block; font-size: 10px;">Allowance (USDC)</span><strong id="bal-allowance">—</strong></div>
 </div>
-<div id="bal-breakdown" style="color: var(--ld-secondary); font-size: 11px; margin-bottom: 8px; line-height: 1.4;">Connect wallet to inspect effective spendable balance.</div>
+<div id="bal-breakdown" style="color: var(--ld-secondary); font-size: 11px; margin-bottom: 8px; line-height: 1.4;">Connect wallet to inspect estimated spendable escrow.</div>
+<p class="boundary-note">Current Sepolia Diamond: <code>0x72a70e949362670Bf8bceAd24eFC5b8f950aa08b</code>. Balances on the old Diamond do not carry over.</p>
 <div id="funding-options" style="display: none; padding-top: 8px; border-top: 1px dashed var(--ld-border);">
   <span style="display: block; font-size: 11px; margin-bottom: 6px; color: var(--ld-caution);">Top-up needed for planned assessment ($0.02 max):</span>
   <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
@@ -779,9 +781,9 @@ html{scroll-padding-top:20px}body{background:radial-gradient(ellipse at 76% 8%,#
   <button class="action-button" id="new-assessment" style="min-height: 44px; padding: 8px 16px; font-size: 13px;" type="button">New assessment</button>
 </div>
 <p class="mode-help">Up to two explicit sanctions requests. The validated challenge is capped at $0.01 per call and $0.02 per run. A receipt is not final epoch settlement.</p>
-</div><aside class="panel wallet-guide"><p class="eyebrow">Wallet &amp; network</p><div aria-hidden="true" class="wallet-symbol">◇</div><h2>Your keys.<br/>Your approval.</h2><p>Use the wallet connection at the top of this workspace. Connecting grants account access only.</p><dl><div><dt>Network</dt><dd>Ethereum Sepolia / 11155111</dd></div><div><dt>Per-call ceiling</dt><dd>$0.01 test USDC</dd></div><div><dt>Per-run ceiling</dt><dd>$0.02 test USDC</dd></div></dl><p class="boundary-note">Funding is an on-demand testnet transaction (with selectable $0.02, $1.00, or $3.00 amounts). Each signature or transaction needs your own approval. Receipts, delivery evidence and final settlement are different states.</p></aside></section>
+</div><aside class="panel wallet-guide"><p class="eyebrow">Wallet &amp; network</p><div aria-hidden="true" class="wallet-symbol">â—‡</div><h2>Your keys.<br/>Your approval.</h2><p>Use the wallet connection at the top of this workspace. Connecting grants account access only.</p><dl><div><dt>Network</dt><dd>Ethereum Sepolia / 11155111</dd></div><div><dt>Per-call ceiling</dt><dd>$0.01 test USDC</dd></div><div><dt>Per-run ceiling</dt><dd>$0.02 test USDC</dd></div></dl><p class="boundary-note">Funding is an on-demand testnet transaction (with selectable $0.02, $1.00, or $3.00 amounts). Each signature or transaction needs your own approval. Receipts, delivery evidence and final settlement are different states.</p></aside></section>
 <section aria-busy="false" aria-label="Assessment result" aria-live="polite" class="out-region workspace-results" id="out">
-<p class="empty-state">Choose Offline assessment or LIVE · Sepolia above to begin. Results appear here for the selected mode.</p>
+<p class="empty-state">Choose Offline assessment or LIVE Â· Sepolia above to begin. Results appear here for the selected mode.</p>
 </section>
 </div>
 </div>
@@ -790,7 +792,7 @@ html{scroll-padding-top:20px}body{background:radial-gradient(ellipse at 76% 8%,#
 <h2 id="lb-title">Your miners, ranked</h2>
 <p class="field-help">Public leaderboard data from the Telegraph devnode — no wallet needed.</p>
 <button class="action-button" id="lb-refresh" type="button">Refresh ranks</button>
-<div aria-live="polite" id="lb-body">Loading ranks…</div>
+<div aria-live="polite" id="lb-body">Loading ranksâ€¦</div>
 </section>
 <footer class="app-footer"><p>Leaderlight / Listings Desk<br/><span>Application policy and supplied evidence only.</span></p><p>Independent app, not endorsed by Telegraph. The Telegraph mark belongs to its owner. Wallet connection alone never authorizes a signature, transaction or payment.</p></footer>
 </main>
@@ -819,7 +821,7 @@ form.addEventListener("submit", async (event) => {
   button.disabled = true;
   output.dataset.resultMode = "offline";
   output.hidden = false;
-  button.textContent = mockMode ? "Running offline demo…" : "Running assessment…";
+  button.textContent = mockMode ? "Running offline demoâ€¦" : "Running assessmentâ€¦";
   output.setAttribute("aria-busy", "true");
   const loading = document.createElement("p");
   loading.className = "request-state" + (mockMode ? "" : " request-state--real");
@@ -990,14 +992,14 @@ function initializeWalletConnection() {
     window.__listingsWallet = { address: first, accounts, provider: activeProvider, chainId };
     window.__listingsProvider = activeProvider;
     window.dispatchEvent(new CustomEvent("listings:wallet", { detail: { address: first, chainId } }));
-    button.textContent = `Connected · ${first.slice(0, 6)}…${first.slice(-4)}`;
+    button.textContent = `Connected Â· ${first.slice(0, 6)}â€¦${first.slice(-4)}`;
     button.setAttribute("aria-label", `Connected MetaMask account ${first}`);
-    disconnectButton.hidden = false;
+    disconnectButton.hidden = true;
     const additionalAccounts = accounts.length > 1 ? ` (${accounts.length} accounts)` : "";
     showStatus(
       String(chainId).toLowerCase() === LIVE_PAYMENT_LIMITS.chainId
         ? `Connected${additionalAccounts}: ${accounts.join(", ")}. Account access alone does not sign or pay.`
-        : `Connected${additionalAccounts}, but MetaMask is not on Ethereum Sepolia. Switch networks before live actions.`,
+        : `Connected${additionalAccounts}, but on the wrong network (chain ${/^0x/i.test(String(chainId)) ? BigInt(chainId).toString(10) : chainId}). Balances load only on Ethereum Sepolia.`,
       String(chainId).toLowerCase() === LIVE_PAYMENT_LIMITS.chainId ? "connected" : "error"
     );
   }
@@ -1051,12 +1053,16 @@ function initializeWalletConnection() {
     button.textContent = "Connect MetaMask";
     button.removeAttribute("aria-label");
     disconnectButton.hidden = true;
-    showStatus("Disconnected from Leaderlight. MetaMask may still authorize this site; revoke access in MetaMask to remove that permission.", "idle");
+    showStatus("This only disconnects this page. To remove site access, open MetaMask, Connected sites, and disconnect leaderlight.vercel.app.", "idle");
   });
 
   button.addEventListener("click", async () => {
+    if (window.__listingsWallet) {
+      disconnectButton.hidden = !disconnectButton.hidden;
+      return;
+    }
     button.disabled = true;
-    button.textContent = "Waiting for MetaMask…";
+    button.textContent = "Waiting for MetaMaskâ€¦";
     button.setAttribute("aria-busy", "true");
     showStatus("Approve account access in MetaMask. No signature or payment is requested.", "pending");
 
@@ -1088,9 +1094,9 @@ if (typeof window !== "undefined" && typeof document !== "undefined") {
 }
 
 // === Telegraph LIVE wiring (Ethereum Sepolia, post-migration) ===
-const DIAMOND = "0x3624EB012B5E998BB57B6bE6C9Cfc9c4bc5eb99b";
+const DIAMOND = "0x72a70e949362670Bf8bceAd24eFC5b8f950aa08b";
 const USDC = "0xcc194e1a843B658526D0D5C431f670028582Ae17";
-// Same-origin proxy (api/engine) → devnode. The node's CORS preflight omits
+// Same-origin proxy (api/engine) â†’ devnode. The node's CORS preflight omits
 // the Access-Control-Allow-* headers, which blocks browser fetches; the proxy
 // is dumb transport with no keys — signing stays in the visitor's browser.
 const ENGINE_BASE = "/api/engine";
@@ -1182,7 +1188,7 @@ function renderLiveMemo(list, wallet, runError = null) {
   const heading = document.createElement("div");
   heading.className = "memo-result-head";
   const headingCopy = document.createElement("div");
-  headingCopy.append(element("p", "memo-eyebrow", "LIVE sanctions assessment · testnet"));
+  headingCopy.append(element("p", "memo-eyebrow", "LIVE sanctions assessment Â· testnet"));
   const candidateName = list.find((run) => typeof run.params?.name === "string")?.params.name ?? "candidate";
   headingCopy.append(element("h2", "", candidateName));
   heading.append(headingCopy);
@@ -1204,11 +1210,11 @@ function renderLiveMemo(list, wallet, runError = null) {
     title.append(element("code", "", run.intent ?? data.intent ?? "Unknown intent"));
     cardHead.append(title);
     const state = run.receiptValid
-      ? "PROTOCOL RECEIPT · EPOCH SETTLEMENT UNCONFIRMED"
+      ? "PROTOCOL RECEIPT Â· EPOCH SETTLEMENT UNCONFIRMED"
       : run.paymentStatus === "not_authorized"
         ? "NO PAYMENT AUTHORIZED"
         : run.status === "authorization_pending" || run.status === "unknown"
-          ? "UNKNOWN · RECONCILIATION REQUIRED"
+          ? "UNKNOWN Â· RECONCILIATION REQUIRED"
           : "NO VALID RECEIPT";
     cardHead.append(element("span", "memo-pill status--unknown", state));
     card.append(cardHead);
@@ -1218,10 +1224,11 @@ function renderLiveMemo(list, wallet, runError = null) {
     appendDetail(grid, "Miner", `${data.miner_name ?? "Not provided"}${data.miner_id == null ? "" : ` (#${data.miner_id})`}`);
     appendDetail(grid, "Engine cost", formattedCost(data.cost_usd));
     appendDetail(grid, "Latency", formattedDuration(data.duration_ms));
-    appendDetail(grid, "Receipt amount", run.receiptValid ? `${run.receipt.amount_uusdc} μUSDC` : "Unavailable");
+    appendDetail(grid, "Receipt amount", run.receiptValid ? `${run.receipt.amount_uusdc} Î¼USDC` : "Unavailable");
     appendDetail(grid, "Receipt hash", run.receiptValid ? run.receipt.receipt_hash : "Unavailable", true);
     appendDetail(grid, "Signal", typeof data.signal_hash === "string" && /^0x[0-9a-f]{64}$/i.test(data.signal_hash) ? data.signal_hash : "Unavailable", true);
-    appendDetail(grid, "Protocol status", run.receiptValid ? `Epoch ${run.receipt.epoch_id} · not independently settled` : "Unknown or absent");
+    appendDetail(grid, "Protocol status", run.receiptValid ? `Epoch ${run.receipt.epoch_id} Â· not independently settled` : "Unknown or absent");
+    if (!run.receiptValid && run.receipt) appendDetail(grid, "Raw receipt (unvalidated)", JSON.stringify(run.receipt), true);
     card.append(grid);
     const raw = element("pre", "memo-raw", JSON.stringify(data.result ?? data, null, 2));
     card.append(raw);
@@ -1229,7 +1236,7 @@ function renderLiveMemo(list, wallet, runError = null) {
   }
   shell.append(section);
   const totalText = receiptAmounts.length
-    ? `${totalMicro.toString()} μUSDC across ${receiptAmounts.length} validated protocol receipt(s); this is not final settlement.`
+    ? `${totalMicro.toString()} Î¼USDC across ${receiptAmounts.length} validated protocol receipt(s); this is not final settlement.`
     : "Verified receipt total unavailable; no amount has been inferred.";
   shell.append(element("p", "memo-footer", `Validated receipt amounts: ${totalText}${window.__identicalAssessmentNames ? " Identical deployer and treasury names were checked once and charged once." : ""}`));
   return shell;
@@ -1250,7 +1257,7 @@ if (runLive) runLive.addEventListener("click", async () => {
   ];
   const identicalNames = deployer === treasury;
   window.__identicalAssessmentNames = identicalNames;
-  if (identicalNames) jobs.pop();
+  if (identicalNames) jobs.splice(1, 1);
   if (jobs.length === 0) {
     out.replaceChildren(Object.assign(document.createElement("p"), {
       className: "request-error", role: "alert",
@@ -1322,7 +1329,9 @@ if (runLive) runLive.addEventListener("click", async () => {
     if (/payment outcome could not be saved/i.test(failure)) {
       out.replaceChildren(Object.assign(document.createElement("p"), {
         className: "request-error", role: "alert",
-        textContent: "The wallet may have authorized this payment, but the outcome could not be saved. Reconcile the saved request before trying again. No payment history was cleared; do not clear these records.",
+        textContent: /before signing/i.test(failure)
+          ? "Payment history could not be saved before signing. No signature was requested and no payment was authorized. Nothing was cleared; do not clear these records."
+          : "The wallet may have authorized this payment, but the outcome could not be saved. Reconcile the saved request before trying again. No payment history was cleared; do not clear these records.",
       }));
       runLive.dataset.paymentBlocked = "true";
     } else if (/unresolved authorization|prior request may already have been authorized|already authorized in the current assessment run|New assessment before repeating/i.test(failure)) {
@@ -1412,18 +1421,21 @@ if (newAssessmentBtn) {
 
 function setLiveState(address, chainId = connectedWallet()?.chainId) {
   const onSepolia = Boolean(address) && String(chainId).toLowerCase() === LIVE_PAYMENT_LIMITS.chainId;
+  const chainDecimal = /^0x[0-9a-f]+$/i.test(String(chainId)) ? BigInt(chainId).toString(10) : String(chainId);
   for (const c of liveControls) {
     c.disabled = !onSepolia || (c === runLive && runLive.dataset.paymentBlocked === "true");
   }
   if (liveState) liveState.textContent = !address
     ? "Connect MetaMask (top right) to enable testnet actions. No signature or payment is requested by connecting."
     : onSepolia
-      ? "Wallet " + address.slice(0, 6) + "…" + address.slice(-4) + " connected to Ethereum Sepolia. Each transaction or request requires a separate approval."
-      : "Wallet connected on the wrong network. Switch MetaMask to Ethereum Sepolia (chain ID 11155111) before live actions.";
+      ? "Wallet " + address.slice(0, 6) + "â€¦" + address.slice(-4) + " connected to Ethereum Sepolia. Each transaction or request requires a separate approval."
+      : `Connected, but on the wrong network (chain ${chainDecimal}). Balances load only on Ethereum Sepolia.`;
   if (modeBadge) {
     modeBadge.textContent = onSepolia ? "TESTNET LIVE" : "SIMULATED / OFFLINE";
     modeBadge.classList.toggle("mode-badge--live", onSepolia);
   }
+  const switchButton = document.getElementById("wallet-switch");
+  if (switchButton) switchButton.hidden = !address || onSepolia;
   if (stepConnect) stepConnect.classList.toggle("done", onSepolia);
 }
 window.addEventListener("listings:wallet", (e) => setLiveState(e.detail?.address ?? null, e.detail?.chainId));
@@ -1512,6 +1524,8 @@ function renderFundingState(state) {
   const usdcEl = document.getElementById("bal-usdc");
   const spendableEl = document.getElementById("bal-spendable");
   const allowanceEl = document.getElementById("bal-allowance");
+  const rawEl = document.getElementById("bal-raw");
+  const reservedEl = document.getElementById("bal-reserved");
   const breakdownEl = document.getElementById("bal-breakdown");
   const optionsEl = document.getElementById("funding-options");
 
@@ -1520,69 +1534,61 @@ function renderFundingState(state) {
     if (usdcEl) usdcEl.textContent = "—";
     if (spendableEl) spendableEl.textContent = "—";
     if (allowanceEl) allowanceEl.textContent = "—";
-    if (breakdownEl) breakdownEl.textContent = "Connect wallet to inspect effective spendable balance.";
+    if (rawEl) rawEl.textContent = "—";
+    if (reservedEl) reservedEl.textContent = "—";
+    if (rawEl) rawEl.textContent = "—";
+    if (reservedEl) reservedEl.textContent = "—";
+    if (breakdownEl) breakdownEl.textContent = "Connect wallet to inspect estimated spendable escrow.";
     if (optionsEl) optionsEl.style.display = "none";
     return;
   }
 
   if (ethEl) ethEl.textContent = state.ethBalanceWei != null
     ? (Number(state.ethBalanceWei) / 1e18).toFixed(4) + " ETH"
-    : (state.ethBalanceReadError ? "Read error" : "—");
+    : (state.ethBalanceReadError ? "Could not read this balance" : "—");
 
   if (usdcEl) usdcEl.textContent = state.usdcBalanceMicro != null
     ? (Number(state.usdcBalanceMicro) / 1e6).toFixed(2) + " USDC"
-    : (state.usdcBalanceReadError ? "Read error" : "—");
+    : (state.usdcBalanceReadError ? "Could not read this balance" : "—");
 
+  if (rawEl) rawEl.textContent = state.rawEscrowBalanceMicro != null ? "$" + (Number(state.rawEscrowBalanceMicro) / 1e6).toFixed(4) + " USDC" : (state.ledgerReadError ? "Could not read Escrow, raw" : "—");
+  if (reservedEl) reservedEl.textContent = "$" + (Number(state.pendingLiabilitiesMicro ?? 0n) / 1e6).toFixed(4) + " USDC";
   if (allowanceEl) allowanceEl.textContent = state.allowanceMicro != null
     ? (Number(state.allowanceMicro) / 1e6).toFixed(2) + " USDC"
-    : (state.allowanceReadError ? "Read error" : "—");
+    : (state.allowanceReadError ? "Could not read this balance" : "—");
 
   if (spendableEl) spendableEl.textContent = state.spendableEscrowMicro != null
     ? "$" + (Number(state.spendableEscrowMicro) / 1e6).toFixed(4) + " USDC"
-    : (state.effectiveEscrowReadError || state.agentDebtReadError || state.liabilitiesReadError ? "Unavailable" : "—");
+    : (state.ledgerReadError || state.liabilitiesReadError ? "Could not read Estimated spendable escrow" : "—");
 
   const notes = [];
   if (state.rawEscrowBalanceMicro != null) {
     notes.push(`Raw escrow: $${(Number(state.rawEscrowBalanceMicro) / 1e6).toFixed(4)}`);
   }
-  if (state.agentDebtMicro && state.agentDebtMicro > 0n) {
-    notes.push(`Agent debt: $${(Number(state.agentDebtMicro) / 1e6).toFixed(4)} (outstanding debt suspends delivery)`);
-  }
-  if (state.pendingWithdrawalMicro && state.pendingWithdrawalMicro > 0n) {
-    notes.push(`Pending withdrawal: $${(Number(state.pendingWithdrawalMicro) / 1e6).toFixed(4)}`);
-  }
-  if (state.pendingLiabilitiesMicro && state.pendingLiabilitiesMicro > 0n) {
+      if (state.pendingLiabilitiesMicro && state.pendingLiabilitiesMicro > 0n) {
     notes.push(`Unsettled commitments: $${(Number(state.pendingLiabilitiesMicro) / 1e6).toFixed(4)}`);
   }
   if (state.liabilitiesReadError) {
     notes.push("Liabilities ledger unreadable; reconcile storage before spending.");
   }
-  if (state.agentDebtReadError) {
-    notes.push("Agent debt unreadable from contract; escrow not confirmed ready.");
-  }
-  notes.push("Estimate only: protocol receipts remain reserved because no verified on-chain settlement signal is wired here. Local device commitments are counted; multi-device spend cannot be tracked locally.");
+    notes.push("Estimate only: protocol receipts remain reserved because no verified on-chain settlement signal is wired here. Local device commitments are counted; multi-device spend cannot be tracked locally.");
 
   const runNeeds = 20_000n; // $0.02
-  const hasDebt = (state.agentDebtMicro ?? 0n) > 0n;
-  const hasReadErrors = Boolean(state.agentDebtReadError || state.liabilitiesReadError || state.effectiveEscrowReadError);
-  const hasSufficientSpendable = !hasDebt && !hasReadErrors && state.spendableEscrowMicro != null && state.spendableEscrowMicro >= runNeeds;
+    const hasReadErrors = Boolean(state.ledgerReadError || state.liabilitiesReadError || state.allowanceReadError || state.usdcBalanceReadError || state.ethBalanceReadError);
+  const hasSufficientSpendable = !hasReadErrors && state.spendableEscrowMicro != null && state.spendableEscrowMicro >= runNeeds;
 
   if (breakdownEl) {
-    if (hasDebt) {
-      notes.push("Outstanding agent debt must be cleared with a deposit before starting an assessment.");
-      breakdownEl.textContent = notes.join(" · ");
-      breakdownEl.style.color = "var(--ld-caution)";
-    } else if (hasReadErrors) {
+    if (hasReadErrors) {
       notes.push("Accounting data could not be verified; spending is blocked until readable.");
-      breakdownEl.textContent = notes.join(" · ");
+      breakdownEl.textContent = notes.join(" Â· ");
       breakdownEl.style.color = "var(--ld-caution)";
     } else if (hasSufficientSpendable) {
       notes.push("Sufficient spendable escrow for live assessment ($0.02 max). No top-up needed.");
-      breakdownEl.textContent = notes.join(" · ");
+      breakdownEl.textContent = notes.join(" Â· ");
       breakdownEl.style.color = "var(--ld-primary-strong)";
     } else {
       notes.push("Spendable balance is below assessment ceiling ($0.02). Choose a top-up below if funding.");
-      breakdownEl.textContent = notes.join(" · ");
+      breakdownEl.textContent = notes.join(" Â· ");
       breakdownEl.style.color = "var(--ld-caution)";
     }
   }
@@ -1602,6 +1608,11 @@ async function refreshBalances() {
   const revision = currentWalletRevision();
   if (!wallet || !provider || String(connectedWallet()?.chainId).toLowerCase() !== LIVE_PAYMENT_LIMITS.chainId) {
     renderFundingState(null);
+    if (wallet && liveState) {
+      const chainId = connectedWallet()?.chainId;
+      const chainDecimal = /^0x[0-9a-f]+$/i.test(String(chainId)) ? BigInt(chainId).toString(10) : String(chainId);
+      liveState.textContent = `Connected, but on the wrong network (chain ${chainDecimal}). Balances load only on Ethereum Sepolia.`;
+    }
     return;
   }
   try {
@@ -1611,11 +1622,32 @@ async function refreshBalances() {
     });
     renderFundingState(state);
   } catch (err) {
-    console.warn("Could not read wallet funding state:", err);
+    renderFundingState({ ethBalanceReadError: "read failed", usdcBalanceReadError: "read failed", allowanceReadError: "read failed", ledgerReadError: "read failed", liabilitiesReadError: "read failed" });
+    const b = document.getElementById("bal-breakdown"); if (b) b.textContent = "Could not read escrow ledger. Live controls remain blocked until a successful refresh.";
   }
 }
 
 if (refreshBtn) refreshBtn.addEventListener("click", refreshBalances);
+const switchNetworkButton = document.getElementById("wallet-switch");
+if (switchNetworkButton) switchNetworkButton.addEventListener("click", async () => {
+  const provider = connectedProvider();
+  if (!provider) return;
+  switchNetworkButton.disabled = true;
+  try {
+    await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0xaa36a7" }] });
+    const chainId = await provider.request({ method: "eth_chainId" });
+    if (connectedWallet()) connectedWallet().chainId = chainId;
+    window.__listingsWalletRevision = currentWalletRevision() + 1;
+    setLiveState(connectedAddress(), chainId);
+    await refreshBalances();
+  } catch (error) {
+    const message = error?.code === 4001 ? "Network switch was rejected. No network was changed." : error?.code === 4902
+      ? "MetaMask does not know Ethereum Sepolia (chain ID 11155111). Add it in MetaMask, then try the switch again."
+      : `Could not switch to Ethereum Sepolia: ${String(error?.message ?? error)}`;
+    const status = document.getElementById("wallet-status");
+    if (status) status.textContent = message;
+  } finally { switchNetworkButton.disabled = false; }
+});
 
 if (fund002) fund002.addEventListener("click", () => walletAction("Escrow top-up $0.02", (w, opts) => fundEscrow(w, 20_000n, opts)));
 if (fund100) fund100.addEventListener("click", () => walletAction("Escrow top-up $1.00", (w, opts) => fundEscrow(w, 1_000_000n, opts)));
@@ -1631,30 +1663,25 @@ async function walletAction(label, run) {
   const provider = connectedProvider();
   const revision = currentWalletRevision();
   for (const c of liveControls) c.disabled = true;
-  if (actionNote) actionNote.textContent = label + " — approve in MetaMask…";
+  if (actionNote) actionNote.textContent = label + " — approve in MetaMaskâ€¦";
   try {
     const tx = await run(wallet, {
       onStage: (stage, detail) => {
         if (!actionNote) return;
         if (stage === "approval_pending") {
-          actionNote.textContent = `${label} — approving USDC in MetaMask (${detail.needed} μUSDC)…`;
+          actionNote.textContent = `${label} — approving USDC in MetaMask (${detail.needed} Î¼USDC)â€¦`;
         } else if (stage === "approval_confirmed") {
-          actionNote.textContent = `${label} — USDC approved, preparing deposit transaction…`;
-        } else if (stage === "approval_skipped") {
-          actionNote.textContent = `${label} — existing allowance sufficient, preparing deposit…`;
+          actionNote.textContent = `${label} — USDC approved, preparing deposit transactionâ€¦`;
         } else if (stage === "deposit_pending") {
-          actionNote.textContent = `${label} — confirming escrow deposit in MetaMask (${detail.amount} μUSDC)…`;
+          actionNote.textContent = `${label} — confirming escrow deposit in MetaMask (${detail.amount} Î¼USDC)â€¦`;
         } else if (stage === "deposit_confirmed") {
-          const debtRepaidText = detail.debtRepaid && BigInt(detail.debtRepaid) > 0n
-            ? ` Repaid debt: ${detail.debtRepaid} μUSDC.`
-            : "";
-          actionNote.textContent = `${label} confirmed!${debtRepaidText} Refreshed spendable escrow: ${detail.balanceMicro} μUSDC. Tx: ${detail.depositHash}.`;
+          actionNote.textContent = `${label} confirmed! Node ledger deposited: ${detail.depositedMicro} uUSDC. Tx: ${detail.depositHash}.`;
         }
       },
     });
     if (actionNote && !actionNote.textContent.includes("confirmed!")) {
       actionNote.textContent = label.startsWith("Escrow")
-        ? `Escrow funding confirmed: refreshed escrow balance ${tx.balanceMicro} μUSDC. Deposit tx ${tx.depositHash}.`
+        ? `Escrow funding confirmed: refreshed escrow balance ${tx.balanceMicro} Î¼USDC. Deposit tx ${tx.depositHash}.`
         : `${label} confirmed in a mined Sepolia transaction: ${String(tx)}.`;
     }
     await refreshBalances();
@@ -1700,7 +1727,7 @@ async function lbLoad() {
         group.append(leaderboardRow(slug, "absent"));
         return group;
       }
-      group.append(element("p", "eyebrow", `${slug} · ${m.activation_status ?? "status unavailable"}`));
+      group.append(element("p", "eyebrow", `${slug} Â· ${m.activation_status ?? "status unavailable"}`));
       const scores = Array.isArray(m.scores) ? m.scores : [];
       if (!scores.length) group.append(leaderboardRow("No scores reported"));
       for (const score of scores) {

@@ -1,11 +1,11 @@
-import { test } from "node:test";
+﻿import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { paymentRequestId, performPaidAsk, readAttemptLedger, saveAttempt, validateEscrowReceipt, isMatchingAnswer } from "../public/live-payment.mjs";
 
 const wallet = "0x1111111111111111111111111111111111111111";
-const payTo = "0x3624eb012b5e998bb57b6be6c9cfc9c4bc5eb99b";
+const payTo = "0x72a70e949362670bf8bcead24efc5b8f950aa08b";
 const origin = "https://desk.example";
 const requestUrl = `${origin}/api/engine/v1/ask`;
 const intent = "SANCTIONS_SCREENING_MATCH_GENERAL";
@@ -22,7 +22,7 @@ test("mocked: wallet disconnect control clears Leaderlight access and leaves Met
   assert.match(html, /id="wallet-disconnect"/);
   assert.match(html, /window\.__listingsWallet = null/);
   assert.match(html, /removeListener\("accountsChanged"/);
-  assert.match(html, /revoke access in MetaMask/);
+  assert.match(html, /This only disconnects this page/);
 });
 
 test("mocked: offline and live workspaces are tabbed and keep their results separated", () => {
@@ -143,6 +143,6 @@ test("mocked: serialized ledger does not store duplicate history or indexes", ()
 test("mocked: identical deployer and treasury names generate one receipt and one cost", () => {
   const html = readFileSync(new URL("../public/leaderlight-live.html", import.meta.url), "utf8");
   assert.equal(html.includes("const identicalNames = deployer === treasury"), true);
-  assert.equal(html.includes("if (identicalNames) jobs.pop()"), true);
+  assert.equal(html.includes("if (identicalNames) jobs.splice(1, 1)"), true);
   assert.equal(html.includes("checked once and charged once"), true);
 });

@@ -1,4 +1,4 @@
-import { test } from "node:test";
+﻿import { test } from "node:test";
 import assert from "node:assert/strict";
 import { runDesk, contentDigest } from "../src/desk.mjs";
 import { ENGINE_INTENT_BY_CHECK, resolveCaps } from "../src/config.mjs";

@@ -1,4 +1,4 @@
-import {chromium} from 'playwright';
+﻿import {chromium} from 'playwright';
 import {spawn} from 'node:child_process';
 import fs from 'node:fs';
 import assert from 'node:assert/strict';

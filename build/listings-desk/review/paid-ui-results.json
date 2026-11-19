@@ -13,8 +13,8 @@
       "scenario": "partial",
       "pass": true,
       "mockedSignatures": 2,
-      "authorizedMockResponses": 3,
-      "asks": 6,
+      "authorizedMockResponses": 2,
+      "asks": 4,
       "externalCalls": 0
     },
     {

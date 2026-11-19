@@ -2,6 +2,10 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
     {
+      "source": "/api/ledger/account/:address",
+      "destination": "/api/ledger?address=:address"
+    },
+    {
       "source": "/api/engine/v1/ask",
       "destination": "/api/engine"
     },

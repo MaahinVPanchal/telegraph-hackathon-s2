@@ -1,4 +1,4 @@
-import {chromium} from 'playwright';import assert from 'node:assert/strict';import fs from 'node:fs';
+﻿import {chromium} from 'playwright';import assert from 'node:assert/strict';import fs from 'node:fs';
 fs.mkdirSync('review/screenshots',{recursive:true});
 const browser=await chromium.launch({executablePath:'/usr/bin/google-chrome',headless:true,args:['--no-sandbox']});const results=[],errors=[],paid=[];
 try{const page=await browser.newPage();page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(r.method()==='POST')paid.push(r.url())});

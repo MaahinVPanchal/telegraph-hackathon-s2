@@ -1,4 +1,4 @@
-// Scheduled escrow + miner health check. One paid request (~$0.01) per run,
+﻿// Scheduled escrow + miner health check. One paid request (~$0.01) per run,
 // routed to our onchain miner. Verifies the payment rail end-to-end.
 //   node escrow-check.mjs [minerId]
 import { readFileSync } from "node:fs";
@@ -13,7 +13,7 @@ const env = Object.fromEntries(
 );
 
 const RPC = env.RPC_URL;
-const DIAMOND = "0x3624EB012B5E998BB57B6bE6C9Cfc9c4bc5eb99b";
+const DIAMOND = "0x72a70e949362670Bf8bceAd24eFC5b8f950aa08b";
 const USDC = "0xcc194e1a843B658526D0D5C431f670028582Ae17";
 const MACHINA = "0xd68305cA83C7AF42A4F720144E7416fB53F8AaF4";
 const MINER_ID = process.argv[2] ?? "9602";
@@ -37,7 +37,7 @@ const balanceOfData = (addr) =>
 const eth = Number(BigInt((await rpc("eth_getBalance", [wallet, "latest"])).result ?? "0x0")) / 1e18;
 const usdc = Number(BigInt((await ethCall(USDC, balanceOfData(wallet)).then((r) => r ?? "0x0"))) ) / 1e6;
 const machina = Number(BigInt((await ethCall(MACHINA, balanceOfData(wallet)).then((r) => r ?? "0x0")))) / 1e18;
-console.log(`wallet: ${eth.toFixed(4)} ETH · ${usdc.toFixed(2)} USDC · ${machina.toFixed(2)} MACHINA`);
+console.log(`wallet: ${eth.toFixed(4)} ETH Â· ${usdc.toFixed(2)} USDC Â· ${machina.toFixed(2)} MACHINA`);
 
 // === 2. Our three miners in the catalogue ===
 const miners = await fetch("https://devnode.telegraphprotocol.com/api/miners").then((r) => r.json());
@@ -74,7 +74,7 @@ if (res.ok) {
   const j = await res.json();
   console.log("answer:", JSON.stringify(j.result ?? {}).slice(0, 150));
   console.log("signal:", j.signal_hash);
-  if (receipt) console.log("settlement: paid", receipt.amount_uusdc, "μUSDC | epoch", receipt.epoch_id, "| miner", receipt.miner);
+  if (receipt) console.log("settlement: paid", receipt.amount_uusdc, "Î¼USDC | epoch", receipt.epoch_id, "| miner", receipt.miner);
   const usdcAfter = Number(BigInt((await ethCall(USDC, balanceOfData(wallet)).then((r) => r ?? "0x0")) )) / 1e6;
   console.log("USDC after:", usdcAfter.toFixed(2), "(the deduction settles at the next epoch close)");
 } else {

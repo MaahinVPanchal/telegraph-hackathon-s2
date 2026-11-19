@@ -1,4 +1,4 @@
-import { test } from "node:test";
+﻿import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   encodeFunctionCall,
@@ -52,6 +52,38 @@ test("nested prior history flattens recursively and de-duplicates while preservi
   assert.ok(flat.some((a) => ["authorization_pending", "unknown", "protocol_receipt"].includes(a.status)));
 });
 
+test("legacy four-level history migrates under the wallet lock, preserves statuses, and still blocks retry", async () => {
+  const saved = storage();
+  const params = { name: "Nested Legacy" };
+  const reqId = await paymentRequestId(walletA, intent, params);
+  const oldRecord = (attemptId, status, priorAttempts = []) => ({ attemptId, requestId: reqId, wallet: walletA, runId: "old-run", status, authorizationStarted: true, amountMicro: "10000", answer: { body: "x".repeat(1000) }, receipt: { receipt_hash: `0x${"a".repeat(64)}`, epoch_id: 5 }, priorAttempts });
+  const nested = oldRecord("a4", "protocol_receipt", [oldRecord("a3", "unknown", [oldRecord("a2", "authorization_pending", [oldRecord("a1", "protocol_receipt")])])]);
+  saved.setItem("leaderlight.live-attempts.v1", JSON.stringify({ version: 1, attempts: { [reqId]: nested } }));
+  assert.deepEqual(readAttemptLedger(saved).history.map((a) => a.attemptId), ["a1", "a2", "a3", "a4"]);
+  await assert.rejects(() => performPaidAsk({ provider: fakeWallet(), wallet: walletA, intent, params, requestUrl, runId: "retry", storage: saved, payTo: diamond, origin, fetchImpl: async () => { throw new Error("must remain blocked"); } }), /unresolved authorization|already authorized/);
+  const persisted = JSON.parse(saved.getItem("leaderlight.live-attempts.v1"));
+  assert.deepEqual(Object.keys(persisted).sort(), ["attempts", "version"]);
+  const prior = persisted.attempts[reqId].priorAttempts;
+  assert.deepEqual(prior.map((a) => a.attemptId), ["a1", "a2", "a3"]);
+  assert.deepEqual(prior.map((a) => a.status), ["protocol_receipt", "authorization_pending", "unknown"]);
+  assert.ok(prior.every((a) => !("answer" in a) && !("receipt" in a)));
+  assert.equal(prior[0].receiptHash, `0x${"a".repeat(64)}`);
+  assert.equal(prior[0].receiptEpoch, 5);
+});
+
+test("legacy history migration write failure fails closed before any Engine request or signature", async () => {
+  const saved = storage();
+  const params = { name: "Unwritable Legacy" };
+  const reqId = await paymentRequestId(walletA, intent, params);
+  saved.setItem("leaderlight.live-attempts.v1", JSON.stringify({ version: 1, attempts: { [reqId]: { attemptId: "old", requestId: reqId, wallet: walletA, status: "protocol_receipt", authorizationStarted: true, amountMicro: "10000", priorAttempts: [{ attemptId: "older", wallet: walletA, status: "unknown", authorizationStarted: true, amountMicro: "10000", priorAttempts: [{ attemptId: "oldest", wallet: walletA, status: "authorization_pending", authorizationStarted: true, amountMicro: "10000" }] }] } } }));
+  saved.setItem = () => { throw new DOMException("QuotaExceededError", "QuotaExceededError"); };
+  let signs = 0;
+  const wallet = fakeWallet();
+  wallet.request = async (request) => { if (request.method === "eth_chainId") return "0xaa36a7"; if (request.method === "eth_accounts") return [walletA]; if (request.method === "personal_sign") signs++; throw new Error(`unexpected ${request.method}`); };
+  await assert.rejects(() => performPaidAsk({ provider: wallet, wallet: walletA, intent, params, requestUrl, runId: "migration-failed", storage: saved, payTo: diamond, origin, fetchImpl: async () => { throw new Error("must not fetch"); } }), /migration could not be saved/);
+  assert.equal(signs, 0);
+});
+
 test("a blocked assessment does not consume its New assessment intent", async () => {
   const saved = storage();
   const params = { name: "Blocked Entity" };
@@ -68,11 +100,12 @@ test("a blocked assessment does not consume its New assessment intent", async ()
 
 const walletA = "0x1111111111111111111111111111111111111111";
 const walletB = "0x2222222222222222222222222222222222222222";
-const diamond = "0x3624eb012b5e998bb57b6be6c9cfc9c4bc5eb99b";
+const diamond = "0x72a70e949362670bf8bcead24efc5b8f950aa08b";
 const usdc = "0xcc194e1a843b658526d0d5c431f670028582ae17";
 const origin = "https://desk.example";
 const requestUrl = `${origin}/api/engine/v1/ask`;
 const intent = "SANCTIONS_SCREENING_MATCH_GENERAL";
+const ledgerFetch = (read) => async () => ({ ok: true, json: async () => ({ deposited: String(read()), withdrawn: "0", charged: "0", credited: "0", unbilled: "0", balance: String(read()), available: String(read()), charge_limit: "0", charged_this_block: "0" }) });
 const network = "eip155:11155111";
 
 const storage = () => {
@@ -373,8 +406,8 @@ test("6. Repeating prior inputs requires a single-use New assessment intent", as
   assert.equal(res2.paymentStatus, "protocol_receipt");
 });
 
-// 7. Sufficient effective escrow skips mint/approval/deposit. Low effective balance with high raw escrow, debt or withdrawal is handled
-test("7. Sufficient spendable escrow skips funding; debt, pending withdrawal & liabilities reduce spendable balance", async () => {
+// 7. The node's documented available amount and local commitments determine the conservative estimate.
+test("7. Documented ledger available minus local liabilities determines estimated spendable balance", async () => {
   const mockProvider = {
     request: async (req) => {
       if (req.method === "eth_chainId") return "0xaa36a7";
@@ -386,12 +419,6 @@ test("7. Sufficient spendable escrow skips funding; debt, pending withdrawal & l
         if (to === usdc) {
           if (data.startsWith("0x70a08231")) return "0x989680"; // 10 USDC
           if (data.startsWith("0xdd62ed3e")) return "0x989680"; // 10 USDC allowance
-        }
-        if (to === diamond) {
-          if (data.startsWith("0x55af6353")) return "0x4c4b40"; // Raw escrow: 5 USDC
-          if (data.startsWith("0x16a398f7")) return "0x2dc6c0"; // Effective balance: 3 USDC
-          if (data.startsWith("0xdb9104c6")) return "0x1e8480"; // Agent debt: 2 USDC (5 - 2 = 3)
-          if (data.startsWith("0x0964c95b")) return "0x" + "00000000000000000000000000000000000000000000000000000000000f4240".padEnd(128, "0"); // 1 USDC pending withdrawal
         }
         return "0x0";
       }
@@ -407,11 +434,11 @@ test("7. Sufficient spendable escrow skips funding; debt, pending withdrawal & l
 
   const state = await readWalletFundingState({
     provider: mockProvider, wallet: walletA, usdc, diamond, storage: saved,
+    fetchImpl: async () => ({ ok: true, json: async () => ({ deposited: "5000000", withdrawn: "0", charged: "0", credited: "0", unbilled: "0", balance: "5000000", available: "3000000", charge_limit: "0", charged_this_block: "0" }) }),
   });
 
   assert.equal(state.rawEscrowBalanceMicro, 5_000_000n);
   assert.equal(state.effectiveEscrowBalanceMicro, 3_000_000n);
-  assert.equal(state.agentDebtMicro, 2_000_000n);
   assert.equal(state.pendingLiabilitiesMicro, 10_000n);
   // Spendable balance = effectiveBalance (3 USDC) - pendingLiabilities (0.01 USDC) = 2.99 USDC
   assert.equal(state.spendableEscrowMicro, 2_990_000n);
@@ -438,19 +465,20 @@ test("8. Bounded top-up funding respects existing allowance and handles approval
         }
         return "0x0";
       }
-      if (req.method === "eth_sendTransaction") return `0x${"e".repeat(64)}`;
+      if (req.method === "eth_sendTransaction") { if (req.params[0].to.toLowerCase() === diamond) escrowBal += 20_000n; return `0x${"e".repeat(64)}`; }
       throw new Error(`unexpected ${req.method}`);
     },
   };
 
-  // Funding 20,000 uUSDC ($0.02) when allowance is 100,000 uUSDC skips approval!
+  // Funding first approves the trusted Diamond, then deposits the exact amount.
   const resSkip = await fundEscrow({
     provider, wallet: walletA, usdc, diamond, amountMicro: 20_000n,
     onStage: (s) => stages.push(s),
     waitForReceipt: async () => ({ status: "0x1" }),
+    fetchImpl: ledgerFetch(() => escrowBal),
   });
-  assert.ok(stages.includes("approval_skipped"));
-  assert.equal(resSkip.approveHash, null);
+  assert.ok(stages.includes("approval_confirmed"));
+  assert.ok(resSkip.approveHash);
 
   // Funding 500,000 uUSDC when allowance is 100,000 requires bounded approval for exactly 500,000
   allowanceVal = 100_000n;
@@ -475,6 +503,7 @@ test("8. Bounded top-up funding respects existing allowance and handles approval
       }
       if (req.method === "eth_sendTransaction") {
         if (req.params[0].to.toLowerCase() === usdc) hasApproved = true;
+        if (req.params[0].to.toLowerCase() === diamond) escrowBal += 500_000n;
         return `0x${"f".repeat(64)}`;
       }
       throw new Error(`unexpected ${req.method}`);
@@ -485,6 +514,7 @@ test("8. Bounded top-up funding respects existing allowance and handles approval
     provider: providerWithApproval, wallet: walletA, usdc, diamond, amountMicro: 500_000n,
     onStage: (s) => stages.push(s),
     waitForReceipt: async () => ({ status: "0x1" }),
+    fetchImpl: ledgerFetch(() => escrowBal),
   });
   assert.ok(stages.includes("approval_pending"));
   assert.ok(stages.includes("approval_confirmed"));
@@ -578,96 +608,19 @@ test("10. Overlapping identical requests in one run synchronize; at most one rea
   assert.equal(ledger.attempts[reqId].status, "protocol_receipt");
 });
 
-// 11. Debt repayment on deposit: deposit of 20000 with 10000 debt reports success and debt cleared
-test("11. Deposit clearing outstanding debt succeeds without misreporting failure", async () => {
-  let rawEscrow = 0n;
-  let debt = 10_000n; // 10,000 uUSDC debt
-  const stages = [];
-
-  const debtRepaymentProvider = {
-    request: async (req) => {
-      if (req.method === "eth_chainId") return "0xaa36a7";
-      if (req.method === "eth_accounts") return [walletA];
-      if (req.method === "eth_call") {
-        const to = req.params[0].to.toLowerCase();
-        const data = req.params[0].data;
-        if (to === usdc) return "0x" + (1_000_000n).toString(16); // allowance sufficient
-        if (to === diamond) {
-          if (data.startsWith("0x55af6353")) return "0x" + rawEscrow.toString(16); // raw escrow
-          if (data.startsWith("0xdb9104c6")) return "0x" + debt.toString(16); // agent debt
-        }
-        return "0x0";
-      }
-      if (req.method === "eth_sendTransaction") {
-        // Upon deposit of 20000: contract clears 10000 debt, remainder 10000 increases rawEscrow
-        debt = 0n;
-        rawEscrow = 10_000n;
-        return `0x${"d".repeat(64)}`;
-      }
-      throw new Error(`unexpected ${req.method}`);
-    },
-  };
-
-  const result = await fundEscrow({
-    provider: debtRepaymentProvider, wallet: walletA, usdc, diamond,
-    amountMicro: 20_000n,
-    onStage: (s, d) => stages.push({ stage: s, detail: d }),
-    waitForReceipt: async () => ({ status: "0x1" }),
-  });
-
-  assert.equal(result.debtRepaid, "10000");
-  assert.equal(result.debtRemaining, "0");
-  assert.equal(result.balanceMicro, "10000");
-  const depositConfirmed = stages.find((s) => s.stage === "deposit_confirmed");
-  assert.ok(depositConfirmed);
-  assert.equal(depositConfirmed.detail.debtRepaid, "10000");
+// The current contract documents deposited accounting; no on-chain debt selector is used.
+test("11. Deposit confirmation requires documented node deposited delta", async () => {
+  let deposited = 0n;
+  const provider = { request: async (req) => {
+    if (req.method === "eth_chainId") return "0xaa36a7";
+    if (req.method === "eth_accounts") return [walletA];
+    if (req.method === "eth_call") return "0x100000";
+    if (req.method === "eth_sendTransaction") { deposited = 20_000n; return `0x${"d".repeat(64)}`; }
+    throw new Error(`unexpected ${req.method}`);
+  } };
+  const result = await fundEscrow({ provider, wallet: walletA, usdc, diamond, amountMicro: 20_000n, waitForReceipt: async () => ({ status: "0x1" }), fetchImpl: ledgerFetch(() => deposited) });
+  assert.equal(result.depositedMicro, "20000");
 });
-
-test("14. Order-independent deposit accounting accepts the no-debt balance increase", async () => {
-  let balance = 5_000n;
-  const topUp = 20_000n;
-  const provider = {
-    request: async (req) => {
-      if (req.method === "eth_chainId") return "0xaa36a7";
-      if (req.method === "eth_accounts") return [walletA];
-      if (req.method === "eth_call") {
-        const { to, data } = req.params[0];
-        if (to.toLowerCase() === usdc && data.startsWith("0xdd62ed3e")) return `0x${topUp.toString(16)}`;
-        if (to.toLowerCase() === diamond && data.startsWith("0x55af6353")) return `0x${balance.toString(16)}`;
-        if (to.toLowerCase() === diamond && data.startsWith("0xdb9104c6")) return "0x0";
-        return "0x0";
-      }
-      if (req.method === "eth_sendTransaction") { balance += topUp; return `0x${"c".repeat(64)}`; }
-      throw new Error(`unexpected ${req.method}`);
-    },
-  };
-  const result = await fundEscrow({ provider, wallet: walletA, usdc, diamond, amountMicro: topUp, waitForReceipt: async () => ({ status: "0x1" }) });
-  assert.equal(result.balanceMicro, "25000");
-  assert.equal(result.debtRepaid, "0");
-  assert.equal(result.debtRemaining, "0");
-});
-
-test("15. Deposit accounting rejects a partially accounted top-up when debt did not decrease", async () => {
-  let balance = 0n;
-  const debt = 10_000n;
-  const provider = {
-    request: async (req) => {
-      if (req.method === "eth_chainId") return "0xaa36a7";
-      if (req.method === "eth_accounts") return [walletA];
-      if (req.method === "eth_call") {
-        const { to, data } = req.params[0];
-        if (to.toLowerCase() === usdc && data.startsWith("0xdd62ed3e")) return "0x100000";
-        if (to.toLowerCase() === diamond && data.startsWith("0x55af6353")) return `0x${balance.toString(16)}`;
-        if (to.toLowerCase() === diamond && data.startsWith("0xdb9104c6")) return `0x${debt.toString(16)}`;
-        return "0x0";
-      }
-      if (req.method === "eth_sendTransaction") { balance = 10_000n; return `0x${"e".repeat(64)}`; }
-      throw new Error(`unexpected ${req.method}`);
-    },
-  };
-  await assert.rejects(fundEscrow({ provider, wallet: walletA, usdc, diamond, amountMicro: 20_000n, waitForReceipt: async () => ({ status: "0x1" }) }), /do not account for the top-up/);
-});
-
 // 12. Spendable balance: unsettled protocol receipts reduce spendable balance; malformed ledger fails closed
 test("12. Spendable balance accounts for unsettled protocol receipts and fails closed on malformed ledger", async () => {
   const mockProvider = {
@@ -679,12 +632,6 @@ test("12. Spendable balance accounts for unsettled protocol receipts and fails c
         const to = req.params[0].to.toLowerCase();
         const data = req.params[0].data;
         if (to === usdc) return "0x" + (1_000_000n).toString(16);
-        if (to === diamond) {
-          if (data.startsWith("0x55af6353")) return "0x" + (20_000n).toString(16);
-          if (data.startsWith("0x16a398f7")) return "0x" + (20_000n).toString(16); // effective balance = 20,000 ($0.02)
-          if (data.startsWith("0xdb9104c6")) return "0x0"; // zero debt
-          if (data.startsWith("0x0964c95b")) return "0x0";
-        }
         return "0x0";
       }
       throw new Error("unexpected");
@@ -700,6 +647,7 @@ test("12. Spendable balance accounts for unsettled protocol receipts and fails c
 
   const state = await readWalletFundingState({
     provider: mockProvider, wallet: walletA, usdc, diamond, storage: saved,
+    fetchImpl: ledgerFetch(() => 20_000n),
   });
   assert.equal(state.effectiveEscrowBalanceMicro, 20_000n);
   assert.equal(state.pendingLiabilitiesMicro, 20_000n);
@@ -712,6 +660,7 @@ test("12. Spendable balance accounts for unsettled protocol receipts and fails c
   };
   const brokenState = await readWalletFundingState({
     provider: mockProvider, wallet: walletA, usdc, diamond, storage: brokenSaved,
+    fetchImpl: ledgerFetch(() => 20_000n),
   });
   assert.ok(brokenState.liabilitiesReadError != null);
   assert.equal(brokenState.spendableEscrowMicro, null); // Unknown / not ready!

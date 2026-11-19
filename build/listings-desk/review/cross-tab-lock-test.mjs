@@ -1,11 +1,11 @@
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { chromium } from "playwright";
 
 const root = process.cwd();
 const port = "7789";
 const wallet = "0x1111111111111111111111111111111111111111";
-const diamond = "0x3624eb012b5e998bb57b6be6c9cfc9c4bc5eb99b";
+const diamond = "0x72a70e949362670bf8bcead24efc5b8f950aa08b";
 const intent = "SANCTIONS_SCREENING_MATCH_GENERAL";
 const server = spawn(process.execPath, ["src/serve.mjs"], { cwd: root, env: { ...process.env, PORT: port }, stdio: ["ignore", "pipe", "pipe"] });
 let browser;
@@ -14,6 +14,7 @@ try {
   browser = await chromium.launch({ ...(process.env.CHROME_BIN ? { executablePath: process.env.CHROME_BIN } : {}), headless: true, args: ["--no-sandbox"] });
   const context = await browser.newContext();
   let paidResponses = 0;
+  const paidNames = [];
   await context.addInitScript(({ wallet }) => {
     const handlers = {};
     window.ethereum = { isMetaMask: true, on: (name, fn) => { handlers[name] = fn; }, request: async ({ method }) => {
@@ -41,6 +42,7 @@ try {
       } }] } });
     }
     paidResponses++;
+    paidNames.push(req.params.name);
     const receipt = { receipt_hash: `0x${"a".repeat(64)}`, rail: "escrow", payer: wallet, miner: "377", intent, amount_uusdc: "10000", epoch_id: 314, settlement: "epoch", chain: "telegraph", timestamp: 1789466181 };
     return route.fulfill({ status: 200, headers: { "x-payment-response": Buffer.from(JSON.stringify(receipt)).toString("base64") }, json: { intent: req.intent, input: req.params, miner_id: "377", result: { matched: false }, cost_usd: 0.01 } });
   });
@@ -78,7 +80,11 @@ try {
   await winner.click("#run-live");
   await winner.waitForFunction(() => document.querySelector("#out").getAttribute("aria-busy") === "false");
   assert.equal(await winner.evaluate(() => localStorage.getItem("mock-cross-tab-sign-count")), "5");
-  assert.match(await winner.locator("#out").innerText(), /checked once and charged once/);
+  const identicalText = await winner.locator("#out").innerText();
+  assert.equal(paidResponses, 5);
+  assert.equal(paidNames.filter((name) => name === "Identical Mock Entity").length, 1);
+  assert.match(identicalText, /1 protocol receipt/);
+  assert.match(identicalText, /checked once and charged once/);
 
   const quotaPage = await context.newPage();
   await quotaPage.goto(`http://127.0.0.1:${port}`);

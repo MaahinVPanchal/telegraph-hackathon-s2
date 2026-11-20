@@ -1,4 +1,4 @@
-﻿// Scheduled escrow + miner health check. One paid request (~$0.01) per run,
+// Scheduled escrow + miner health check. One paid request (~$0.01) per run,
 // routed to our onchain miner. Verifies the payment rail end-to-end.
 //   node escrow-check.mjs [minerId]
 import { readFileSync } from "node:fs";
@@ -74,7 +74,7 @@ if (res.ok) {
   const j = await res.json();
   console.log("answer:", JSON.stringify(j.result ?? {}).slice(0, 150));
   console.log("signal:", j.signal_hash);
-  if (receipt) console.log("settlement: paid", receipt.amount_uusdc, "Î¼USDC | epoch", receipt.epoch_id, "| miner", receipt.miner);
+  if (receipt) console.log("settlement: paid", receipt.amount_uusdc, "µUSDC | epoch", receipt.epoch_id, "| miner", receipt.miner);
   const usdcAfter = Number(BigInt((await ethCall(USDC, balanceOfData(wallet)).then((r) => r ?? "0x0")) )) / 1e6;
   console.log("USDC after:", usdcAfter.toFixed(2), "(the deduction settles at the next epoch close)");
 } else {

@@ -1677,10 +1677,16 @@ async function walletAction(label, run) {
           actionNote.textContent = `${label} — confirming escrow deposit in MetaMask (${detail.amount} µUSDC)…`;
         } else if (stage === "deposit_confirmed") {
           actionNote.textContent = `${label} confirmed! Node ledger deposited: ${detail.depositedMicro} uUSDC. Tx: ${detail.depositHash}.`;
+        } else if (stage === "deposit_index_pending") {
+          actionNote.textContent = `${label} — deposit confirmed on-chain; waiting for the node ledger to index it (viewed ${detail.depositedView} uUSDC)…`;
+        } else if (stage === "deposit_indexing_pending") {
+          actionNote.textContent = `${label} — deposit confirmed on-chain (${detail.depositHash}); the node ledger is still indexing it. Do not deposit again — refresh balances until the deposited amount appears.`;
         }
       },
     });
-    if (actionNote && !actionNote.textContent.includes("confirmed!")) {
+    if (tx.indexingPending) {
+      if (actionNote) actionNote.textContent = `${label} deposit is confirmed on-chain (${tx.depositHash}); the node ledger is still indexing it. Do not deposit again — refresh balances until the deposited amount appears, then the new available balance applies.`;
+    } else if (actionNote && !actionNote.textContent.includes("confirmed!")) {
       actionNote.textContent = label.startsWith("Escrow")
         ? `Escrow funding confirmed: refreshed escrow balance ${tx.balanceMicro} µUSDC. Deposit tx ${tx.depositHash}.`
         : `${label} confirmed in a mined Sepolia transaction: ${String(tx)}.`;

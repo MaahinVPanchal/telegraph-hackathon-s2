@@ -638,7 +638,8 @@ test("12. Spendable balance accounts for unsettled protocol receipts and fails c
     },
   };
 
-  // Case A: 20,000 effective balance but 20,000 in unsettled protocol_receipt
+  // Case A: receipted charges are reconciled — the node's `available` already
+  // accounts for them, so they must NOT be subtracted again from spendable.
   const saved = storage();
   saveAttempt(saved, `sha256:${"e".repeat(64)}`, {
     wallet: walletA, status: "protocol_receipt", settledOnChain: false,
@@ -650,8 +651,11 @@ test("12. Spendable balance accounts for unsettled protocol receipts and fails c
     fetchImpl: ledgerFetch(() => 20_000n),
   });
   assert.equal(state.effectiveEscrowBalanceMicro, 20_000n);
-  assert.equal(state.pendingLiabilitiesMicro, 20_000n);
-  assert.equal(state.spendableEscrowMicro, 0n); // 20000 - 20000 = 0, NOT ready for another $0.02 run!
+  assert.equal(state.pendingLiabilitiesMicro, 0n); // reconciled: the node already accounts for this receipt
+  assert.equal(state.spendableEscrowMicro, 20_000n); // no double-subtraction of a settled charge
+  const persistedLedger = JSON.parse(saved.getItem("leaderlight.live-attempts.v1"));
+  const persistedAttempts = persistedLedger.history?.length ? persistedLedger.history : Object.values(persistedLedger.attempts);
+  assert.ok(persistedAttempts.every((a) => a.settledOnChain === true), "reconciliation must persist settledOnChain");
 
   // Case B: Malformed ledger in storage -> fails closed (liabilitiesReadError, spendableEscrowMicro is null)
   const brokenSaved = {

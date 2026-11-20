@@ -68,6 +68,7 @@ function fakeWallet(calls = []) {
   return {
     async request(request) {
       calls.push(request);
+      if (request.method === "eth_estimateGas") return "0x186a0";
       if (request.method === "eth_chainId") return "0xaa36a7";
       if (request.method === "eth_accounts") return [wallet];
       if (request.method === "personal_sign") return "0xdead";
@@ -99,7 +100,7 @@ test("transaction confirmation requires the matching mined successful receipt", 
   }), hash), /mismatched receipt/);
   await assert.rejects(() => waitForTransaction(providerWithReceipt({
     transactionHash: hash, status: "0x0",
-  }), hash), /mismatched receipt/);
+  }), hash), /reverted on-chain/);
   let time = 0;
   await assert.rejects(() => waitForTransaction({ request: async () => null }, hash, {
     timeoutMs: 2, pollMs: 1, now: () => time, sleep: async () => { time += 2; },
@@ -142,7 +143,8 @@ test("wallet on the wrong network rejects before signing", async () => {
   const provider = fakeWallet(calls);
   provider.request = async (request) => {
     calls.push(request);
-    if (request.method === "eth_chainId") return "0x1";
+    if (request.method === "eth_estimateGas") return "0x186a0";
+      if (request.method === "eth_chainId") return "0x1";
     if (request.method === "eth_accounts") return [wallet];
     return "0xdead";
   };
@@ -244,7 +246,8 @@ test("failed approval receipt never submits the escrow deposit", async () => {
   const provider = fakeWallet(calls);
   provider.request = async (request) => {
     calls.push(request);
-    if (request.method === "eth_chainId") return "0xaa36a7";
+    if (request.method === "eth_estimateGas") return "0x186a0";
+      if (request.method === "eth_chainId") return "0xaa36a7";
     if (request.method === "eth_accounts") return [wallet];
     if (request.method === "eth_call") return "0x0";
     if (request.method === "eth_sendTransaction") return `0x${"b".repeat(64)}`;
@@ -267,7 +270,8 @@ test("insufficient allowance and failed deposit receipt never report funded", as
   const provider = fakeWallet(calls);
   provider.request = async (request) => {
     calls.push(request);
-    if (request.method === "eth_chainId") return "0xaa36a7";
+    if (request.method === "eth_estimateGas") return "0x186a0";
+      if (request.method === "eth_chainId") return "0xaa36a7";
     if (request.method === "eth_accounts") return [wallet];
     if (request.method === "eth_call") return "0x0";
     if (request.method === "eth_sendTransaction") return `0x${"c".repeat(64)}`;
@@ -286,7 +290,8 @@ test("insufficient allowance and failed deposit receipt never report funded", as
   let balanceReads = 0;
   depositProvider.request = async (request) => {
     depositCalls.push(request);
-    if (request.method === "eth_chainId") return "0xaa36a7";
+    if (request.method === "eth_estimateGas") return "0x186a0";
+      if (request.method === "eth_chainId") return "0xaa36a7";
     if (request.method === "eth_accounts") return [wallet];
     if (request.method === "eth_call") {
       if (request.params[0].to.toLowerCase() === usdc) return "0x2dc6c0";
@@ -300,7 +305,8 @@ test("insufficient allowance and failed deposit receipt never report funded", as
   let deposited = 0n;
   depositProvider.request = async (request) => {
     depositCalls.push(request);
-    if (request.method === "eth_chainId") return "0xaa36a7";
+    if (request.method === "eth_estimateGas") return "0x186a0";
+      if (request.method === "eth_chainId") return "0xaa36a7";
     if (request.method === "eth_accounts") return [wallet];
     if (request.method === "eth_call") return request.params[0].to.toLowerCase() === usdc ? "0x2dc6c0" : "0x0";
     if (request.method === "eth_sendTransaction") { if (request.params[0].to.toLowerCase() === diamond) deposited = 3_000_000n; return `0x${"d".repeat(64)}`; }
@@ -326,7 +332,8 @@ test("funding confirms approval, allowance, deposit receipt, and credited balanc
   const provider = fakeWallet(calls);
   provider.request = async (request) => {
     calls.push(request);
-    if (request.method === "eth_chainId") return "0xaa36a7";
+    if (request.method === "eth_estimateGas") return "0x186a0";
+      if (request.method === "eth_chainId") return "0xaa36a7";
     if (request.method === "eth_accounts") return [wallet];
     if (request.method === "eth_call") {
       if (request.params[0].to.toLowerCase() === usdc) return "0x2dc6c0";

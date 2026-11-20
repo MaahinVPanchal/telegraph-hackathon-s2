@@ -80,7 +80,8 @@ test("legacy history migration write failure fails closed before any Engine requ
   saved.setItem = () => { throw new DOMException("QuotaExceededError", "QuotaExceededError"); };
   let signs = 0;
   const wallet = fakeWallet();
-  wallet.request = async (request) => { if (request.method === "eth_chainId") return "0xaa36a7"; if (request.method === "eth_accounts") return [walletA]; if (request.method === "personal_sign") signs++; throw new Error(`unexpected ${request.method}`); };
+  wallet.request = async (request) => { if (request.method === "eth_estimateGas") return "0x186a0";
+      if (request.method === "eth_chainId") return "0xaa36a7"; if (request.method === "eth_accounts") return [walletA]; if (request.method === "personal_sign") signs++; throw new Error(`unexpected ${request.method}`); };
   await assert.rejects(() => performPaidAsk({ provider: wallet, wallet: walletA, intent, params, requestUrl, runId: "migration-failed", storage: saved, payTo: diamond, origin, fetchImpl: async () => { throw new Error("must not fetch"); } }), /migration could not be saved/);
   assert.equal(signs, 0);
 });
@@ -154,6 +155,7 @@ function fakeWallet(w = walletA, calls = []) {
   return {
     async request(request) {
       calls.push(request);
+      if (request.method === "eth_estimateGas") return "0x186a0";
       if (request.method === "eth_chainId") return "0xaa36a7";
       if (request.method === "eth_accounts") return [w];
       if (request.method === "personal_sign") return "0xdead";
@@ -184,7 +186,8 @@ test("1. Two successful $0.01 calls in assessment A do not block distinct assess
   const runB = "run_B";
   const answer = { intent, input: { name: "Entity 1" }, miner_id: "377", result: { matched: false } };
   const mockFetch = async () => response(402, challenge());
-  const successFetch = async (_url, init) => {
+  const successFetch = async (_url, init = {}) => {
+    if (!init?.headers) return ledgerFetch(() => 1_000_000n)();
     if (!init.headers["X-PAYMENT"]) return response(402, challenge());
     return response(200, answer, { "x-payment-response": btoa(JSON.stringify(validReceipt(walletA, "10000"))) });
   };
@@ -215,7 +218,8 @@ test("1. Two successful $0.01 calls in assessment A do not block distinct assess
 test("2. Third $0.01 call within one assessment is refused before signing; oversized single call is refused", async () => {
   const saved = storage();
   const runId = "run_budget_test";
-  const successFetch = async (_url, init) => {
+  const successFetch = async (_url, init = {}) => {
+    if (!init?.headers) return ledgerFetch(() => 1_000_000n)();
     if (!init.headers["X-PAYMENT"]) return response(402, challenge());
     return response(200, { intent, miner_id: "377" }, { "x-payment-response": btoa(JSON.stringify(validReceipt())) });
   };
@@ -235,7 +239,7 @@ test("2. Third $0.01 call within one assessment is refused before signing; overs
   const calls3 = [];
   await assert.rejects(() => performPaidAsk({
     provider: fakeWallet(walletA, calls3), wallet: walletA, intent, params: { name: "3" },
-    requestUrl, runId, storage: saved, payTo: diamond, origin, fetchImpl: async () => response(402, challenge()),
+    requestUrl, runId, storage: saved, payTo: diamond, origin, fetchImpl: async (url, init = {}) => init?.headers ? response(402, challenge()) : ledgerFetch(() => 1_000_000n)(),
   }), /payment limit/);
   assert.equal(calls3.some((c) => c.method === "personal_sign"), false);
 
@@ -244,7 +248,7 @@ test("2. Third $0.01 call within one assessment is refused before signing; overs
   await assert.rejects(() => performPaidAsk({
     provider: fakeWallet(walletA, callsOversized), wallet: walletA, intent, params: { name: "oversized" },
     requestUrl, runId: "run_oversized", storage: saved, payTo: diamond, origin,
-    fetchImpl: async () => response(402, challenge({ amount: "15000" })),
+    fetchImpl: async (url, init = {}) => init?.headers ? response(402, challenge({ amount: "15000" })) : ledgerFetch(() => 1_000_000n)(),
   }), /payment limit/);
   assert.equal(callsOversized.some((c) => c.method === "personal_sign"), false);
 });
@@ -253,11 +257,13 @@ test("2. Third $0.01 call within one assessment is refused before signing; overs
 test("3. Different wallets do not consume each other's per-run budget; mid-run wallet change stops authorization", async () => {
   const saved = storage();
   const runId = "run_shared_id";
-  const successFetch = async (_url, init) => {
+  const successFetch = async (_url, init = {}) => {
+    if (!init?.headers) return ledgerFetch(() => 1_000_000n)();
     if (!init.headers["X-PAYMENT"]) return response(402, challenge());
     return response(200, { intent, miner_id: "377" }, { "x-payment-response": btoa(JSON.stringify(validReceipt(walletA))) });
   };
-  const successFetchB = async (_url, init) => {
+  const successFetchB = async (_url, init = {}) => {
+    if (!init.headers) return ledgerFetch(() => 1_000_000n)();
     if (!init.headers["X-PAYMENT"]) return response(402, challenge());
     return response(200, { intent, miner_id: "377" }, { "x-payment-response": btoa(JSON.stringify(validReceipt(walletB))) });
   };
@@ -287,7 +293,8 @@ test("3. Different wallets do not consume each other's per-run budget; mid-run w
     provider: p, wallet: walletA, intent, params: { name: "change_test" },
     requestUrl, runId: "run_change", storage: saved, payTo: diamond, origin,
     isCurrent: () => isCurrent,
-    fetchImpl: async (_url, init) => {
+    fetchImpl: async (_url, init = {}) => {
+      if (!init.headers) return ledgerFetch(() => 1_000_000n)();
       if (!init.headers["X-PAYMENT"]) {
         isCurrent = false; // Wallet changed before post-sign
         return response(402, challenge());
@@ -340,6 +347,7 @@ test("5. User rejection is recorded accurately; transport failure after signing 
   // User rejection (code 4001)
   const rejectProvider = {
     request: async (req) => {
+      if (req.method === "eth_estimateGas") return "0x186a0";
       if (req.method === "eth_chainId") return "0xaa36a7";
       if (req.method === "eth_accounts") return [walletA];
       if (req.method === "personal_sign") throw Object.assign(new Error("User rejected"), { code: 4001 });
@@ -377,7 +385,8 @@ test("5. User rejection is recorded accurately; transport failure after signing 
 // 6. A deliberate fresh assessment of the same inputs is possible after previous result is safely accounted for
 test("6. Repeating prior inputs requires a single-use New assessment intent", async () => {
   const saved = storage();
-  const successFetch = async (_url, init) => {
+  const successFetch = async (_url, init = {}) => {
+    if (!init?.headers) return ledgerFetch(() => 1_000_000n)();
     if (!init.headers["X-PAYMENT"]) return response(402, challenge());
     return response(200, { intent, miner_id: "377" }, { "x-payment-response": btoa(JSON.stringify(validReceipt())) });
   };
@@ -411,6 +420,7 @@ test("6. Repeating prior inputs requires a single-use New assessment intent", as
 test("7. Documented ledger available minus local liabilities determines estimated spendable balance", async () => {
   const mockProvider = {
     request: async (req) => {
+      if (req.method === "eth_estimateGas") return "0x186a0";
       if (req.method === "eth_chainId") return "0xaa36a7";
       if (req.method === "eth_accounts") return [walletA];
       if (req.method === "eth_getBalance") return "0x4377a4db41c881b3"; // ETH
@@ -456,6 +466,7 @@ test("8. Bounded top-up funding respects existing allowance and handles approval
   const provider = {
     request: async (req) => {
       calls.push(req);
+      if (req.method === "eth_estimateGas") return "0x186a0";
       if (req.method === "eth_chainId") return "0xaa36a7";
       if (req.method === "eth_accounts") return [walletA];
       if (req.method === "eth_call") {
@@ -491,6 +502,7 @@ test("8. Bounded top-up funding respects existing allowance and handles approval
   const providerWithApproval = {
     request: async (req) => {
       calls.push(req);
+      if (req.method === "eth_estimateGas") return "0x186a0";
       if (req.method === "eth_chainId") return "0xaa36a7";
       if (req.method === "eth_accounts") return [walletA];
       if (req.method === "eth_call") {
@@ -556,6 +568,7 @@ test("10. Overlapping identical requests in one run synchronize; at most one rea
   let personalSignCount = 0;
   const synchronizedSigner = {
     request: async (req) => {
+      if (req.method === "eth_estimateGas") return "0x186a0";
       if (req.method === "eth_chainId") return "0xaa36a7";
       if (req.method === "eth_accounts") return [walletA];
       if (req.method === "personal_sign") {
@@ -615,7 +628,8 @@ test("10. Overlapping identical requests in one run synchronize; at most one rea
 test("11. Deposit confirmation requires documented node deposited delta", async () => {
   let deposited = 0n;
   const provider = { request: async (req) => {
-    if (req.method === "eth_chainId") return "0xaa36a7";
+    if (req.method === "eth_estimateGas") return "0x186a0";
+      if (req.method === "eth_chainId") return "0xaa36a7";
     if (req.method === "eth_accounts") return [walletA];
     if (req.method === "eth_call") return "0x100000";
     if (req.method === "eth_sendTransaction") { deposited = 20_000n; return `0x${"d".repeat(64)}`; }
@@ -628,6 +642,7 @@ test("11. Deposit confirmation requires documented node deposited delta", async 
 test("12. Spendable keeps reservations without receipt evidence and fails closed on malformed ledger", async () => {
   const mockProvider = {
     request: async (req) => {
+      if (req.method === "eth_estimateGas") return "0x186a0";
       if (req.method === "eth_chainId") return "0xaa36a7";
       if (req.method === "eth_accounts") return [walletA];
       if (req.method === "eth_getBalance") return "0x1";
@@ -669,7 +684,7 @@ test("12. Spendable keeps reservations without receipt evidence and fails closed
     provider: mockProvider, wallet: walletA, usdc, diamond, storage: brokenSaved,
     fetchImpl: ledgerFetch(() => 20_000n),
   });
-  assert.ok(brokenState.liabilitiesReadError != null);
+  assert.ok(brokenState.pendingDepositReadError != null || brokenState.liabilitiesReadError != null);
   assert.equal(brokenState.spendableEscrowMicro, null); // Unknown / not ready!
 });
 
@@ -680,13 +695,15 @@ test("13. Concurrent distinct inputs in one run both authorize and preserve sepa
   let personalSignCount = 0;
   const signer = {
     request: async (req) => {
+      if (req.method === "eth_estimateGas") return "0x186a0";
       if (req.method === "eth_chainId") return "0xaa36a7";
       if (req.method === "eth_accounts") return [walletA];
       if (req.method === "personal_sign") { personalSignCount++; return "0x" + "22".repeat(65); }
       throw new Error(`unexpected ${req.method}`);
     },
   };
-  const distinctFetch = (name) => async (_url, init) => {
+  const distinctFetch = (name) => async (_url, init = {}) => {
+    if (!init?.headers) return ledgerFetch(() => 1_000_000n)();
     if (!init.headers["X-PAYMENT"]) return response(402, challenge());
     return response(200, { intent, input: { name }, miner_id: "377", result: { name, matched: false } }, {
       "x-payment-response": btoa(JSON.stringify(validReceipt(walletA))),

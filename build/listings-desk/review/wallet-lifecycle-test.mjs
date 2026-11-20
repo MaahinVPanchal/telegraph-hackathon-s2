@@ -75,9 +75,13 @@ try {
   const keys = ["leaderlight.live-attempts.v1", "leaderlight.live-assessment-intents.v1"];
   await page.evaluate((keys) => { localStorage.setItem(keys[0], JSON.stringify({ version: 1, attempts: {} })); localStorage.setItem(keys[1], "{}"); }, keys);
   const beforeDisconnect = await page.evaluate((keys) => keys.map((key) => localStorage.getItem(key)), keys);
-  const callsBeforeDisconnect = await page.evaluate(() => window.__mockCalls.length);
   await page.click("#wallet-connect");
   await page.waitForFunction(() => !document.querySelector("#wallet-disconnect").hidden);
+  // Count only requests after the disconnect control is revealed. The wallet
+  // remains connected while the control is opened, so any in-flight balance
+  // refresh during that interval is valid and must not be attributed to the
+  // disconnect action.
+  const callsBeforeDisconnect = await page.evaluate(() => window.__mockCalls.length);
   await page.click("#wallet-disconnect");
   assert.equal(await page.evaluate(() => window.__listingsWallet), null);
   assert.equal(await page.evaluate(() => window.__listingsProvider), null);

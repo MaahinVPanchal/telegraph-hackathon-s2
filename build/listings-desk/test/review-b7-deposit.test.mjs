@@ -19,7 +19,8 @@ test("mocked: reject deposit when documented deposited delta is short of the req
   const calls = [];
   const provider = { request: async (req) => {
     calls.push(req);
-    if (req.method === "eth_chainId") return "0xaa36a7";
+    if (req.method === "eth_estimateGas") return "0x186a0";
+      if (req.method === "eth_chainId") return "0xaa36a7";
     if (req.method === "eth_accounts") return [wallet];
     if (req.method === "eth_call") {
       const { to, data } = req.params[0];

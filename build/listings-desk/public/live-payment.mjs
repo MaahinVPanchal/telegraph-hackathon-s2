@@ -401,8 +401,14 @@ export async function waitForTransaction(provider, hash, {
     });
     if (receipt) {
       if (typeof receipt.transactionHash !== "string" || receipt.transactionHash.toLowerCase() !== hash.toLowerCase() ||
-          receipt.status !== "0x1") {
-        throw new Error("provider returned mismatched receipt or transaction reverted on-chain");
+          !["0x0", "0x1"].includes(receipt.status)) {
+        throw new Error("provider returned mismatched receipt or malformed transaction receipt");
+      }
+      if (receipt.status === "0x0") {
+        const error = new Error(`transaction ${hash} reverted on-chain`);
+        error.transactionHash = hash;
+        error.transactionStatus = "reverted";
+        throw error;
       }
       return receipt;
     }
@@ -423,12 +429,13 @@ async function readUint(provider, to, data, from) {
 }
 
 async function estimatedGas(provider, tx) {
-  try {
-    const estimate = await provider.request({ method: "eth_estimateGas", params: [{ from: tx.from, to: tx.to, data: tx.data, value: tx.value }] });
-    const units = Number(BigInt(estimate));
-    if (Number.isFinite(units) && units > 0) return "0x" + Math.ceil(units * 1.25 + 20000).toString(16);
-  } catch { /* fall back to the provided limit */ }
-  return tx.gas ?? "0x186a0";
+  let estimate;
+  try { estimate = await provider.request({ method: "eth_estimateGas", params: [{ from: tx.from, to: tx.to, data: tx.data, value: tx.value }] }); }
+  catch (error) { throw new Error(`gas estimation failed; transaction was not sent: ${String(error?.message ?? error)}`); }
+  let units;
+  try { units = BigInt(estimate); } catch { throw new Error("gas estimation returned malformed data; transaction was not sent"); }
+  if (units <= 0n) throw new Error("gas estimation returned zero; transaction was not sent");
+  return "0x" + ((units * 125n + 99n) / 100n + 20_000n).toString(16);
 }
 
 export async function mintTestUsdc({ provider, wallet, usdc, isCurrent = () => true }) {
@@ -436,11 +443,20 @@ export async function mintTestUsdc({ provider, wallet, usdc, isCurrent = () => t
   const normalizedWallet = assertAddress(wallet, "wallet");
   const normalizedUsdc = assertAddress(usdc, "usdc");
   const data = encodeFunctionCall("0x40c10f19", ["address", "uint256"], [normalizedWallet, 10_000_000n]);
+  const gas = await estimatedGas(provider, { from: normalizedWallet, to: normalizedUsdc, data });
+  await assertSepolia(provider, normalizedWallet, isCurrent);
   const hash = await provider.request({
     method: "eth_sendTransaction",
-    params: [{ from: normalizedWallet, to: normalizedUsdc, data, gas: await estimatedGas(provider, { from: normalizedWallet, to: normalizedUsdc, data, gas: "0x186a0" }) }],
+    params: [{ from: normalizedWallet, to: normalizedUsdc, data, gas }],
   });
-  await waitForTransaction(provider, hash);
+  try { await waitForTransaction(provider, hash); }
+  catch (error) {
+    if (error?.transactionStatus === "reverted") throw error;
+    const unknown = new Error(`mint submitted (tx ${hash}) but its receipt is unknown: ${String(error?.message ?? error)}. Check this hash before retrying.`);
+    unknown.transactionHash = hash;
+    unknown.pendingState = "unknown";
+    throw unknown;
+  }
   await assertSepolia(provider, normalizedWallet, isCurrent);
   return hash;
 }
@@ -463,7 +479,7 @@ export async function readWalletFundingState({ provider, wallet, usdc, diamond, 
     await withLock("lock:escrow:" + normalizedWallet, async () => {
       ledgerAccount = await fetchNodeLedger(normalizedWallet, fetchImpl);
       reconciliation = reconcileAccountedReceipts(storage, normalizedWallet, { diamond: normalizedDiamond, network: "eip155:11155111", ledgerAccount });
-      pendingResolution = resolvePendingDeposits(storage, normalizedWallet, ledgerAccount);
+      pendingResolution = resolvePendingDeposits(storage, normalizedWallet, ledgerAccount, { network: "eip155:11155111", diamond: normalizedDiamond });
     });
   } catch (error) {
     ledgerReadError = String(error?.message ?? error).slice(0, 160);
@@ -492,8 +508,11 @@ export async function readWalletFundingState({ provider, wallet, usdc, diamond, 
       return attempts.filter((a) => a.wallet?.toLowerCase() === normalizedWallet && a.authorizationStarted && (a.status === "authorization_pending" || a.status === "unknown" || (a.status === "protocol_receipt" && a.accountedByNode !== true))).reduce((sum, a) => sum + (typeof a.amountMicro === "string" ? BigInt(a.amountMicro) : 0n), 0n);
     });
   if (!isCurrent()) throw new Error("Wallet account or network changed; aborting");
-  const pendingDeposits = readPendingDeposits(storage, normalizedWallet);
-  const spendable = ledgerAccount && !local.error ? (ledgerAccount.available > local ? ledgerAccount.available - local : 0n) : null;
+  let pendingDeposits = [];
+  let pendingDepositReadError = null;
+  try { pendingDeposits = readPendingDeposits(storage, normalizedWallet); }
+  catch (error) { pendingDepositReadError = String(error?.message ?? error); }
+  const spendable = ledgerAccount && !local.error && !pendingDepositReadError ? (ledgerAccount.available > local ? ledgerAccount.available - local : 0n) : null;
   return {
     wallet: normalizedWallet, ethBalanceWei: eth.error ? null : eth, ethBalanceReadError: eth.error ?? null,
     usdcBalanceMicro: usdcRead.error ? null : usdcRead, usdcBalanceReadError: usdcRead.error ?? null,
@@ -503,7 +522,7 @@ export async function readWalletFundingState({ provider, wallet, usdc, diamond, 
     effectiveEscrowBalanceMicro: ledgerAccount?.available ?? null, effectiveEscrowReadError: ledgerReadError,
     pendingLiabilitiesMicro: local.error ? 0n : local, liabilitiesReadError: local.error ?? null,
     spendableEscrowMicro: spendable,
-    reconciliation, pendingDeposits, pendingResolution,
+    reconciliation, pendingDeposits, pendingDepositReadError, pendingResolution,
   };
 }
 
@@ -562,6 +581,7 @@ function documentedReceiptEvidence(attempt, wallet, { diamond, network } = {}) {
   if (!Number.isSafeInteger(receipt.timestamp) || receipt.timestamp < 0) return { ok: false, reason: "timestamp missing/malformed" };
   if (typeof receipt.payer !== "string" || receipt.payer.toLowerCase() !== String(wallet).toLowerCase()) return { ok: false, reason: "payer missing/mismatched" };
   if (typeof receipt.miner !== "string" && !Number.isSafeInteger(receipt.miner)) return { ok: false, reason: "miner missing" };
+  if (String(receipt.miner) !== String(trusted.miner) || String(receipt.miner) !== String(attempt.miner)) return { ok: false, reason: "miner mismatch" };
   if (attempt.intent !== undefined && receipt.intent !== attempt.intent) return { ok: false, reason: "intent mismatch" };
   if (typeof attempt.payTo !== "string" || attempt.payTo.toLowerCase() !== String(diamond ?? "").toLowerCase()) return { ok: false, reason: "Diamond provenance missing/mismatched" };
   if (typeof attempt.network !== "string" || attempt.network !== String(network ?? "")) return { ok: false, reason: "network provenance missing/mismatched" };
@@ -577,52 +597,49 @@ function persistCanonicalLedger(storage, ledger) {
 }
 export function reconcileAccountedReceipts(storage, wallet, { diamond, network, ledgerAccount } = {}) {
   const normalizedWallet = assertAddress(wallet, "wallet");
+  if (!ledgerAccount || typeof ledgerAccount.charged !== "bigint" || typeof ledgerAccount.unbilled !== "bigint") {
+    return { accounted: 0, persistenceFailed: false, validatedAttemptIds: [], policyMismatch: "fresh node accounting ledger is unavailable" };
+  }
+  // Re-read canonical persisted history, then update the actual nested records.
   const ledger = readAttemptLedger(storage);
-  const attempts = Array.isArray(ledger.history) && ledger.history.length > 0 ? ledger.history : Object.values(ledger.attempts);
+  const attempts = Array.isArray(ledger.history) ? ledger.history : Object.values(ledger.attempts);
   const trustedDiamond = typeof diamond === "string" ? diamond.toLowerCase() : null;
   const trustedNetwork = typeof network === "string" ? network : null;
-  const evidence = [];
-  let mismatched = 0;
+  const checked = [];
   for (const attempt of attempts) {
-    if (attempt?.wallet?.toLowerCase() !== normalizedWallet) continue;
-    if (attempt.status !== "protocol_receipt" || attempt.accountedByNode === true) continue;
-    const check = documentedReceiptEvidence(attempt, normalizedWallet, { diamond: trustedDiamond, network: trustedNetwork });
-    if (!check.ok) { mismatched++; evidence.push({ attemptId: attempt.attemptId ?? null, requestId: attempt.requestId ?? null, ok: false, reason: check.reason }); continue; }
-    evidence.push({ attemptId: attempt.attemptId ?? null, requestId: attempt.requestId ?? null, ok: true, amountMicro: attempt.amountMicro, timestamp: attempt.receipt.timestamp });
+    if (attempt?.wallet?.toLowerCase() !== normalizedWallet || attempt.status !== "protocol_receipt") continue;
+    const result = documentedReceiptEvidence(attempt, normalizedWallet, { diamond: trustedDiamond, network: trustedNetwork });
+    checked.push({ attemptId: attempt.attemptId, requestId: attempt.requestId, attempt, ok: result.ok, reason: result.reason });
   }
+  const valid = checked.filter((item) => item.ok && typeof item.attempt.amountMicro === "string");
+  const coverage = ledgerAccount.charged + ledgerAccount.unbilled;
+  const total = valid.reduce((sum, item) => sum + BigInt(item.attempt.amountMicro), 0n);
+  if (total > coverage) return { accounted: 0, persistenceFailed: false, validatedAttemptIds: [], mismatchedEvidence: checked.length, policyMismatch: "ledger charged+unbilled cannot cover the evidence-backed receipts" };
 
-  // Node-accounting policy: the ledger's charged + unbilled counters must be
-  // able to cover every evidence-backed receipt. If they cannot, the accounting
-  // is mismatched and ALL unresolved reservations stay (conservative).
-  const okReceipts = evidence.filter((e) => e.ok && typeof e.amountMicro === "string")
-    .sort((a, b) => Number(a.timestamp ?? 0) - Number(b.timestamp ?? 0));
-  if (ledgerAccount && typeof ledgerAccount.charged === "bigint" && typeof ledgerAccount.unbilled === "bigint") {
-    const coverage = ledgerAccount.charged + ledgerAccount.unbilled;
-    const accountedTotal = okReceipts.reduce((sum, e) => sum + BigInt(e.amountMicro), 0n);
-    if (accountedTotal > coverage) {
-      return { accounted: 0, persistenceFailed: false, mismatchedEvidence: mismatched, policyMismatch: "ledger charged+unbilled cannot cover the evidence-backed receipts" };
-    }
+  const byIdentity = new Map(valid.map((item) => [item.attemptId, item]));
+  let accounted = 0;
+  let changed = false;
+  for (const [requestId, canonical] of Object.entries(ledger.attempts)) {
+    const visit = (record) => {
+      if (!record || typeof record !== "object") return;
+      if (Array.isArray(record.priorAttempts)) record.priorAttempts.forEach(visit);
+      if (record.status !== "protocol_receipt" || record.wallet?.toLowerCase() !== normalizedWallet) return;
+      const item = byIdentity.get(record.attemptId);
+      if (item && item.ok) {
+        if (record.accountedByNode !== true) accounted++;
+        record.accountedByNode = true;
+        record.accountedByNodeAt ??= new Date().toISOString();
+      } else {
+        delete record.accountedByNode;
+        delete record.accountedByNodeAt;
+      }
+    };
+    visit(canonical);
   }
-
-  const changed = [];
-  for (const e of evidence) {
-    if (!e.ok) continue;
-    const attempt = attempts.find((a) => (e.attemptId != null ? a.attemptId === e.attemptId : a.requestId === e.requestId) && a.status === "protocol_receipt" && a.accountedByNode !== true);
-    if (!attempt) continue;
-    attempt.accountedByNode = true;
-    attempt.accountedByNodeAt = new Date().toISOString();
-    changed.push(attempt);
-  }
-  if (changed.length > 0) {
-    try {
-      persistCanonicalLedger(storage, ledger);
-    } catch (error) {
-      // Conservative rollback on a failed write: flags revert, reservations stay.
-      for (const attempt of changed) { delete attempt.accountedByNode; delete attempt.accountedByNodeAt; }
-      return { accounted: 0, persistenceFailed: true, error: error.message, mismatchedEvidence: mismatched };
-    }
-  }
-  return { accounted: changed.length, persistenceFailed: false, mismatchedEvidence: mismatched };
+  const validatedAttemptIds = valid.map((item) => item.attemptId).filter(Boolean);
+  try { persistCanonicalLedger(storage, ledger); }
+  catch (error) { return { accounted: 0, persistenceFailed: true, validatedAttemptIds: [], error: error.message, mismatchedEvidence: checked.filter((item) => !item.ok).length }; }
+  return { accounted, persistenceFailed: false, validatedAttemptIds, mismatchedEvidence: checked.filter((item) => !item.ok).length };
 }
 
 // On-demand on-chain settlement verification (stricter than accountedByNode).
@@ -632,12 +649,16 @@ export function reconcileAccountedReceipts(storage, wallet, { diamond, network, 
 // network request. Re-enable only with full proof/root validation under the
 // wallet lock (fresh re-read after every network call).
 function readPendingDeposits(storage, wallet) {
-  if (!storage) return [];
+  if (!storage) throw new Error("pending deposit storage is unavailable; refusing new funding");
   let raw;
-  try { raw = storage.getItem(PENDING_DEPOSITS_KEY); } catch { raw = null; }
+  try { raw = storage.getItem(PENDING_DEPOSITS_KEY); } catch (error) { throw new Error(`pending deposit storage could not be read; refusing new funding: ${error.message}`); }
   let all = {};
-  if (raw) { try { all = JSON.parse(raw); if (!all || typeof all !== "object" || Array.isArray(all)) all = {}; } catch { all = {}; } }
-  return Object.values(all).filter((record) => record?.wallet?.toLowerCase() === wallet.toLowerCase());
+  if (raw) { try { all = JSON.parse(raw); } catch (error) { throw new Error(`pending deposit storage is corrupt; refusing new funding: ${error.message}`); }
+    if (!all || typeof all !== "object" || Array.isArray(all)) throw new Error("pending deposit storage has an invalid schema; refusing new funding"); }
+  for (const [hash, record] of Object.entries(all)) {
+    if (!record || typeof record !== "object" || (record.depositHash && record.depositHash !== hash)) throw new Error("pending deposit storage has an invalid record; refusing new funding");
+  }
+  return Object.values(all).filter((record) => record?.wallet?.toLowerCase() === wallet.toLowerCase() && record.status !== "resolved");
 }
 
 function markPendingDepositStatus(storage, depositHash, status) {
@@ -666,17 +687,20 @@ function recordPendingDeposit(storage, wallet, { approveHash, depositHash, amoun
   if (storage.getItem(PENDING_DEPOSITS_KEY) !== serialized) throw new Error("pending deposit record could not be saved");
 }
 
-function resolvePendingDeposits(storage, wallet, ledgerAccount) {
+function resolvePendingDeposits(storage, wallet, ledgerAccount, { network, diamond } = {}) {
   if (!storage) return { resolved: 0, remaining: 0 };
   const pending = readPendingDeposits(storage, wallet);
   let resolved = 0;
   let remaining = 0;
   if (pending.length === 0) return { resolved, remaining };
-  let all = {};
-  try { const raw = storage.getItem(PENDING_DEPOSITS_KEY); all = JSON.parse(raw) ?? {}; } catch { all = {}; }
+  let all = JSON.parse(storage.getItem(PENDING_DEPOSITS_KEY) || "{}");
   for (const record of pending) {
-    const delta = BigInt(ledgerAccount.deposited) - BigInt(record.depositedBefore);
-    if (delta >= BigInt(record.amountMicro)) { delete all[record.depositHash]; resolved++; }
+    const canonical = all[record.depositHash];
+    if (!canonical) { remaining++; continue; }
+    if (canonical.status === "reverted") { remaining++; continue; }
+    if (canonical.status !== "confirmed" || canonical.network !== network || canonical.diamond?.toLowerCase() !== diamond?.toLowerCase()) { remaining++; continue; }
+    const delta = BigInt(ledgerAccount.deposited) - BigInt(canonical.depositedBefore);
+    if (delta >= BigInt(canonical.amountMicro)) { canonical.status = "resolved"; canonical.resolvedAt = new Date().toISOString(); resolved++; }
     else remaining++;
   }
   const serialized = JSON.stringify(all);
@@ -711,7 +735,8 @@ export async function fundEscrow({ provider, wallet, usdc, diamond, amountMicro,
     // (bound to wallet, network and Diamond) blocks new funding until the node
     // ledger reflects it, or an explicit override is supplied.
     const unresolvedPending = readPendingDeposits(storage, normalizedWallet)
-      .filter((record) => record.network === network && record.diamond?.toLowerCase() === normalizedDiamond.toLowerCase());
+      .filter((record) => !["resolved", "reverted"].includes(record.status) &&
+        (!record.network || !record.diamond || (record.network === network && record.diamond?.toLowerCase() === normalizedDiamond.toLowerCase())));
     if (unresolvedPending.length > 0 && !pendingDepositOverride) {
       const first = unresolvedPending[0];
       throw new Error(`A previous deposit of ${first.amountMicro} µUSDC is confirmed on-chain but not yet reflected in the node ledger (tx ${first.depositHash}). Refresh balances; do not deposit again until it appears.`);
@@ -723,8 +748,15 @@ export async function fundEscrow({ provider, wallet, usdc, diamond, amountMicro,
     await assertSepolia(provider, normalizedWallet, isCurrent);
     const approveTx = { from: normalizedWallet, to: normalizedUsdc, data: encodeFunctionCall(ERC20_APPROVE_SELECTOR, ["address", "uint256"], [normalizedDiamond, amount]), gas: "0x186a0" };
     approveTx.gas = await estimatedGas(provider, approveTx);
+    await assertSepolia(provider, normalizedWallet, isCurrent);
     const approveHash = await provider.request({ method: "eth_sendTransaction", params: [approveTx] });
-    await waitForReceipt(provider, approveHash);
+    try { await waitForReceipt(provider, approveHash); }
+    catch (error) {
+      const unknown = new Error(`approval submitted (tx ${approveHash}) but its receipt is ${error?.transactionStatus === "reverted" ? "reverted" : "unknown"}: ${String(error?.message ?? error)}. Check this hash before retrying.`);
+      unknown.transactionHash = approveHash;
+      unknown.pendingState = error?.transactionStatus === "reverted" ? "reverted" : "unknown";
+      throw unknown;
+    }
     await assertSepolia(provider, normalizedWallet, isCurrent);
     const allowanceAfter = await readUint(provider, normalizedUsdc, allowanceData, normalizedWallet);
     if (allowanceAfter < amount) throw new Error("USDC approval receipt confirmed, but allowance is insufficient for the deposit");
@@ -735,6 +767,7 @@ export async function fundEscrow({ provider, wallet, usdc, diamond, amountMicro,
     let pendingPersistenceFailed = null;
     const depositTx = { from: normalizedWallet, to: normalizedDiamond, data: encodeFunctionCall(DEPOSIT_SELECTOR, ["uint256"], [amount]), gas: "0x30d40" };
     depositTx.gas = await estimatedGas(provider, depositTx);
+    await assertSepolia(provider, normalizedWallet, isCurrent);
     const depositHash = await provider.request({ method: "eth_sendTransaction", params: [depositTx] });
 
     // Record the submitted hash IMMEDIATELY — before waiting for the receipt —
@@ -762,11 +795,17 @@ export async function fundEscrow({ provider, wallet, usdc, diamond, amountMicro,
       // unknown state must stay unknown (never look like a failed deposit).
     try {
       await withLock(`lock:escrow:${normalizedWallet}`, async () => {
-        markPendingDepositStatus(storage, depositHash, "unknown");
+        markPendingDepositStatus(storage, depositHash, error?.transactionStatus === "reverted" ? "reverted" : "unknown");
       })
     } catch (error) {
       pendingPersistenceFailed = String(error?.message ?? error).slice(0, 120);
     }
+      if (error?.transactionStatus === "reverted") {
+        const reverted = new Error(`deposit transaction reverted (tx ${depositHash}); no deposit was made and the pending guard is cleared for this attempt.`);
+        reverted.depositHash = depositHash;
+        reverted.pendingState = "reverted";
+        throw reverted;
+      }
       const unknown = new Error(`deposit submitted (tx ${depositHash}) but the receipt is unknown: ${String(error?.message ?? error).slice(0, 100)}. Do not deposit again — refresh balances or verify the transaction on the explorer.`);
       unknown.depositHash = depositHash;
       unknown.pendingState = "unknown";
@@ -827,7 +866,7 @@ export async function fundEscrow({ provider, wallet, usdc, diamond, amountMicro,
     }
     try {
     await withLock(`lock:escrow:${normalizedWallet}`, async () => {
-      resolvePendingDeposits(storage, normalizedWallet, after);
+      resolvePendingDeposits(storage, normalizedWallet, after, { network, diamond: normalizedDiamond });
     })
     } catch (error) {
       pendingPersistenceFailed = String(error?.message ?? error).slice(0, 120);
@@ -865,8 +904,7 @@ export async function performPaidAsk({
     // Reconcile receipted attempts first: settled receipts stop reserving
     // spendable (the node's `available` already accounts for charged and unbilled
     // usage). A reconciliation failure keeps the conservative over-reserved state.
-    try { reconcileAccountedReceipts(storage, normalizedWallet, { diamond: payTo, network }); } catch { /* keep prior state */ }
-    const currentLedger = readAttemptLedger(storage);
+    let currentLedger = readAttemptLedger(storage);
     let migrated = false;
     for (const [id, record] of Object.entries(currentLedger.attempts)) {
       if (!record || typeof record !== "object") continue;
@@ -910,6 +948,16 @@ export async function performPaidAsk({
       } else if (existing.status !== "definitive_unpaid" && existing.status !== "signature_rejected") {
         throw new Error("A prior request may already have been authorized. Reconcile its saved receipt or epoch delivery before retrying.");
       }
+    }
+
+    // Revalidate historic protocol receipts against a fresh node accounting view on
+    // every paid path. Do this after duplicate/unknown refusal checks, before any
+    // new Engine request or signature, and before consuming a one-shot intent.
+    const hasReceiptHistory = (currentLedger.history ?? []).some((item) => item.wallet?.toLowerCase() === normalizedWallet && item.status === "protocol_receipt");
+    if (hasReceiptHistory) {
+      const freshAccount = await fetchNodeLedger(normalizedWallet, fetchImpl);
+      reconcileAccountedReceipts(storage, normalizedWallet, { diamond: payTo, network, ledgerAccount: freshAccount });
+      currentLedger = readAttemptLedger(storage);
     }
 
     // Consume a matching repeat token only after all refusal checks pass, still under the wallet lock.

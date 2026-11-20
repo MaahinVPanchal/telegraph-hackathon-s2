@@ -85,6 +85,7 @@ function unknownAttempt(requestId, { amount = "10000" } = {}) {
 function provider() {
   return {
     request: async (request) => {
+      if (request.method === "eth_estimateGas") return "0x186a0";
       if (request.method === "eth_chainId") return "0xaa36a7";
       if (request.method === "eth_accounts") return [wallet];
       if (request.method === "personal_sign") return `0x${"9".repeat(142)}`;
@@ -173,7 +174,8 @@ test("accounted receipts stop consuming the legacy run budget (previously blocke
   saveAttempt(store, `sha256:${"a".repeat(64)}`, receiptedAttempt(`sha256:${"a".repeat(64)}`));
   saveAttempt(store, `sha256:${"b".repeat(64)}`, receiptedAttempt(`sha256:${"b".repeat(64)}`));
   let signatureRequested = false;
-  const fetchImpl = async (_url, init = {}) => {
+  const fetchImpl = async (url, init = {}) => {
+    if (String(url).includes("/api/ledger/account/")) return ledgerFetch(3_000_000n, 3_000_000n, 20_000n)();
     if (!init.headers?.["X-PAYMENT"]) {
       return { ok: false, status: 402, json: async () => challenge() };
     }
@@ -199,6 +201,7 @@ test("fundEscrow polls through ledger indexing delay and reports success", async
   let reads = 0;
   const providerMock = {
     request: async (request) => {
+      if (request.method === "eth_estimateGas") return "0x186a0";
       if (request.method === "eth_chainId") return "0xaa36a7";
       if (request.method === "eth_accounts") return [wallet];
       if (request.method === "eth_call") return request.params[0]?.data?.startsWith("0xdd62ed3e") ? "0x4c4b40" : "0x0";
@@ -229,6 +232,7 @@ test("fundEscrow with permanent indexing lag reports pending honestly, records t
   const store = storage();
   const providerMock = {
     request: async (request) => {
+      if (request.method === "eth_estimateGas") return "0x186a0";
       if (request.method === "eth_chainId") return "0xaa36a7";
       if (request.method === "eth_accounts") return [wallet];
       if (request.method === "eth_call") return request.params[0]?.data?.startsWith("0xdd62ed3e") ? "0x4c4b40" : "0x0";
@@ -267,6 +271,7 @@ test("fundEscrow with an unavailable ledger after confirmation reports verificat
   let depositDone = false;
   const providerMock = {
     request: async (request) => {
+      if (request.method === "eth_estimateGas") return "0x186a0";
       if (request.method === "eth_chainId") return "0xaa36a7";
       if (request.method === "eth_accounts") return [wallet];
       if (request.method === "eth_call") return request.params[0]?.data?.startsWith("0xdd62ed3e") ? "0x4c4b40" : "0x0";
@@ -295,6 +300,7 @@ test("fundEscrow: a ledger that indexes a shorter deposit stays pending for refr
   let reads = 0;
   const providerMock = {
     request: async (request) => {
+      if (request.method === "eth_estimateGas") return "0x186a0";
       if (request.method === "eth_chainId") return "0xaa36a7";
       if (request.method === "eth_accounts") return [wallet];
       if (request.method === "eth_call") return request.params[0]?.data?.startsWith("0xdd62ed3e") ? "0x4c4b40" : "0x0";
@@ -333,3 +339,4 @@ test("a recorded pending deposit resolves once the ledger reflects it", async ()
   assert.equal(state.pendingResolution.remaining, 0);
   assert.deepEqual(state.pendingDeposits, []);
 });
+

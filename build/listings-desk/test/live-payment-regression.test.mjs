@@ -66,7 +66,8 @@ test("legacy four-level history migrates under the wallet lock, preserves status
   const prior = persisted.attempts[reqId].priorAttempts;
   assert.deepEqual(prior.map((a) => a.attemptId), ["a1", "a2", "a3"]);
   assert.deepEqual(prior.map((a) => a.status), ["protocol_receipt", "authorization_pending", "unknown"]);
-  assert.ok(prior.every((a) => !("answer" in a) && !("receipt" in a)));
+  assert.ok(prior.every((a) => !("answer" in a)));
+  assert.ok(prior.some((a) => a.receiptHash || a.receipt?.receipt_hash), "compacted history retains receipt provenance");
   assert.equal(prior[0].receiptHash, `0x${"a".repeat(64)}`);
   assert.equal(prior[0].receiptEpoch, 5);
 });
@@ -443,7 +444,7 @@ test("7. Documented ledger available minus local liabilities determines estimate
   // Spendable balance = effectiveBalance (3 USDC) - pendingLiabilities (0.01 USDC) = 2.99 USDC
   assert.equal(state.spendableEscrowMicro, 2_990_000n);
   assert.ok(state.spendableEscrowMicro > 20_000n, "Sufficient spendable escrow for 0.02 run");
-});
+ storage: storage() });
 
 // 8. Exact allowance, insufficient allowance, approval rejection, reverted deposit, delayed receipt, balance-read failure
 test("8. Bounded top-up funding respects existing allowance and handles approval rejection/revert", async () => {
@@ -472,11 +473,12 @@ test("8. Bounded top-up funding respects existing allowance and handles approval
 
   // Funding first approves the trusted Diamond, then deposits the exact amount.
   const resSkip = await fundEscrow({
+    storage: storage(),
     provider, wallet: walletA, usdc, diamond, amountMicro: 20_000n,
     onStage: (s) => stages.push(s),
     waitForReceipt: async () => ({ status: "0x1" }),
     fetchImpl: ledgerFetch(() => escrowBal),
-  });
+   storage: storage() });
   assert.ok(stages.includes("approval_confirmed"));
   assert.ok(resSkip.approveHash);
 
@@ -511,6 +513,7 @@ test("8. Bounded top-up funding respects existing allowance and handles approval
   };
 
   await fundEscrow({
+    storage: storage(),
     provider: providerWithApproval, wallet: walletA, usdc, diamond, amountMicro: 500_000n,
     onStage: (s) => stages.push(s),
     waitForReceipt: async () => ({ status: "0x1" }),
@@ -618,7 +621,7 @@ test("11. Deposit confirmation requires documented node deposited delta", async 
     if (req.method === "eth_sendTransaction") { deposited = 20_000n; return `0x${"d".repeat(64)}`; }
     throw new Error(`unexpected ${req.method}`);
   } };
-  const result = await fundEscrow({ provider, wallet: walletA, usdc, diamond, amountMicro: 20_000n, waitForReceipt: async () => ({ status: "0x1" }), fetchImpl: ledgerFetch(() => deposited) });
+  const result = await fundEscrow({ provider, wallet: walletA, usdc, diamond, amountMicro: 20_000n, waitForReceipt: async () => ({ status: "0x1" }), fetchImpl: ledgerFetch(() => deposited), storage: storage() });
   assert.equal(result.depositedMicro, "20000");
 });
 // 12. Spendable balance: unsettled protocol receipts reduce spendable balance; malformed ledger fails closed

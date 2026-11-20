@@ -1679,6 +1679,10 @@ async function walletAction(label, run) {
           actionNote.textContent = `${label} confirmed! Node ledger deposited: ${detail.depositedMicro} uUSDC. Tx: ${detail.depositHash}.`;
         } else if (stage === "deposit_index_pending") {
           actionNote.textContent = `${label} — deposit confirmed on-chain; waiting for the node ledger to index it (viewed ${detail.depositedView} uUSDC)…`;
+        } else if (stage === "deposit_partially_indexed") {
+          actionNote.textContent = `${label} — deposit confirmed on-chain (${detail.depositHash}); the node ledger has indexed only part of it. Do not deposit again — refresh balances until indexing completes.`;
+        } else if (stage === "deposit_verification_unavailable") {
+          actionNote.textContent = `${label} — deposit confirmed on-chain (${detail.depositHash}); node verification is unavailable. Do not deposit again — refresh balances when the node is reachable.`;
         } else if (stage === "deposit_indexing_pending") {
           actionNote.textContent = `${label} — deposit confirmed on-chain (${detail.depositHash}); the node ledger is still indexing it. Do not deposit again — refresh balances until the deposited amount appears.`;
         }

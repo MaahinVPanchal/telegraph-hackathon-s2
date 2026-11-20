@@ -251,6 +251,7 @@ test("failed approval receipt never submits the escrow deposit", async () => {
     throw new Error(`unexpected provider request: ${request.method}`);
   };
   await assert.rejects(() => fundEscrow({
+    storage: storage(),
     provider, wallet, usdc, diamond, isCurrent: () => true,
     fetchImpl: ledgerFetch(() => 0n),
     waitForReceipt: async () => { throw new Error("approval reverted"); },
@@ -273,6 +274,7 @@ test("insufficient allowance and failed deposit receipt never report funded", as
     throw new Error(`unexpected provider request: ${request.method}`);
   };
   await assert.rejects(() => fundEscrow({
+    storage: storage(),
     provider, wallet, usdc, diamond, isCurrent: () => true,
     fetchImpl: ledgerFetch(() => 0n),
     waitForReceipt: async () => ({ status: "0x1" }),
@@ -305,6 +307,7 @@ test("insufficient allowance and failed deposit receipt never report funded", as
     throw new Error(`unexpected provider request: ${request.method}`);
   };
   await assert.rejects(() => fundEscrow({
+    storage: storage(),
     provider: depositProvider, wallet, usdc, diamond, isCurrent: () => true,
     fetchImpl: ledgerFetch(() => deposited),
     waitForReceipt: async () => {
@@ -334,6 +337,7 @@ test("funding confirms approval, allowance, deposit receipt, and credited balanc
     throw new Error(`unexpected provider request: ${request.method}`);
   };
   const result = await fundEscrow({
+    storage: storage(),
     provider, wallet, usdc, diamond, isCurrent: () => true,
     fetchImpl: ledgerFetch(() => deposited),
     waitForReceipt: async () => ({ status: "0x1" }),

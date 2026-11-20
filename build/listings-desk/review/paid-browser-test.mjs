@@ -1,8 +1,8 @@
-﻿import {chromium} from 'playwright';
+import {chromium} from 'playwright';
 import {spawn} from 'node:child_process';import fs from 'node:fs';import assert from 'node:assert/strict';
 fs.mkdirSync('review/screenshots',{recursive:true});
 const root=process.cwd(),wallet='0x1111111111111111111111111111111111111111',intent='SANCTIONS_SCREENING_MATCH_GENERAL',diamond='0x72a70e949362670bf8bcead24efc5b8f950aa08b';
-const server=spawn(process.execPath,['src/serve.mjs'],{cwd:root,env:{...process.env,PORT:'7788'},stdio:['ignore','pipe','pipe']});await new Promise(r=>server.stdout.once('data',r));
+const server=spawn(process.execPath,['src/serve.mjs'],{cwd:root,env:{...process.env,PORT:'18778'},stdio:['ignore','pipe','pipe']});await new Promise(r=>server.stdout.once('data',r));
 const browser=await chromium.launch({...(process.env.CHROME_BIN ? {executablePath:process.env.CHROME_BIN} : {}),headless:true,args:['--no-sandbox']});const results=[];
 try{for(const scenario of ['valid','partial','unknown','malformed-challenge']){
  const c=await browser.newContext({viewport:{width:390,height:844}});let asks=0,authorized=0,unexpectedExternal=0;
@@ -14,7 +14,7 @@ try{for(const scenario of ['valid','partial','unknown','malformed-challenge']){
  const receipt={receipt_hash:'0x'+'a'.repeat(64),rail:'escrow',payer:wallet,miner:'377',intent,amount_uusdc:'10000',epoch_id:2068,settlement:'epoch',chain:'telegraph',timestamp:1794450000};
  return r.fulfill({status:200,headers:scenario==='unknown'?{}:{'x-payment-response':Buffer.from(JSON.stringify(receipt)).toString('base64')},json:{intent,input:req.params,miner_id:'377',result:{name:req.params.name,matched:false,matches:[],lists:['LOCAL FIXTURE'],match_score:0},cost_usd:.01,duration_ms:12,signal_hash:'0x'+'b'.repeat(64)}});
  });
- const p=await c.newPage();const errors=[];p.on('pageerror',e=>errors.push(e.message));await p.goto('http://127.0.0.1:7788');await p.click('#wallet-connect');await p.waitForFunction(()=>!document.querySelector('#run-live').disabled);await p.fill('#deployer-name','Deployer Fixture');await p.fill('#treasury-name','Treasury Fixture');await p.click('#run-live');await p.waitForFunction(()=>document.querySelector('#out').getAttribute('aria-busy')==='false');
+ const p=await c.newPage();const errors=[];p.on('pageerror',e=>errors.push(e.message));await p.goto('http://127.0.0.1:18778');await p.click('#wallet-connect');await p.waitForFunction(()=>!document.querySelector('#run-live').disabled);await p.fill('#deployer-name','Deployer Fixture');await p.fill('#treasury-name','Treasury Fixture');await p.click('#run-live');await p.waitForFunction(()=>document.querySelector('#out').getAttribute('aria-busy')==='false');
  const text=await p.locator('#out').innerText();const signs=await p.evaluate(()=>window.__calls.filter(x=>x==='personal_sign').length);assert.equal(unexpectedExternal,0);assert.deepEqual(errors,[]);
  if(scenario==='valid'){assert.equal(signs,2);assert.match(text,/20000/);assert.match(text,/not final settlement|not independently settled/);assert.ok(!/\bSETTLED\b/.test(text));}
  if(scenario==='partial'){assert.equal(signs,2);assert.match(text,/Deployer Fixture/);assert.match(text,/Unknown|unknown|UNKNOWN/);assert.match(text,/10000/);}

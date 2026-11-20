@@ -58,12 +58,22 @@ function validReceipt({ amount = "10000", timestamp = 1795000000 } = {}) {
 
 function receiptedAttempt(requestId, overrides = {}) {
   const { amount = "10000", timestamp = 1795000000, runId = null, ...rest } = overrides;
-  return {
-    requestId, wallet, intent, params, runId,
+  const attempt = {
+    requestId, wallet, intent, params, runId, payTo: diamond, network, miner: "731002",
     status: "protocol_receipt", authorizationStarted: true, amountMicro: amount,
     receipt: validReceipt({ amount, timestamp }),
+    nodeResponseEvidence: {
+      version: 1, wallet, network, diamond, intent, miner: "731002",
+      amountMicro: amount, receiptHash: receiptHash,
+    },
     ...rest,
   };
+  attempt.miner = attempt.receipt?.miner;
+  attempt.nodeResponseEvidence = attempt.receipt ? {
+    version: 1, wallet, network, diamond, intent, miner: attempt.receipt.miner,
+    amountMicro: amount, receiptHash: attempt.receipt.receipt_hash,
+  } : null;
+  return attempt;
 }
 
 function unknownAttempt(requestId, { amount = "10000" } = {}) {
@@ -85,11 +95,11 @@ function provider() {
   };
 }
 
-function ledgerFetch(availableMicro, depositedMicro) {
+function ledgerFetch(availableMicro, depositedMicro, chargedMicro = depositedMicro) {
   return async () => ({
     ok: true,
     json: async () => ({
-      deposited: String(depositedMicro), withdrawn: "0", charged: "0", credited: "0", unbilled: "0",
+      deposited: String(depositedMicro), withdrawn: "0", charged: String(chargedMicro), credited: "0", unbilled: "0",
       balance: String(depositedMicro), available: String(availableMicro), charge_limit: "1000000000", charged_this_block: "0",
     }),
   });
@@ -100,7 +110,7 @@ test("reconciliation marks valid receipted attempts accountedByNode and drops th
   saveAttempt(store, `sha256:${"a".repeat(64)}`, receiptedAttempt(`sha256:${"a".repeat(64)}`));
   const state = await readWalletFundingState({
     provider: provider(), wallet, usdc, diamond, storage: store, isCurrent: () => true,
-    fetchImpl: ledgerFetch(3_000_000n, 3_000_000n),
+    fetchImpl: ledgerFetch(3_000_000n, 3_000_000n, 20_000n),
   });
   assert.equal(state.pendingLiabilitiesMicro, 0n);
   assert.equal(state.spendableEscrowMicro, 3_000_000n);
@@ -123,10 +133,23 @@ test("receipt with missing/malformed/mismatched proof keeps the reservation", as
   store.setItem("leaderlight.live-attempts.v1", JSON.stringify({ version: 1, attempts: ledger.attempts }));
   const state = await readWalletFundingState({
     provider: provider(), wallet, usdc, diamond, storage: store, isCurrent: () => true,
-    fetchImpl: ledgerFetch(3_000_000n, 3_000_000n),
+    fetchImpl: ledgerFetch(3_000_000n, 3_000_000n, 20_000n),
   });
   assert.equal(state.pendingLiabilitiesMicro, 20000n); // both stay reserved
   assert.equal(state.spendableEscrowMicro, 2_980_000n);
+});
+
+test("legacy receipt-shaped local records without trusted node response evidence remain reserved", async () => {
+  const store = storage();
+  const attempt = receiptedAttempt(`sha256:${"d".repeat(64)}`);
+  delete attempt.nodeResponseEvidence;
+  saveAttempt(store, attempt.requestId, attempt);
+  const state = await readWalletFundingState({
+    provider: provider(), wallet, usdc, diamond, storage: store, isCurrent: () => true,
+    fetchImpl: ledgerFetch(3_000_000n, 3_000_000n, 20_000n),
+  });
+  assert.equal(state.pendingLiabilitiesMicro, 10_000n);
+  assert.equal(state.reconciliation.accounted, 0);
 });
 
 test("unknown attempts keep reserving spendable and keep duplicate-payment protection", async () => {
@@ -134,7 +157,7 @@ test("unknown attempts keep reserving spendable and keep duplicate-payment prote
   saveAttempt(store, `sha256:${"c".repeat(64)}`, unknownAttempt(`sha256:${"c".repeat(64)}`));
   const state = await readWalletFundingState({
     provider: provider(), wallet, usdc, diamond, storage: store, isCurrent: () => true,
-    fetchImpl: ledgerFetch(3_000_000n, 3_000_000n),
+    fetchImpl: ledgerFetch(3_000_000n, 3_000_000n, 20_000n),
   });
   assert.equal(state.pendingLiabilitiesMicro, 10000n);
   assert.equal(state.spendableEscrowMicro, 2_990_000n);
@@ -190,9 +213,10 @@ test("fundEscrow polls through ledger indexing delay and reports success", async
   };
   const stages = [];
   const result = await fundEscrow({
+    storage: storage(),
     provider: providerMock, wallet, usdc, diamond, amountMicro: 3_000_000n, isCurrent: () => true,
     fetchImpl, waitForReceipt: async () => ({ status: "0x1" }),
-    pollAttempts: 3, pollMs: 1, storage: storage(),
+    pollAttempts: 3, pollMs: 1,
     onStage: (stage) => stages.push(stage),
   });
   assert.equal(result.indexingPending, false);
@@ -214,10 +238,11 @@ test("fundEscrow with permanent indexing lag reports pending honestly, records t
   };
   const stages = [];
   const result = await fundEscrow({
+    storage: store,
     provider: providerMock, wallet, usdc, diamond, amountMicro: 3_000_000n, isCurrent: () => true,
     fetchImpl: async () => ({ ok: true, json: async () => ({ deposited: "0", withdrawn: "0", charged: "0", credited: "0", unbilled: "0", balance: "0", available: "0", charge_limit: "1000000000", charged_this_block: "0" }) }),
     waitForReceipt: async () => ({ status: "0x1" }),
-    pollAttempts: 2, pollMs: 1, storage: store,
+    pollAttempts: 2, pollMs: 1,
     onStage: (stage, detail) => stages.push([stage, detail]),
   });
   assert.equal(result.indexingPending, true);
@@ -229,10 +254,11 @@ test("fundEscrow with permanent indexing lag reports pending honestly, records t
   assert.equal(Object.values(pending)[0].amountMicro, "3000000");
   // A second funding attempt is refused while the deposit is unresolved.
   await assert.rejects(() => fundEscrow({
+    storage: store,
     provider: providerMock, wallet, usdc, diamond, amountMicro: 3_000_000n, isCurrent: () => true,
     fetchImpl: async () => ({ ok: true, json: async () => ({ deposited: "0", withdrawn: "0", charged: "0", credited: "0", unbilled: "0", balance: "0", available: "0", charge_limit: "1000000000", charged_this_block: "0" }) }),
     waitForReceipt: async () => ({ status: "0x1" }),
-    pollAttempts: 1, pollMs: 1, storage: store,
+    pollAttempts: 1, pollMs: 1,
   }), /confirmed on-chain but not yet reflected/);
 });
 
@@ -253,10 +279,11 @@ test("fundEscrow with an unavailable ledger after confirmation reports verificat
     throw new Error("502 bad gateway");
   };
   const result = await fundEscrow({
+    storage: store,
     provider: providerMock, wallet, usdc, diamond, amountMicro: 3_000_000n, isCurrent: () => true,
     fetchImpl,
     waitForReceipt: async () => { depositDone = true; return { status: "0x1" }; },
-    pollAttempts: 1, pollMs: 1, storage: store,
+    pollAttempts: 1, pollMs: 1,
   });
   assert.equal(result.indexingPending, true);
   assert.match(result.verificationError, /502/);
@@ -264,7 +291,7 @@ test("fundEscrow with an unavailable ledger after confirmation reports verificat
   assert.equal(Object.values(pending).length, 1);
 });
 
-test("fundEscrow still rejects when the ledger indexes a shorter deposit than requested", async () => {
+test("fundEscrow: a ledger that indexes a shorter deposit stays pending for refresh, not a failure", async () => {
   let reads = 0;
   const providerMock = {
     request: async (request) => {
@@ -275,12 +302,16 @@ test("fundEscrow still rejects when the ledger indexes a shorter deposit than re
       throw new Error(`unexpected ${request.method}`);
     },
   };
-  await assert.rejects(() => fundEscrow({
+  const result = await fundEscrow({
+    storage: storage(),
     provider: providerMock, wallet, usdc, diamond, amountMicro: 20_000n, isCurrent: () => true,
     fetchImpl: async () => { reads++; return { ok: true, json: async () => ({ deposited: reads === 1 ? "0" : "10000", withdrawn: "0", charged: "0", credited: "0", unbilled: "0", balance: reads === 1 ? "0" : "10000", available: reads === 1 ? "0" : "10000", charge_limit: "1000000000", charged_this_block: "0" }) }; },
     waitForReceipt: async () => ({ status: "0x1" }),
-    pollAttempts: 2, pollMs: 1, storage: storage(),
-  }), /did not increase by the requested amount/);
+    pollAttempts: 2, pollMs: 1,
+  });
+  assert.equal(result.indexingPending, true);
+  assert.equal(result.partial, true);
+  assert.equal(result.pendingState, "confirmed");
 });
 
 test("a recorded pending deposit resolves once the ledger reflects it", async () => {
@@ -290,12 +321,13 @@ test("a recorded pending deposit resolves once the ledger reflects it", async ()
   store.setItem(PENDING_KEY, JSON.stringify({
     [`0x${"e".repeat(64)}`]: {
       wallet, approveHash: `0x${"d".repeat(64)}`, depositHash: `0x${"e".repeat(64)}`,
-      amountMicro: "3000000", depositedBefore: "0", recordedAt: "2026-11-20T00:00:00.000Z",
+      amountMicro: "3000000", depositedBefore: "0", status: "confirmed", network, diamond,
+      recordedAt: "2026-11-20T00:00:00.000Z",
     },
   }));
   const state = await readWalletFundingState({
     provider: provider(), wallet, usdc, diamond, storage: store, isCurrent: () => true,
-    fetchImpl: ledgerFetch(3_000_000n, 3_000_000n), // ledger now reflects the deposit
+    fetchImpl: ledgerFetch(3_000_000n, 3_000_000n, 20_000n), // ledger now reflects the deposit
   });
   assert.equal(state.pendingResolution.resolved, 1);
   assert.equal(state.pendingResolution.remaining, 0);

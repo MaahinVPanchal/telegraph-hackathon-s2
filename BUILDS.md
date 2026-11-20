@@ -6,7 +6,7 @@ Every deployed change is tagged `build-NN` and logged here. Nothing else ships.
 | Build | Commit | Deployed (UTC) | What changed | Verified |
 |---|---|---|---|---|
 | **build-01** | `7735a86` | 2026-11-18 | Baseline of the current live site: separate Offline/LIVE workspaces, wallet disconnect control, hardened payment ledger (compact history, reconciliation guards, fail-closed persistence), honest blocked/unsaved-payment messaging, review hardening. Tests: 103/0. | ✅ live hash-checked; /memo + /desk verified |
-| build-02 | — | pending | Next deploy lands here (tag + row on ship). Known in-flight work: `fix/leaderlight-ledger-ui2` (documented Sepolia ledger wiring — needs review before merge) and the held `fix/leaderlight-ledger-and-ui` (new-Diamond address change — incomplete: funding balance reads still target the dead `escrowBalance` selector). | — |
+| **build-02** | `0313e75` | 2026-11-20 | New-Diamond ledger wiring: DIAMOND → `0x72a7…a08b`, `/api/ledger/account/:address` proxy (verified live, was 404), duplicate-payment protections, 320px mobile overflow fix, mojibake repair. Tests: 108/0. | ✅ live hash-checked; 320px no-overflow in browser; ledger route 200 | Next deploy lands here (tag + row on ship). Known in-flight work: `fix/leaderlight-ledger-ui2` (documented Sepolia ledger wiring — needs review before merge) and the held `fix/leaderlight-ledger-and-ui` (new-Diamond address change — incomplete: funding balance reads still target the dead `escrowBalance` selector). | — |
 
 ## Conventions
 

@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   encodeFunctionCall,
+  flattenPriorAttempts,
   fundEscrow,
   LIVE_PAYMENT_LIMITS,
   parseMicroUsdc,
@@ -14,6 +15,40 @@ import {
   validateEscrowReceipt,
   waitForTransaction,
 } from "../public/live-payment.mjs";
+
+test("repeated attempts keep compact, linear prior history and retain all liability records", () => {
+  const saved = storage();
+  const reqId = `sha256:${"f".repeat(64)}`;
+  const sizes = [];
+  for (let i = 0; i < 20; i++) {
+    saveAttempt(saved, reqId, {
+      attemptId: `repeat-${i}`, wallet: walletA, runId: `run-${i}`, status: "protocol_receipt",
+      authorizationStarted: true, amountMicro: "10000",
+      receipt: { receipt_hash: `0x${String(i).padStart(64, "0")}`, epoch_id: i },
+      answer: { huge: "x".repeat(2000) },
+    });
+    sizes.push(saved.getItem("leaderlight.live-attempts.v1").length);
+  }
+  const ledger = readAttemptLedger(saved);
+  assert.equal(ledger.attempts[reqId].priorAttempts.length, 19);
+  assert.ok(ledger.attempts[reqId].priorAttempts.every((a) => !("answer" in a)));
+  assert.ok(sizes[19] < sizes[0] * 25, `ledger grew nonlinearly: ${sizes[0]} -> ${sizes[19]}`);
+  assert.equal(ledger.history.filter((a) => a.authorizationStarted).reduce((n, a) => n + BigInt(a.amountMicro), 0n), 200000n);
+});
+
+test("nested prior history flattens recursively and de-duplicates while preserving order and block statuses", () => {
+  const record = { attemptId: "a4", status: "protocol_receipt", priorAttempts: [
+    { attemptId: "a3", status: "unknown", priorAttempts: [
+      { attemptId: "a2", status: "authorization_pending", priorAttempts: [
+        { attemptId: "a1", status: "protocol_receipt" },
+      ] },
+    ] },
+  ] };
+  const flat = flattenPriorAttempts(record);
+  assert.deepEqual(flat.map((a) => a.attemptId), ["a1", "a2", "a3", "a4"]);
+  assert.deepEqual(flat.map((a) => a.status), ["protocol_receipt", "authorization_pending", "unknown", "protocol_receipt"]);
+  assert.ok(flat.some((a) => ["authorization_pending", "unknown", "protocol_receipt"].includes(a.status)));
+});
 
 const walletA = "0x1111111111111111111111111111111111111111";
 const walletB = "0x2222222222222222222222222222222222222222";

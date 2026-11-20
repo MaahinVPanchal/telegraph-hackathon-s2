@@ -2,6 +2,8 @@
 const HASH_PATTERN = /^0x[0-9a-f]{64}$/i;
 const UINT_PATTERN = /^(0|[1-9]\d*)$/;
 const STORAGE_KEY = "leaderlight.live-attempts.v1";
+const PENDING_DEPOSITS_KEY = "leaderlight.pending-deposits.v1";
+const NODE_ROOT = "https://devnode.telegraphprotocol.com";
 const INTENT_KEY = "leaderlight.live-assessment-intents.v1";
 const LEDGER_VERSION = 1;
 const LIVE_CHAIN_ID = "0xaa36a7";
@@ -429,10 +431,23 @@ export async function readWalletFundingState({ provider, wallet, usdc, diamond, 
   const normalizedUsdc = assertAddress(usdc, "usdc");
   const normalizedDiamond = assertAddress(diamond, "diamond");
   await assertSepolia(provider, normalizedWallet, isCurrent);
-  // Reconcile receipted attempts before computing local liabilities: settled
-  // receipts stop reserving spendable (the node's `available` already accounts
-  // for them). A reconciliation failure keeps the conservative over-reserved sum.
-  try { reconcileSettledReceipts(storage, normalizedWallet); } catch { /* keep prior state */ }
+  // Reconcile + resolve pending deposits under the same wallet lock that guards
+  // payment writes: settled receipts stop reserving spendable (the node's
+  // `available` already accounts for them) and confirmed deposits resolve once
+  // the ledger indexes them. Ledger-read failures keep prior state (conservative).
+  let ledgerAccount = null;
+  let ledgerReadError = null;
+  let reconciliation = { accounted: 0, persistenceFailed: false };
+  let pendingResolution = { resolved: 0, remaining: 0 };
+  try {
+    await withLock("lock:escrow:" + normalizedWallet, async () => {
+      ledgerAccount = await fetchNodeLedger(normalizedWallet, fetchImpl);
+      reconciliation = reconcileAccountedReceipts(storage, normalizedWallet);
+      pendingResolution = resolvePendingDeposits(storage, normalizedWallet, ledgerAccount);
+    });
+  } catch (error) {
+    ledgerReadError = String(error?.message ?? error).slice(0, 160);
+  }
   const read = async (fn) => { try { return await fn(); } catch (error) { return { error: String(error?.message ?? error) }; } };
   const [eth, usdcRead, allowance, nodeLedger, local] = await Promise.all([
     read(async () => BigInt(await provider.request({ method: "eth_getBalance", params: [normalizedWallet, "latest"] }))),
@@ -449,21 +464,22 @@ export async function readWalletFundingState({ provider, wallet, usdc, diamond, 
     read(async () => {
       const ledger = readAttemptLedger(storage);
       const attempts = ledger.history?.length ? ledger.history : Object.values(ledger.attempts);
-      return attempts.filter((a) => a.wallet?.toLowerCase() === normalizedWallet && a.authorizationStarted && (a.status === "authorization_pending" || a.status === "unknown" || (a.status === "protocol_receipt" && a.settledOnChain !== true))).reduce((sum, a) => sum + (typeof a.amountMicro === "string" ? BigInt(a.amountMicro) : 0n), 0n);
+      return attempts.filter((a) => a.wallet?.toLowerCase() === normalizedWallet && a.authorizationStarted && (a.status === "authorization_pending" || a.status === "unknown" || (a.status === "protocol_receipt" && a.accountedByNode !== true))).reduce((sum, a) => sum + (typeof a.amountMicro === "string" ? BigInt(a.amountMicro) : 0n), 0n);
     }),
   ]);
   if (!isCurrent()) throw new Error("Wallet account or network changed; aborting");
-  const ledgerAccount = nodeLedger.error ? null : nodeLedger;
+  const pendingDeposits = readPendingDeposits(storage, normalizedWallet);
   const spendable = ledgerAccount && !local.error ? (ledgerAccount.available > local ? ledgerAccount.available - local : 0n) : null;
   return {
     wallet: normalizedWallet, ethBalanceWei: eth.error ? null : eth, ethBalanceReadError: eth.error ?? null,
     usdcBalanceMicro: usdcRead.error ? null : usdcRead, usdcBalanceReadError: usdcRead.error ?? null,
     allowanceMicro: allowance.error ? null : allowance, allowanceReadError: allowance.error ?? null,
-    ledgerAccount, ledgerReadError: nodeLedger.error ?? null,
-    rawEscrowBalanceMicro: ledgerAccount?.balance ?? null, rawEscrowReadError: nodeLedger.error ?? null,
-    effectiveEscrowBalanceMicro: ledgerAccount?.available ?? null, effectiveEscrowReadError: nodeLedger.error ?? null,
+    ledgerAccount, ledgerReadError,
+    rawEscrowBalanceMicro: ledgerAccount?.balance ?? null, rawEscrowReadError: ledgerReadError,
+    effectiveEscrowBalanceMicro: ledgerAccount?.available ?? null, effectiveEscrowReadError: ledgerReadError,
     pendingLiabilitiesMicro: local.error ? 0n : local, liabilitiesReadError: local.error ?? null,
     spendableEscrowMicro: spendable,
+    reconciliation, pendingDeposits, pendingResolution,
   };
 }
 
@@ -478,80 +494,237 @@ async function fetchNodeLedger(wallet, fetchImpl = globalThis.fetch) {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// Receipt-specific reconciliation: the node ledger's `available` already accounts
-// for charged and unbilled usage, so a protocol receipt must stop reserving
-// spendable once the node knows about it. Each receipted attempt is marked
-// individually (settledOnChain) and the persisted history is kept — unknown and
-// authorization-pending attempts continue to reserve, so duplicate-payment
-// protection is unchanged. A persistence failure keeps the conservative
-// (over-reserved) state rather than risking corrupted history.
-export function reconcileSettledReceipts(storage, wallet) {
+// Receipt evidence, per the documented escrow model (anjoman.ai/docs/using/escrow-inference):
+// - receipt_hash is "the key of the delivery's row in the node's ledger" — a
+//   structurally valid receipt is the node's own attestation that the delivery
+//   row exists and that the node's `available` already accounts for the charge
+//   (charged or unbilled). That evidence level is `accountedByNode` and it is
+//   what releases a local reservation.
+// - `settledOnChain` is a STRICTER, separate claim: it requires the documented
+//   delivery proof (GET /v1/blocks/{epochId}/deliveries/{receiptHash}) showing
+//   the receipt's Merkle inclusion in a recorded epoch block. It is verified on
+//   demand (verifyReceiptOnChain), never asserted by reconciliation alone.
+// - Missing, malformed, or mismatched receipts (amount/intent/payer) keep the
+//   reservation intact. Unknown and authorization-pending attempts keep
+//   reserving and keep duplicate-payment protection.
+function documentedReceiptEvidence(attempt, wallet) {
+  const receipt = attempt?.receipt;
+  if (!receipt || typeof receipt !== "object" || Array.isArray(receipt)) return false;
+  if (typeof receipt.receipt_hash !== "string" || !/^0x[0-9a-f]{64}$/i.test(receipt.receipt_hash)) return false;
+  if (receipt.rail !== "escrow" || receipt.settlement !== "epoch" || receipt.chain !== "telegraph") return false;
+  if (typeof receipt.amount_uusdc !== "string" || !/^(0|[1-9]\d*)$/.test(receipt.amount_uusdc)) return false;
+  if (attempt.amountMicro !== undefined && BigInt(receipt.amount_uusdc) !== BigInt(attempt.amountMicro)) return false;
+  if (!Number.isSafeInteger(receipt.epoch_id) || receipt.epoch_id < 0) return false;
+  if (!Number.isSafeInteger(receipt.timestamp) || receipt.timestamp < 0) return false;
+  if (attempt.intent !== undefined && receipt.intent !== attempt.intent) return false;
+  if (typeof receipt.payer === "string" && attempt.wallet && receipt.payer.toLowerCase() !== attempt.wallet.toLowerCase()) return false;
+  return true;
+}
+
+function persistCanonicalLedger(storage, ledger) {
+  // Canonical persisted record: version + attempts. history/byRun/byWallet are
+  // derived by readAttemptLedger and must not be duplicated in storage.
+  const serialized = JSON.stringify({ version: LEDGER_VERSION, attempts: ledger.attempts });
+  storage.setItem(STORAGE_KEY, serialized);
+  if (storage.getItem(STORAGE_KEY) !== serialized) throw new Error("persistence verification failed");
+}
+
+export function reconcileAccountedReceipts(storage, wallet) {
   const normalizedWallet = assertAddress(wallet, "wallet");
   const ledger = readAttemptLedger(storage);
   const attempts = Array.isArray(ledger.history) && ledger.history.length > 0 ? ledger.history : Object.values(ledger.attempts);
-  let settled = 0;
+  let accounted = 0;
+  const changed = [];
   for (const attempt of attempts) {
     if (attempt?.wallet?.toLowerCase() !== normalizedWallet) continue;
-    if (attempt.status !== "protocol_receipt" || attempt.settledOnChain === true) continue;
-    attempt.settledOnChain = true;
-    settled++;
+    if (attempt.status !== "protocol_receipt" || attempt.accountedByNode === true) continue;
+    if (!documentedReceiptEvidence(attempt, normalizedWallet)) continue; // missing/malformed/mismatched proof: keep reserving
+    attempt.accountedByNode = true;
+    changed.push(attempt);
+    accounted++;
   }
-  if (settled > 0) {
-    const serialized = JSON.stringify(ledger);
+  if (changed.length > 0) {
     try {
-      storage.setItem(STORAGE_KEY, serialized);
-      if (storage.getItem(STORAGE_KEY) !== serialized) throw new Error("persistence verification failed");
+      persistCanonicalLedger(storage, ledger);
     } catch (error) {
-      return { settled: 0, persistenceFailed: true, error: error.message };
+      // Conservative rollback on a failed write: flags revert, reservations stay.
+      for (const attempt of changed) delete attempt.accountedByNode;
+      return { accounted: 0, persistenceFailed: true, error: error.message };
     }
   }
-  return { settled, persistenceFailed: false };
+  return { accounted, persistenceFailed: false };
 }
 
-export async function fundEscrow({ provider, wallet, usdc, diamond, amountMicro, isCurrent = () => true, waitForReceipt = waitForTransaction, onStage = () => {}, fetchImpl = globalThis.fetch, pollAttempts = 5, pollMs = 2000 }) {
-  await assertSepolia(provider, wallet, isCurrent);
+// On-demand on-chain settlement verification (stricter than accountedByNode).
+export async function verifyReceiptOnChain(storage, wallet, { nodeBase = NODE_ROOT, fetchImpl = globalThis.fetch, maxVerify = 20 } = {}) {
   const normalizedWallet = assertAddress(wallet, "wallet");
-  const normalizedUsdc = assertAddress(usdc, "usdc");
-  const normalizedDiamond = assertAddress(diamond, "diamond");
-  const amount = amountMicro === undefined ? FUNDING_AMOUNT_MICRO : BigInt(amountMicro);
-  if (amount <= 0n) throw new RangeError("funding amount must be greater than zero");
-  const allowanceData = encodeFunctionCall(ERC20_ALLOWANCE_SELECTOR, ["address", "address"], [normalizedWallet, normalizedDiamond]);
-  const before = await fetchNodeLedger(normalizedWallet, fetchImpl);
-  onStage("approval_pending", { needed: amount.toString() });
-  await assertSepolia(provider, normalizedWallet, isCurrent);
-  const approveHash = await provider.request({ method: "eth_sendTransaction", params: [{ from: normalizedWallet, to: normalizedUsdc, data: encodeFunctionCall(ERC20_APPROVE_SELECTOR, ["address", "uint256"], [normalizedDiamond, amount]), gas: "0x186a0" }] });
-  await waitForReceipt(provider, approveHash);
-  await assertSepolia(provider, normalizedWallet, isCurrent);
-  const allowanceAfter = await readUint(provider, normalizedUsdc, allowanceData, normalizedWallet);
-  if (allowanceAfter < amount) throw new Error("USDC approval receipt confirmed, but allowance is insufficient for the deposit");
-  onStage("approval_confirmed", { approveHash, allowance: allowanceAfter.toString() });
-  onStage("deposit_pending", { amount: amount.toString(), depositedBefore: before.deposited.toString() });
-  await assertSepolia(provider, normalizedWallet, isCurrent);
-  const depositHash = await provider.request({ method: "eth_sendTransaction", params: [{ from: normalizedWallet, to: normalizedDiamond, data: encodeFunctionCall(DEPOSIT_SELECTOR, ["uint256"], [amount]), gas: "0x30d40" }] });
-  await waitForReceipt(provider, depositHash);
-  await assertSepolia(provider, normalizedWallet, isCurrent);
-  // The deposit is confirmed on-chain; the node ledger may lag while indexing.
-  // Poll instead of concluding failure on a single read — a stale view must never
-  // suggest the deposit failed or prompt another deposit.
-  let after = await fetchNodeLedger(normalizedWallet, fetchImpl);
-  let delta = after.deposited - before.deposited;
-  if (delta === 0n) {
-    onStage("deposit_index_pending", { depositHash, depositedView: after.deposited.toString(), expectedIncrease: amount.toString() });
-    for (let poll = 0; poll < pollAttempts && delta === 0n; poll++) {
-      await sleep(pollMs);
-      if (!isCurrent()) throw new Error("Wallet account or network changed; aborting");
-      after = await fetchNodeLedger(normalizedWallet, fetchImpl);
-      delta = after.deposited - before.deposited;
+  const ledger = readAttemptLedger(storage);
+  const attempts = Array.isArray(ledger.history) && ledger.history.length > 0 ? ledger.history : Object.values(ledger.attempts);
+  const targets = attempts.filter((a) => a?.wallet?.toLowerCase() === normalizedWallet &&
+    a.status === "protocol_receipt" && a.accountedByNode === true && a.settledOnChain !== true && a.receipt?.epoch_id != null && a.receipt?.receipt_hash).slice(0, maxVerify);
+  const results = [];
+  let verified = 0;
+  const changed = [];
+  for (const attempt of targets) {
+    const outcome = { requestId: attempt.requestId ?? null, attemptId: attempt.attemptId ?? null, receiptHash: attempt.receipt.receipt_hash, epochId: attempt.receipt.epoch_id };
+    try {
+      const response = await fetchImpl(`${nodeBase}/v1/blocks/${attempt.receipt.epoch_id}/deliveries/${attempt.receipt.receipt_hash}`, { method: "GET", cache: "no-store" });
+      if (response.ok) {
+        const body = await response.json().catch(() => null);
+        if (body && typeof body === "object" && body.delivery && (body.proof || body.deliveries_root || body.block)) {
+          attempt.settledOnChain = true;
+          attempt.onChainProof = { verifiedAt: new Date().toISOString(), epochId: attempt.receipt.epoch_id, deliveriesRoot: body.block?.deliveries_root ?? null };
+          changed.push(attempt);
+          verified++;
+          results.push({ ...outcome, settled: true });
+        } else results.push({ ...outcome, settled: false, note: "malformed delivery response" });
+      } else if (response.status === 404) {
+        results.push({ ...outcome, settled: false, note: "epoch block not recorded yet" });
+      } else results.push({ ...outcome, settled: false, note: `HTTP ${response.status}` });
+    } catch (error) {
+      results.push({ ...outcome, settled: false, note: `unavailable: ${String(error?.message ?? error).slice(0, 80)}` });
     }
   }
-  if (delta === 0n) {
-    onStage("deposit_indexing_pending", { depositHash, depositedView: after.deposited.toString(), expectedIncrease: amount.toString() });
-    return { approveHash, depositHash, indexingPending: true, depositedMicro: before.deposited.toString(), balanceMicro: after.balance.toString(), availableMicro: after.available.toString() };
+  if (changed.length > 0) {
+    try { persistCanonicalLedger(storage, ledger); } catch (error) {
+      for (const attempt of changed) { delete attempt.settledOnChain; delete attempt.onChainProof; }
+      verified -= changed.length;
+      results.push({ verificationError: error.message });
+    }
   }
-  if (delta < amount) throw new Error("deposit receipt confirmed, but node ledger deposited did not increase by the requested amount");
-  onStage("deposit_confirmed", { depositHash, depositedMicro: after.deposited.toString(), balanceMicro: after.balance.toString(), availableMicro: after.available.toString() });
-  return { approveHash, depositHash, indexingPending: false, depositedMicro: after.deposited.toString(), balanceMicro: after.balance.toString(), availableMicro: after.available.toString() };
+  return { verified, results, remaining: targets.length - verified };
 }
+
+// Pending deposits: a confirmed deposit transaction must survive reloads, other
+// tabs, and ledger outages without ever looking like a failed deposit or
+// prompting a repeat deposit.
+function readPendingDeposits(storage, wallet) {
+  if (!storage) return [];
+  let raw;
+  try { raw = storage.getItem(PENDING_DEPOSITS_KEY); } catch { raw = null; }
+  let all = {};
+  if (raw) { try { all = JSON.parse(raw); if (!all || typeof all !== "object" || Array.isArray(all)) all = {}; } catch { all = {}; } }
+  return Object.values(all).filter((record) => record?.wallet?.toLowerCase() === wallet.toLowerCase());
+}
+
+function recordPendingDeposit(storage, wallet, { approveHash, depositHash, amountMicro, depositedBefore }) {
+  if (!storage) return; // pending tracking unavailable without storage: the honest display simply cannot persist
+  let all = {};
+  try { const raw = storage.getItem(PENDING_DEPOSITS_KEY); if (raw) { const parsed = JSON.parse(raw); if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) all = parsed; } } catch { all = {}; }
+  all[depositHash] = {
+    wallet: wallet.toLowerCase(), approveHash, depositHash,
+    amountMicro: String(amountMicro), depositedBefore: String(depositedBefore),
+    recordedAt: new Date().toISOString(),
+  };
+  const serialized = JSON.stringify(all);
+  storage.setItem(PENDING_DEPOSITS_KEY, serialized);
+  if (storage.getItem(PENDING_DEPOSITS_KEY) !== serialized) throw new Error("pending deposit record could not be saved");
+}
+
+function resolvePendingDeposits(storage, wallet, ledgerAccount) {
+  if (!storage) return { resolved: 0, remaining: 0 };
+  const pending = readPendingDeposits(storage, wallet);
+  let resolved = 0;
+  let remaining = 0;
+  if (pending.length === 0) return { resolved, remaining };
+  let all = {};
+  try { const raw = storage.getItem(PENDING_DEPOSITS_KEY); all = JSON.parse(raw) ?? {}; } catch { all = {}; }
+  for (const record of pending) {
+    const delta = BigInt(ledgerAccount.deposited) - BigInt(record.depositedBefore);
+    if (delta >= BigInt(record.amountMicro)) { delete all[record.depositHash]; resolved++; }
+    else remaining++;
+  }
+  const serialized = JSON.stringify(all);
+  storage.setItem(PENDING_DEPOSITS_KEY, serialized);
+  if (storage.getItem(PENDING_DEPOSITS_KEY) !== serialized) throw new Error("pending deposit resolution could not be saved");
+  return { resolved, remaining };
+}
+
+
+export async function fundEscrow({ provider, wallet, usdc, diamond, amountMicro, storage = globalThis.localStorage, isCurrent = () => true, waitForReceipt = waitForTransaction, onStage = () => {}, fetchImpl = globalThis.fetch, pollAttempts = 5, pollMs = 2000, pendingDepositOverride = false }) {
+  const normalizedWallet = assertAddress(wallet, "wallet");
+  return await withLock(`lock:fund:${normalizedWallet}`, async () => {
+    await assertSepolia(provider, normalizedWallet, isCurrent);
+    const normalizedUsdc = assertAddress(usdc, "usdc");
+    const normalizedDiamond = assertAddress(diamond, "diamond");
+    const amount = amountMicro === undefined ? FUNDING_AMOUNT_MICRO : BigInt(amountMicro);
+    if (amount <= 0n) throw new RangeError("funding amount must be greater than zero");
+
+    // Cross-tab / repeat-funding guard: a confirmed-but-unindexed deposit blocks
+    // new funding until the node ledger reflects it (or an explicit override).
+    const unresolvedPending = readPendingDeposits(storage, normalizedWallet);
+    if (unresolvedPending.length > 0 && !pendingDepositOverride) {
+      const first = unresolvedPending[0];
+      throw new Error(`A previous deposit of ${first.amountMicro} µUSDC is confirmed on-chain but not yet reflected in the node ledger (tx ${first.depositHash}). Refresh balances; do not deposit again until it appears.`);
+    }
+
+    const allowanceData = encodeFunctionCall(ERC20_ALLOWANCE_SELECTOR, ["address", "address"], [normalizedWallet, normalizedDiamond]);
+    const before = await fetchNodeLedger(normalizedWallet, fetchImpl);
+    onStage("approval_pending", { needed: amount.toString() });
+    await assertSepolia(provider, normalizedWallet, isCurrent);
+    const approveHash = await provider.request({ method: "eth_sendTransaction", params: [{ from: normalizedWallet, to: normalizedUsdc, data: encodeFunctionCall(ERC20_APPROVE_SELECTOR, ["address", "uint256"], [normalizedDiamond, amount]), gas: "0x186a0" }] });
+    await waitForReceipt(provider, approveHash);
+    await assertSepolia(provider, normalizedWallet, isCurrent);
+    const allowanceAfter = await readUint(provider, normalizedUsdc, allowanceData, normalizedWallet);
+    if (allowanceAfter < amount) throw new Error("USDC approval receipt confirmed, but allowance is insufficient for the deposit");
+    onStage("approval_confirmed", { approveHash, allowance: allowanceAfter.toString() });
+    onStage("deposit_pending", { amount: amount.toString(), depositedBefore: before.deposited.toString() });
+    await assertSepolia(provider, normalizedWallet, isCurrent);
+    const depositHash = await provider.request({ method: "eth_sendTransaction", params: [{ from: normalizedWallet, to: normalizedDiamond, data: encodeFunctionCall(DEPOSIT_SELECTOR, ["uint256"], [amount]), gas: "0x30d40" }] });
+    await waitForReceipt(provider, depositHash);
+    await assertSepolia(provider, normalizedWallet, isCurrent);
+
+    // Confirmed on-chain from this point on: record the pending deposit so a
+    // reload, a second tab, or a ledger outage can never look like a failed
+    // deposit or prompt a repeat one.
+    await withLock(`lock:escrow:${normalizedWallet}`, async () => {
+      recordPendingDeposit(storage, normalizedWallet, { approveHash, depositHash, amountMicro: amount, depositedBefore: before.deposited });
+    });
+
+    // Verify the ledger view, allowing for indexing delay (zero or partial
+    // deltas can lag; only a settled short count after the window is a mismatch).
+    let after = null;
+    let delta = null;
+    let verificationError = null;
+    try {
+      after = await fetchNodeLedger(normalizedWallet, fetchImpl);
+      delta = after.deposited - before.deposited;
+    } catch (error) {
+      verificationError = String(error?.message ?? error).slice(0, 160);
+    }
+    if (verificationError) {
+      onStage("deposit_verification_unavailable", { depositHash, error: verificationError, expectedIncrease: amount.toString() });
+      return { approveHash, depositHash, indexingPending: true, verificationError, depositedMicro: before.deposited.toString(), balanceMicro: null, availableMicro: null };
+    }
+    if (delta < amount) {
+      onStage("deposit_index_pending", { depositHash, depositedView: after.deposited.toString(), expectedIncrease: amount.toString() });
+      for (let poll = 0; poll < pollAttempts && delta < amount; poll++) {
+        await sleep(pollMs);
+        if (!isCurrent()) throw new Error("Wallet account or network changed; aborting");
+        try {
+          after = await fetchNodeLedger(normalizedWallet, fetchImpl);
+          delta = after.deposited - before.deposited;
+        } catch (error) {
+          verificationError = String(error?.message ?? error).slice(0, 160);
+          break;
+        }
+      }
+    }
+    if (delta < amount) {
+      if (delta === 0n) {
+        onStage("deposit_indexing_pending", { depositHash, depositedView: after.deposited.toString(), expectedIncrease: amount.toString() });
+        return { approveHash, depositHash, indexingPending: true, depositedMicro: before.deposited.toString(), balanceMicro: after.balance.toString(), availableMicro: after.available.toString() };
+      }
+      throw new Error("deposit receipt confirmed, but node ledger deposited did not increase by the requested amount");
+    }
+    await withLock(`lock:escrow:${normalizedWallet}`, async () => {
+      resolvePendingDeposits(storage, normalizedWallet, after);
+    });
+    onStage("deposit_confirmed", { depositHash, depositedMicro: after.deposited.toString(), balanceMicro: after.balance.toString(), availableMicro: after.available.toString() });
+    return { approveHash, depositHash, indexingPending: false, depositedMicro: after.deposited.toString(), balanceMicro: after.balance.toString(), availableMicro: after.available.toString() };
+  });
+}
+
 export async function performPaidAsk({
   provider,
   wallet,
@@ -580,7 +753,7 @@ export async function performPaidAsk({
     // Reconcile receipted attempts first: settled receipts stop reserving
     // spendable (the node's `available` already accounts for charged and unbilled
     // usage). A reconciliation failure keeps the conservative over-reserved state.
-    try { reconcileSettledReceipts(storage, normalizedWallet); } catch { /* keep prior state */ }
+    try { reconcileAccountedReceipts(storage, normalizedWallet); } catch { /* keep prior state */ }
     const currentLedger = readAttemptLedger(storage);
     let migrated = false;
     for (const [id, record] of Object.entries(currentLedger.attempts)) {
@@ -688,7 +861,7 @@ export async function performPaidAsk({
       runReservedMicro = allAttempts
         .filter((attempt) => {
           return attempt.authorizationStarted && attempt.status !== "definitive_unpaid" && attempt.status !== "signature_rejected" &&
-            !(attempt.status === "protocol_receipt" && attempt.settledOnChain === true);
+            !(attempt.status === "protocol_receipt" && attempt.accountedByNode === true);
         })
         .reduce((sum, attempt) => sum + (typeof attempt.amountMicro === "string" ? BigInt(attempt.amountMicro) : 0n), 0n);
     }

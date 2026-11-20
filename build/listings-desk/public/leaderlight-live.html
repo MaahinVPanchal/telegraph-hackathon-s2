@@ -250,6 +250,7 @@ button, input, a, summary { -webkit-tap-highlight-color: transparent; }
 .limit-list span { color: var(--ld-text); }
 .limit-list strong { color: var(--ld-secondary); font-size: .75rem; font-weight: 600; text-align: right; }
 .boundary-note { margin: 14px 0 0; color: var(--ld-secondary); font-size: .78rem; }
+.boundary-note code { overflow-wrap: anywhere; word-break: break-all; }
 .out-region { min-width: 0; margin-top: 16px; }
 .empty-state, .request-state, .request-error {
   margin: 0;
@@ -706,8 +707,8 @@ html{scroll-padding-top:20px}body{background:radial-gradient(ellipse at 76% 8%,#
 <div class="rail-footer"><span>INTELLIGENCE<br/>BEFORE CONVICTION</span><i aria-hidden="true">â—‡</i><small>LEADERLIGHT / 01.2<br/>ETHEREUM SEPOLIA TESTNET</small></div></nav>
 <div class="workspace-main">
 <nav aria-label="Assessment mode" class="workspace-tabs" role="tablist">
-<button aria-controls="offline-panel" aria-selected="true" class="workspace-tab is-active" data-workspace-tab="offline" id="offline-tab" role="tab" type="button">Offline assessment<span>Private fixtures Â· no wallet or payment</span></button>
-<button aria-controls="live-panel" aria-selected="false" class="workspace-tab" data-workspace-tab="live" id="live-tab" role="tab" type="button">LIVE Â· Sepolia<span>Connect MetaMask Â· approval required per action</span></button>
+<button aria-controls="offline-panel" aria-selected="true" class="workspace-tab is-active" data-workspace-tab="offline" id="offline-tab" role="tab" type="button">Offline assessment<span>Private fixtures · no wallet or payment</span></button>
+<button aria-controls="live-panel" aria-selected="false" class="workspace-tab" data-workspace-tab="live" id="live-tab" role="tab" type="button">LIVE · Sepolia<span>Connect MetaMask · approval required per action</span></button>
 </nav>
 <div class="hero-split"><section aria-labelledby="hero-title" class="hero">
 <p class="eyebrow">Sovereign intelligence</p>
@@ -721,7 +722,7 @@ html{scroll-padding-top:20px}body{background:radial-gradient(ellipse at 76% 8%,#
 </div>
 <section aria-label="Assessment setup" aria-labelledby="offline-tab" class="setup-grid workspace-panel" data-workspace-panel="offline" id="offline-panel" role="tabpanel">
 <form class="panel" id="candidate-form" novalidate="">
-<p class="eyebrow">01 / Candidate Â· offline</p>
+<p class="eyebrow">01 / Candidate · offline</p>
 <h2>Start with the token.</h2>
 <label class="field-label" for="token">Token symbol or contract address</label>
 <input aria-describedby="token-help" autocomplete="off" class="token-input" id="token" maxlength="120" name="token" placeholder="e.g. PEPE or 0xâ€¦" required="" type="text"/>
@@ -742,7 +743,7 @@ html{scroll-padding-top:20px}body{background:radial-gradient(ellipse at 76% 8%,#
 <p class="boundary-note">Connecting requests account access only. Testnet actions use the selected MetaMask provider and Sepolia; each signature or transaction requires its own approval.</p>
 </aside>
 </section><section aria-label="Live assessment and wallet boundaries" aria-labelledby="live-tab" class="live-grid workspace-panel" data-workspace-panel="live" hidden id="live-panel" role="tabpanel"><div class="panel live-block" id="live-assessment">
-<p class="eyebrow">02 / Live Â· Ethereum Sepolia testnet</p>
+<p class="eyebrow">02 / Live · Ethereum Sepolia testnet</p>
 <h2>Ask with explicit identities.</h2>
 <p class="field-help" id="live-state">Connect MetaMask (top right) to enable live actions. Payments sign in your browser from your own wallet.</p>
 <div class="action-row">
@@ -783,7 +784,7 @@ html{scroll-padding-top:20px}body{background:radial-gradient(ellipse at 76% 8%,#
 <p class="mode-help">Up to two explicit sanctions requests. The validated challenge is capped at $0.01 per call and $0.02 per run. A receipt is not final epoch settlement.</p>
 </div><aside class="panel wallet-guide"><p class="eyebrow">Wallet &amp; network</p><div aria-hidden="true" class="wallet-symbol">â—‡</div><h2>Your keys.<br/>Your approval.</h2><p>Use the wallet connection at the top of this workspace. Connecting grants account access only.</p><dl><div><dt>Network</dt><dd>Ethereum Sepolia / 11155111</dd></div><div><dt>Per-call ceiling</dt><dd>$0.01 test USDC</dd></div><div><dt>Per-run ceiling</dt><dd>$0.02 test USDC</dd></div></dl><p class="boundary-note">Funding is an on-demand testnet transaction (with selectable $0.02, $1.00, or $3.00 amounts). Each signature or transaction needs your own approval. Receipts, delivery evidence and final settlement are different states.</p></aside></section>
 <section aria-busy="false" aria-label="Assessment result" aria-live="polite" class="out-region workspace-results" id="out">
-<p class="empty-state">Choose Offline assessment or LIVE Â· Sepolia above to begin. Results appear here for the selected mode.</p>
+<p class="empty-state">Choose Offline assessment or LIVE · Sepolia above to begin. Results appear here for the selected mode.</p>
 </section>
 </div>
 </div>
@@ -992,7 +993,7 @@ function initializeWalletConnection() {
     window.__listingsWallet = { address: first, accounts, provider: activeProvider, chainId };
     window.__listingsProvider = activeProvider;
     window.dispatchEvent(new CustomEvent("listings:wallet", { detail: { address: first, chainId } }));
-    button.textContent = `Connected Â· ${first.slice(0, 6)}â€¦${first.slice(-4)}`;
+    button.textContent = `Connected · ${first.slice(0, 6)}â€¦${first.slice(-4)}`;
     button.setAttribute("aria-label", `Connected MetaMask account ${first}`);
     disconnectButton.hidden = true;
     const additionalAccounts = accounts.length > 1 ? ` (${accounts.length} accounts)` : "";
@@ -1188,7 +1189,7 @@ function renderLiveMemo(list, wallet, runError = null) {
   const heading = document.createElement("div");
   heading.className = "memo-result-head";
   const headingCopy = document.createElement("div");
-  headingCopy.append(element("p", "memo-eyebrow", "LIVE sanctions assessment Â· testnet"));
+  headingCopy.append(element("p", "memo-eyebrow", "LIVE sanctions assessment · testnet"));
   const candidateName = list.find((run) => typeof run.params?.name === "string")?.params.name ?? "candidate";
   headingCopy.append(element("h2", "", candidateName));
   heading.append(headingCopy);
@@ -1210,11 +1211,11 @@ function renderLiveMemo(list, wallet, runError = null) {
     title.append(element("code", "", run.intent ?? data.intent ?? "Unknown intent"));
     cardHead.append(title);
     const state = run.receiptValid
-      ? "PROTOCOL RECEIPT Â· EPOCH SETTLEMENT UNCONFIRMED"
+      ? "PROTOCOL RECEIPT · EPOCH SETTLEMENT UNCONFIRMED"
       : run.paymentStatus === "not_authorized"
         ? "NO PAYMENT AUTHORIZED"
         : run.status === "authorization_pending" || run.status === "unknown"
-          ? "UNKNOWN Â· RECONCILIATION REQUIRED"
+          ? "UNKNOWN · RECONCILIATION REQUIRED"
           : "NO VALID RECEIPT";
     cardHead.append(element("span", "memo-pill status--unknown", state));
     card.append(cardHead);
@@ -1227,7 +1228,7 @@ function renderLiveMemo(list, wallet, runError = null) {
     appendDetail(grid, "Receipt amount", run.receiptValid ? `${run.receipt.amount_uusdc} Î¼USDC` : "Unavailable");
     appendDetail(grid, "Receipt hash", run.receiptValid ? run.receipt.receipt_hash : "Unavailable", true);
     appendDetail(grid, "Signal", typeof data.signal_hash === "string" && /^0x[0-9a-f]{64}$/i.test(data.signal_hash) ? data.signal_hash : "Unavailable", true);
-    appendDetail(grid, "Protocol status", run.receiptValid ? `Epoch ${run.receipt.epoch_id} Â· not independently settled` : "Unknown or absent");
+    appendDetail(grid, "Protocol status", run.receiptValid ? `Epoch ${run.receipt.epoch_id} · not independently settled` : "Unknown or absent");
     if (!run.receiptValid && run.receipt) appendDetail(grid, "Raw receipt (unvalidated)", JSON.stringify(run.receipt), true);
     card.append(grid);
     const raw = element("pre", "memo-raw", JSON.stringify(data.result ?? data, null, 2));
@@ -1580,15 +1581,15 @@ function renderFundingState(state) {
   if (breakdownEl) {
     if (hasReadErrors) {
       notes.push("Accounting data could not be verified; spending is blocked until readable.");
-      breakdownEl.textContent = notes.join(" Â· ");
+      breakdownEl.textContent = notes.join(" · ");
       breakdownEl.style.color = "var(--ld-caution)";
     } else if (hasSufficientSpendable) {
       notes.push("Sufficient spendable escrow for live assessment ($0.02 max). No top-up needed.");
-      breakdownEl.textContent = notes.join(" Â· ");
+      breakdownEl.textContent = notes.join(" · ");
       breakdownEl.style.color = "var(--ld-primary-strong)";
     } else {
       notes.push("Spendable balance is below assessment ceiling ($0.02). Choose a top-up below if funding.");
-      breakdownEl.textContent = notes.join(" Â· ");
+      breakdownEl.textContent = notes.join(" · ");
       breakdownEl.style.color = "var(--ld-caution)";
     }
   }
@@ -1727,7 +1728,7 @@ async function lbLoad() {
         group.append(leaderboardRow(slug, "absent"));
         return group;
       }
-      group.append(element("p", "eyebrow", `${slug} Â· ${m.activation_status ?? "status unavailable"}`));
+      group.append(element("p", "eyebrow", `${slug} · ${m.activation_status ?? "status unavailable"}`));
       const scores = Array.isArray(m.scores) ? m.scores : [];
       if (!scores.length) group.append(leaderboardRow("No scores reported"));
       for (const score of scores) {

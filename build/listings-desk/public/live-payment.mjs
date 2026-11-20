@@ -479,7 +479,7 @@ export async function readWalletFundingState({ provider, wallet, usdc, diamond, 
     await withLock("lock:escrow:" + normalizedWallet, async () => {
       ledgerAccount = await fetchNodeLedger(normalizedWallet, fetchImpl);
       reconciliation = reconcileAccountedReceipts(storage, normalizedWallet, { diamond: normalizedDiamond, network: "eip155:11155111", ledgerAccount });
-      pendingResolution = resolvePendingDeposits(storage, normalizedWallet, ledgerAccount, { network: "eip155:11155111", diamond: normalizedDiamond });
+      pendingResolution = await resolvePendingDeposits(storage, normalizedWallet, ledgerAccount, { network: "eip155:11155111", diamond: normalizedDiamond, provider });
     });
   } catch (error) {
     ledgerReadError = String(error?.message ?? error).slice(0, 160);
@@ -505,7 +505,8 @@ export async function readWalletFundingState({ provider, wallet, usdc, diamond, 
   const local = await guardedRead(async () => {
       const ledger = readAttemptLedger(storage);
       const attempts = ledger.history?.length ? ledger.history : Object.values(ledger.attempts);
-      return attempts.filter((a) => a.wallet?.toLowerCase() === normalizedWallet && a.authorizationStarted && (a.status === "authorization_pending" || a.status === "unknown" || (a.status === "protocol_receipt" && a.accountedByNode !== true))).reduce((sum, a) => sum + (typeof a.amountMicro === "string" ? BigInt(a.amountMicro) : 0n), 0n);
+      const validated = new Set(reconciliation.validatedAttemptIds ?? []);
+      return attempts.filter((a) => a.wallet?.toLowerCase() === normalizedWallet && a.authorizationStarted && (a.status === "authorization_pending" || a.status === "unknown" || (a.status === "protocol_receipt" && !validated.has(a.attemptId)))).reduce((sum, a) => sum + (typeof a.amountMicro === "string" ? BigInt(a.amountMicro) : 0n), 0n);
     });
   if (!isCurrent()) throw new Error("Wallet account or network changed; aborting");
   let pendingDeposits = [];
@@ -614,9 +615,9 @@ export function reconcileAccountedReceipts(storage, wallet, { diamond, network, 
   const valid = checked.filter((item) => item.ok && typeof item.attempt.amountMicro === "string");
   const coverage = ledgerAccount.charged + ledgerAccount.unbilled;
   const total = valid.reduce((sum, item) => sum + BigInt(item.attempt.amountMicro), 0n);
-  if (total > coverage) return { accounted: 0, persistenceFailed: false, validatedAttemptIds: [], mismatchedEvidence: checked.length, policyMismatch: "ledger charged+unbilled cannot cover the evidence-backed receipts" };
-
-  const byIdentity = new Map(valid.map((item) => [item.attemptId, item]));
+  const policyMismatch = total > coverage ? "ledger charged+unbilled cannot cover the evidence-backed receipts" : null;
+  const currentlyAccounted = policyMismatch ? [] : valid;
+  const byIdentity = new Map(currentlyAccounted.map((item) => [item.attemptId, item]));
   let accounted = 0;
   let changed = false;
   for (const [requestId, canonical] of Object.entries(ledger.attempts)) {
@@ -636,10 +637,10 @@ export function reconcileAccountedReceipts(storage, wallet, { diamond, network, 
     };
     visit(canonical);
   }
-  const validatedAttemptIds = valid.map((item) => item.attemptId).filter(Boolean);
+  const validatedAttemptIds = currentlyAccounted.map((item) => item.attemptId).filter(Boolean);
   try { persistCanonicalLedger(storage, ledger); }
   catch (error) { return { accounted: 0, persistenceFailed: true, validatedAttemptIds: [], error: error.message, mismatchedEvidence: checked.filter((item) => !item.ok).length }; }
-  return { accounted, persistenceFailed: false, validatedAttemptIds, mismatchedEvidence: checked.filter((item) => !item.ok).length };
+  return { accounted, persistenceFailed: false, validatedAttemptIds, mismatchedEvidence: checked.filter((item) => !item.ok).length, policyMismatch };
 }
 
 // On-demand on-chain settlement verification (stricter than accountedByNode).
@@ -687,7 +688,7 @@ function recordPendingDeposit(storage, wallet, { approveHash, depositHash, amoun
   if (storage.getItem(PENDING_DEPOSITS_KEY) !== serialized) throw new Error("pending deposit record could not be saved");
 }
 
-function resolvePendingDeposits(storage, wallet, ledgerAccount, { network, diamond } = {}) {
+async function resolvePendingDeposits(storage, wallet, ledgerAccount, { network, diamond, provider, verifiedDepositHash } = {}) {
   if (!storage) return { resolved: 0, remaining: 0 };
   const pending = readPendingDeposits(storage, wallet);
   let resolved = 0;
@@ -698,7 +699,17 @@ function resolvePendingDeposits(storage, wallet, ledgerAccount, { network, diamo
     const canonical = all[record.depositHash];
     if (!canonical) { remaining++; continue; }
     if (canonical.status === "reverted") { remaining++; continue; }
-    if (canonical.status !== "confirmed" || canonical.network !== network || canonical.diamond?.toLowerCase() !== diamond?.toLowerCase()) { remaining++; continue; }
+    if (canonical.network !== network || canonical.diamond?.toLowerCase() !== diamond?.toLowerCase()) { remaining++; continue; }
+    let verifiedStatus = canonical.depositHash === verifiedDepositHash ? "0x1" : null;
+    if (!verifiedStatus && provider && typeof provider.request === "function" && typeof canonical.depositHash === "string" && HASH_PATTERN.test(canonical.depositHash)) {
+      try {
+        const receipt = await provider.request({ method: "eth_getTransactionReceipt", params: [canonical.depositHash] });
+        if (receipt?.transactionHash?.toLowerCase() === canonical.depositHash.toLowerCase() && ["0x0", "0x1"].includes(receipt.status)) verifiedStatus = receipt.status;
+      } catch { /* no verified receipt: keep the durable pending state */ }
+    }
+    if (verifiedStatus === "0x0") { canonical.status = "reverted"; canonical.updatedAt = new Date().toISOString(); remaining++; continue; }
+    if (verifiedStatus !== "0x1") { remaining++; continue; }
+    canonical.status = "confirmed";
     const delta = BigInt(ledgerAccount.deposited) - BigInt(canonical.depositedBefore);
     if (delta >= BigInt(canonical.amountMicro)) { canonical.status = "resolved"; canonical.resolvedAt = new Date().toISOString(); resolved++; }
     else remaining++;
@@ -766,7 +777,13 @@ export async function fundEscrow({ provider, wallet, usdc, diamond, amountMicro,
     let receiptStatus = null;
     let pendingPersistenceFailed = null;
     const depositTx = { from: normalizedWallet, to: normalizedDiamond, data: encodeFunctionCall(DEPOSIT_SELECTOR, ["uint256"], [amount]), gas: "0x30d40" };
-    depositTx.gas = await estimatedGas(provider, depositTx);
+    try { depositTx.gas = await estimatedGas(provider, depositTx); }
+    catch (error) {
+      const approvalOnly = new Error(`USDC approval confirmed (tx ${approveHash}); deposit was not sent because ${String(error?.message ?? error)}`);
+      approvalOnly.transactionHash = approveHash;
+      approvalOnly.pendingState = "approval_confirmed";
+      throw approvalOnly;
+    }
     await assertSepolia(provider, normalizedWallet, isCurrent);
     const depositHash = await provider.request({ method: "eth_sendTransaction", params: [depositTx] });
 
@@ -866,7 +883,7 @@ export async function fundEscrow({ provider, wallet, usdc, diamond, amountMicro,
     }
     try {
     await withLock(`lock:escrow:${normalizedWallet}`, async () => {
-      resolvePendingDeposits(storage, normalizedWallet, after, { network, diamond: normalizedDiamond });
+      await resolvePendingDeposits(storage, normalizedWallet, after, { network, diamond: normalizedDiamond, verifiedDepositHash: depositHash });
     })
     } catch (error) {
       pendingPersistenceFailed = String(error?.message ?? error).slice(0, 120);
@@ -905,6 +922,7 @@ export async function performPaidAsk({
     // spendable (the node's `available` already accounts for charged and unbilled
     // usage). A reconciliation failure keeps the conservative over-reserved state.
     let currentLedger = readAttemptLedger(storage);
+    let freshValidatedAttemptIds = new Set();
     let migrated = false;
     for (const [id, record] of Object.entries(currentLedger.attempts)) {
       if (!record || typeof record !== "object") continue;
@@ -956,7 +974,8 @@ export async function performPaidAsk({
     const hasReceiptHistory = (currentLedger.history ?? []).some((item) => item.wallet?.toLowerCase() === normalizedWallet && item.status === "protocol_receipt");
     if (hasReceiptHistory) {
       const freshAccount = await fetchNodeLedger(normalizedWallet, fetchImpl);
-      reconcileAccountedReceipts(storage, normalizedWallet, { diamond: payTo, network, ledgerAccount: freshAccount });
+      const reconciled = reconcileAccountedReceipts(storage, normalizedWallet, { diamond: payTo, network, ledgerAccount: freshAccount });
+      freshValidatedAttemptIds = new Set(reconciled.validatedAttemptIds ?? []);
       currentLedger = readAttemptLedger(storage);
     }
 
@@ -1021,7 +1040,7 @@ export async function performPaidAsk({
       runReservedMicro = allAttempts
         .filter((attempt) => {
           return attempt.authorizationStarted && attempt.status !== "definitive_unpaid" && attempt.status !== "signature_rejected" &&
-            !(attempt.status === "protocol_receipt" && attempt.accountedByNode === true);
+            !(attempt.status === "protocol_receipt" && freshValidatedAttemptIds.has(attempt.attemptId));
         })
         .reduce((sum, attempt) => sum + (typeof attempt.amountMicro === "string" ? BigInt(attempt.amountMicro) : 0n), 0n);
     }

@@ -21,7 +21,7 @@
       "pass": true
     },
     {
-      "test": "result navigation and mobile memo",
+      "test": "mobile memo remains rendered without sidebar navigation",
       "pass": true
     },
     {

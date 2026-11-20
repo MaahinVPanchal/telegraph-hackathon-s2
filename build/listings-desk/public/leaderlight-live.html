@@ -1834,7 +1834,7 @@ function renderFundingState(state) {
 
   if (spendableEl) spendableEl.textContent = state.spendableEscrowMicro != null
     ? "$" + (Number(state.spendableEscrowMicro) / 1e6).toFixed(4) + " USDC"
-    : (state.ledgerReadError || state.liabilitiesReadError ? "Could not read Estimated spendable escrow" : "—");
+    : (state.ledgerReadError || state.liabilitiesReadError || state.pendingDepositReadError ? "Could not read Estimated spendable escrow" : "—");
 
   const notes = [];
   if (state.rawEscrowBalanceMicro != null) {
@@ -1846,10 +1846,13 @@ function renderFundingState(state) {
   if (state.liabilitiesReadError) {
     notes.push("Liabilities ledger unreadable; reconcile storage before spending.");
   }
+  if (state.pendingDepositReadError) {
+    notes.push("Pending deposit storage is unreadable; funding and spendable balance are blocked until it is repaired.");
+  }
     notes.push("Estimate only: protocol receipts remain reserved because no verified on-chain settlement signal is wired here. Local device commitments are counted; multi-device spend cannot be tracked locally.");
 
   const runNeeds = 20_000n; // $0.02
-    const hasReadErrors = Boolean(state.ledgerReadError || state.liabilitiesReadError || state.allowanceReadError || state.usdcBalanceReadError || state.ethBalanceReadError);
+    const hasReadErrors = Boolean(state.ledgerReadError || state.liabilitiesReadError || state.pendingDepositReadError || state.allowanceReadError || state.usdcBalanceReadError || state.ethBalanceReadError);
   const hasSufficientSpendable = !hasReadErrors && state.spendableEscrowMicro != null && state.spendableEscrowMicro >= runNeeds;
 
   if (breakdownEl) {

@@ -90,6 +90,7 @@ function provider() {
       if (request.method === "eth_accounts") return [wallet];
       if (request.method === "personal_sign") return `0x${"9".repeat(142)}`;
       if (request.method === "eth_getBalance") return "0x0";
+      if (request.method === "eth_getTransactionReceipt") return { transactionHash: request.params[0], status: "0x1" };
       if (request.method === "eth_call") return request.params[0]?.data?.startsWith("0xdd62ed3e") ? "0x4c4b40" : "0x0";
       throw new Error(`unexpected provider request: ${request.method}`);
     },

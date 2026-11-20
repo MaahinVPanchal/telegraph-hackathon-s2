@@ -37,7 +37,7 @@ const balanceOfData = (addr) =>
 const eth = Number(BigInt((await rpc("eth_getBalance", [wallet, "latest"])).result ?? "0x0")) / 1e18;
 const usdc = Number(BigInt((await ethCall(USDC, balanceOfData(wallet)).then((r) => r ?? "0x0"))) ) / 1e6;
 const machina = Number(BigInt((await ethCall(MACHINA, balanceOfData(wallet)).then((r) => r ?? "0x0")))) / 1e18;
-console.log(`wallet: ${eth.toFixed(4)} ETH Â· ${usdc.toFixed(2)} USDC Â· ${machina.toFixed(2)} MACHINA`);
+console.log(`wallet: ${eth.toFixed(4)} ETH · ${usdc.toFixed(2)} USDC · ${machina.toFixed(2)} MACHINA`);
 
 // === 2. Our three miners in the catalogue ===
 const miners = await fetch("https://devnode.telegraphprotocol.com/api/miners").then((r) => r.json());

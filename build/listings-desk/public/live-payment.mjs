@@ -422,6 +422,15 @@ async function readUint(provider, to, data, from) {
   return BigInt(result);
 }
 
+async function estimatedGas(provider, tx) {
+  try {
+    const estimate = await provider.request({ method: "eth_estimateGas", params: [{ from: tx.from, to: tx.to, data: tx.data, value: tx.value }] });
+    const units = Number(BigInt(estimate));
+    if (Number.isFinite(units) && units > 0) return "0x" + Math.ceil(units * 1.25 + 20000).toString(16);
+  } catch { /* fall back to the provided limit */ }
+  return tx.gas ?? "0x186a0";
+}
+
 export async function mintTestUsdc({ provider, wallet, usdc, isCurrent = () => true }) {
   await assertSepolia(provider, wallet, isCurrent);
   const normalizedWallet = assertAddress(wallet, "wallet");
@@ -429,7 +438,7 @@ export async function mintTestUsdc({ provider, wallet, usdc, isCurrent = () => t
   const data = encodeFunctionCall("0x40c10f19", ["address", "uint256"], [normalizedWallet, 10_000_000n]);
   const hash = await provider.request({
     method: "eth_sendTransaction",
-    params: [{ from: normalizedWallet, to: normalizedUsdc, data, gas: "0x186a0" }],
+    params: [{ from: normalizedWallet, to: normalizedUsdc, data, gas: await estimatedGas(provider, { from: normalizedWallet, to: normalizedUsdc, data, gas: "0x186a0" }) }],
   });
   await waitForTransaction(provider, hash);
   await assertSepolia(provider, normalizedWallet, isCurrent);
@@ -712,7 +721,9 @@ export async function fundEscrow({ provider, wallet, usdc, diamond, amountMicro,
     const before = await fetchNodeLedger(normalizedWallet, fetchImpl);
     onStage("approval_pending", { needed: amount.toString() });
     await assertSepolia(provider, normalizedWallet, isCurrent);
-    const approveHash = await provider.request({ method: "eth_sendTransaction", params: [{ from: normalizedWallet, to: normalizedUsdc, data: encodeFunctionCall(ERC20_APPROVE_SELECTOR, ["address", "uint256"], [normalizedDiamond, amount]), gas: "0x186a0" }] });
+    const approveTx = { from: normalizedWallet, to: normalizedUsdc, data: encodeFunctionCall(ERC20_APPROVE_SELECTOR, ["address", "uint256"], [normalizedDiamond, amount]), gas: "0x186a0" };
+    approveTx.gas = await estimatedGas(provider, approveTx);
+    const approveHash = await provider.request({ method: "eth_sendTransaction", params: [approveTx] });
     await waitForReceipt(provider, approveHash);
     await assertSepolia(provider, normalizedWallet, isCurrent);
     const allowanceAfter = await readUint(provider, normalizedUsdc, allowanceData, normalizedWallet);
@@ -722,7 +733,9 @@ export async function fundEscrow({ provider, wallet, usdc, diamond, amountMicro,
     await assertSepolia(provider, normalizedWallet, isCurrent);
     let receiptStatus = null;
     let pendingPersistenceFailed = null;
-    const depositHash = await provider.request({ method: "eth_sendTransaction", params: [{ from: normalizedWallet, to: normalizedDiamond, data: encodeFunctionCall(DEPOSIT_SELECTOR, ["uint256"], [amount]), gas: "0x30d40" }] });
+    const depositTx = { from: normalizedWallet, to: normalizedDiamond, data: encodeFunctionCall(DEPOSIT_SELECTOR, ["uint256"], [amount]), gas: "0x30d40" };
+    depositTx.gas = await estimatedGas(provider, depositTx);
+    const depositHash = await provider.request({ method: "eth_sendTransaction", params: [depositTx] });
 
     // Record the submitted hash IMMEDIATELY — before waiting for the receipt —
     // so a reload or a second tab sees the in-flight deposit and never repeats it.

@@ -125,23 +125,26 @@ export function validateEscrowChallenge(challenge, {
   return { payer, payTo: trustedPayTo, network, resource, amount, template };
 }
 
-export function validateEscrowReceipt(receipt, { intent, amount, payer, minerId } = {}) {
-  if (!receipt || typeof receipt !== "object" || Array.isArray(receipt)) return false;
-  if (typeof receipt.receipt_hash !== "string" || !HASH_PATTERN.test(receipt.receipt_hash)) return false;
-  if (receipt.rail !== "escrow") return false;
-  if (typeof receipt.payer !== "string" || receipt.payer.toLowerCase() !== payer.toLowerCase()) return false;
-  if (typeof receipt.intent !== "string" || receipt.intent !== intent) return false;
-  if (typeof receipt.amount_uusdc !== "string" || !UINT_PATTERN.test(receipt.amount_uusdc)) return false;
-  try { if (BigInt(receipt.amount_uusdc) !== BigInt(amount)) return false; } catch { return false; }
-  if (!Number.isSafeInteger(receipt.epoch_id) || receipt.epoch_id < 0) return false;
-  if (receipt.settlement !== "epoch") return false;
-  if (receipt.chain !== "telegraph") return false;
-  if (!Number.isSafeInteger(receipt.timestamp) || receipt.timestamp < 0) return false;
+export function validateEscrowReceipt(receipt, expected) {
+  return escrowReceiptValidationIssue(receipt, expected) === null;
+}
+
+function escrowReceiptValidationIssue(receipt, { intent, amount, payer, minerId } = {}) {
+  if (!receipt || typeof receipt !== "object" || Array.isArray(receipt)) return "receipt object";
+  if (typeof receipt.receipt_hash !== "string" || !HASH_PATTERN.test(receipt.receipt_hash)) return "receipt hash";
+  if (receipt.rail !== "escrow") return "payment rail";
+  if (typeof receipt.payer !== "string" || typeof payer !== "string" || receipt.payer.toLowerCase() !== payer.toLowerCase()) return "payer";
+  if (typeof receipt.intent !== "string" || receipt.intent !== intent) return "intent";
+  if (typeof receipt.amount_uusdc !== "string" || !UINT_PATTERN.test(receipt.amount_uusdc)) return "amount format";
+  try { if (BigInt(receipt.amount_uusdc) !== BigInt(amount)) return "amount"; } catch { return "amount"; }
+  if (!Number.isSafeInteger(receipt.epoch_id) || receipt.epoch_id < 0) return "epoch";
+  if (receipt.settlement !== "epoch") return "settlement type";
+  if (receipt.chain !== "telegraph") return "receipt chain";
+  if (!Number.isSafeInteger(receipt.timestamp) || receipt.timestamp < 0) return "timestamp";
   const minerValid = (typeof receipt.miner === "string" && receipt.miner.trim().length > 0) ||
     (Number.isSafeInteger(receipt.miner) && receipt.miner > 0);
-  if (!minerValid) return false;
-  if (minerId != null && String(receipt.miner) !== String(minerId)) return false;
-  return true;
+  if (!minerValid || (minerId != null && String(receipt.miner) !== String(minerId))) return "miner identity";
+  return null;
 }
 
 function stable(value) {
@@ -1134,9 +1137,11 @@ export async function performPaidAsk({
         }
       }
       const responseData = response.ok ? await response.json() : null;
-      const receiptValid = validateEscrowReceipt(receipt, {
-        intent, amount: validated.amount, payer: normalizedWallet, minerId: responseData?.miner_id,
+      // Telegraph receipts use the on-chain registration ID. The answer uses the Engine routing ID.
+      const receiptField = escrowReceiptValidationIssue(receipt, {
+        intent, amount: validated.amount, payer: normalizedWallet,
       });
+      const receiptValid = receiptField === null;
       const receiptIssue = receiptValid ? null
         : !encodedReceipt ? "missing"
         : receipt === null ? "unreadable"
@@ -1146,11 +1151,12 @@ export async function performPaidAsk({
       const saved = saveAttempt(storage, requestId, {
         ...pending, status, authorizationStarted: true, answer: responseData,
         answerMatches, receipt,
-        receiptValid, receiptIssue, httpStatus: response.status,
-        miner: responseData?.miner_id ?? receipt?.miner ?? null,
+        receiptValid, receiptIssue, receiptField: receiptIssue === "invalid" ? receiptField : null, httpStatus: response.status,
+        miner: receiptValid ? receipt.miner : null,
+        routingMinerId: responseData?.miner_id ?? null,
         nodeResponseEvidence: receiptValid ? {
           version: 1, wallet: normalizedWallet, network, diamond: payTo,
-          intent, miner: responseData?.miner_id ?? receipt?.miner,
+          intent, miner: receipt.miner,
           amountMicro: String(validated.amount), receiptHash: receipt.receipt_hash,
         } : null,
       });
@@ -1163,6 +1169,7 @@ export async function performPaidAsk({
         answerMatches,
         receipt: receiptValid ? receipt : null,
         receiptIssue,
+        receiptField: receiptIssue === "invalid" ? receiptField : null,
         paymentStatus: status,
         amountMicro: String(validated.amount),
       };

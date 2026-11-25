@@ -215,7 +215,7 @@ test("valid protocol receipt and answer are saved before returning to the render
     chain: "telegraph",
     timestamp: 1789466181,
   };
-  const answer = { intent, input: params, miner_id: "377", result: { matched: false } };
+  const answer = { intent, input: params, miner_id: "302", result: { matched: false } };
   let callCount = 0;
   const result = await performPaidAsk({
     provider: fakeWallet(), wallet, intent, params, requestUrl, storage: saved,
@@ -234,6 +234,8 @@ test("valid protocol receipt and answer are saved before returning to the render
   assert.equal(attempt.status, "protocol_receipt");
   assert.deepEqual(attempt.answer, answer);
   assert.deepEqual(attempt.receipt, receipt);
+  assert.equal(attempt.routingMinerId, "302");
+  assert.equal(attempt.nodeResponseEvidence.miner, "377");
   assert.equal(callCount, 2);
   await assert.rejects(() => performPaidAsk({
     provider: fakeWallet(), wallet, intent, params, requestUrl, storage: saved,

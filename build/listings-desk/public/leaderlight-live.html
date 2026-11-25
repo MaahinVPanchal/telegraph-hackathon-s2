@@ -1274,12 +1274,11 @@ function renderLiveMemo(list, wallet, runError = null, savedHistory = false) {
   const displayedRuns = list.map((run) => {
     const data = run.answer && typeof run.answer === "object" ? run.answer : {};
     const amountValid = typeof run.amountMicro === "string" && /^(0|[1-9]\d*)$/.test(run.amountMicro);
-    const receiptValid = run.receipt != null && amountValid &&
+    const receiptValid = run.paymentStatus === "protocol_receipt" && run.receipt != null && amountValid &&
       validateEscrowReceipt(run.receipt, {
         intent: run.intent ?? data.intent,
         amount: BigInt(run.amountMicro),
         payer: run.wallet ?? wallet,
-        minerId: data.miner_id,
       });
     const answerMatches = isMatchingAnswer(data, { intent: run.intent, params: run.params });
     if (receiptValid) receiptAmounts.push(BigInt(run.receipt.amount_uusdc));
@@ -1306,7 +1305,7 @@ function renderLiveMemo(list, wallet, runError = null, savedHistory = false) {
   shell.append(heading);
 
   const info = element("p", "memo-mode-note memo-mode-note--real",
-    "The result covers the requested sanctions checks and the lists reported by the miner. Protocol receipts document payment and await independent epoch settlement verification.");
+    "Telegraph routes sanctions checks to a network provider. The result covers the lists reported by that provider. A validated protocol receipt records payment, with epoch settlement verified separately.");
   shell.append(info);
   if (runError) shell.append(element("p", "request-error", `Assessment stopped: ${runError}`));
 
@@ -1486,7 +1485,7 @@ if (runLive) runLive.addEventListener("click", async () => {
         const receiptMessage = {
           missing: "Telegraph returned no payment receipt.",
           unreadable: "The payment receipt could not be decoded.",
-          invalid: "The payment receipt failed validation.",
+          invalid: `The payment receipt failed validation (${run.receiptField ?? "unknown field"}).`,
         }[run.receiptIssue] ?? "No validated escrow receipt was returned.";
         throw new Error(receiptMessage + " The payment attempt is saved as unresolved. Reconcile it before retrying. The next request was not sent.");
       }

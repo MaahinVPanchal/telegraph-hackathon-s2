@@ -1,5 +1,13 @@
 # 🚀 Telegraph Hackathon S2 — Mission Control
 
+## LeaderLight quick start
+
+LeaderLight helps reviewers assess a token listing, inspect the evidence behind the recommendation, and review payment outcomes for Telegraph intelligence requests.
+
+- [Open LeaderLight](https://leaderlight.vercel.app/) and select the simulated mode for a wallet-free walkthrough. Live requests use MetaMask and Ethereum Sepolia.
+- [Read the app setup and payment evidence](build/listings-desk/README.md) for local commands, miner rank history, and receipt details.
+- [Browse the miner configurations](build/miner-kit/) for on-chain metrics, weather, and FX.
+
 **🟢 3 miners live on testnet · 🟢 real purchases with on-chain receipts · 🟢 escrow funded ($5) · 🟡 grace period until ~Nov 2 · 📅 season opens Nov 1**
 
 > **Deep-dive companion:** `docs/COMPLETE-WALKTHROUGH.md` — the full beginner-to-hackathon documentation (concepts, every command, failure post-mortems, tx tracing, rubric mapping, repo policy).

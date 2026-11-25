@@ -407,6 +407,11 @@ function startLocalServer() {
   const walletClient = readFileSync(new URL("../public/wallet-client.mjs", import.meta.url));
   createServer(async (req, res) => {
     const url = new URL(req.url, "http://localhost");
+    if (url.pathname === "/api/miner-history") {
+      const { default: minerHistory } = await import("../api/miner-history.js");
+      await minerHistory(req, res);
+      return;
+    }
     if (url.pathname === "/wallet-client.mjs" && req.method === "GET") {
       res.writeHead(200, {
         "Content-Type": "text/javascript; charset=utf-8",
@@ -429,6 +434,8 @@ function startLocalServer() {
       return;
     }
     const staticFiles = {
+      "/miner-history.html": ["../public/miner-history.html", "text/html; charset=utf-8"],
+      "/miner-history.mjs": ["../public/miner-history.mjs", "text/javascript; charset=utf-8"],
       "/live-payment.mjs": ["../public/live-payment.mjs", "text/javascript; charset=utf-8"],
       "/assets/telegraph-mark.png": ["../public/assets/telegraph-mark.png", "image/png"],
       "/assets/command-bold.ttf": ["../public/assets/command-bold.ttf", "font/ttf"],

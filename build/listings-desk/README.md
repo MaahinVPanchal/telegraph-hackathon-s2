@@ -13,6 +13,10 @@ npm run web   # local SIMULATED/OFFLINE UI at http://localhost:7788
 
 Mock mode is **SIMULATED / OFFLINE**. It makes no Engine calls, payments or signatures. Each simulated receipt has a $0 actual-spend value; the demonstration estimate is reported separately. A simulation is never eligible decision evidence.
 
+## Miner rank history
+
+Run `npm run web` and open **Miner rank history** from the app. Select a miner and Intent to see the latest recorded rank per UTC day, with the score and epoch in the accompanying table. The page reads the history available from Anjoman Explorer and shows gaps on days without a score. It requires network access and opens without a wallet.
+
 ## Optional MetaMask account connection
 
 The local web UI can request account access after the user selects **Connect MetaMask**. It uses the EIP-1193 `eth_requestAccounts` method and discovers a MetaMask EIP-6963 provider first, with an injected `window.ethereum` MetaMask-provider fallback. The authorized address stays in the browser and is not sent with an assessment request.

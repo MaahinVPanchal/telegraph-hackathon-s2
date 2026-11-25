@@ -1137,12 +1137,16 @@ export async function performPaidAsk({
       const receiptValid = validateEscrowReceipt(receipt, {
         intent, amount: validated.amount, payer: normalizedWallet, minerId: responseData?.miner_id,
       });
+      const receiptIssue = receiptValid ? null
+        : !encodedReceipt ? "missing"
+        : receipt === null ? "unreadable"
+        : "invalid";
       const answerMatches = isMatchingAnswer(responseData, { intent, params });
       const status = receiptValid ? "protocol_receipt" : "unknown";
       const saved = saveAttempt(storage, requestId, {
         ...pending, status, authorizationStarted: true, answer: responseData,
         answerMatches, receipt,
-        receiptValid, httpStatus: response.status,
+        receiptValid, receiptIssue, httpStatus: response.status,
         miner: responseData?.miner_id ?? receipt?.miner ?? null,
         nodeResponseEvidence: receiptValid ? {
           version: 1, wallet: normalizedWallet, network, diamond: payTo,
@@ -1158,6 +1162,7 @@ export async function performPaidAsk({
         answer: responseData,
         answerMatches,
         receipt: receiptValid ? receipt : null,
+        receiptIssue,
         paymentStatus: status,
         amountMicro: String(validated.amount),
       };

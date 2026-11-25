@@ -1483,7 +1483,12 @@ if (runLive) runLive.addEventListener("click", async () => {
       out.dataset.stage = results.some((result) => result.paymentStatus === "protocol_receipt") ? "receipt" : "assess";
       out.replaceChildren(renderLiveMemo(results, wallet));
       if (run.paymentStatus !== "protocol_receipt") {
-        throw new Error("No validated escrow receipt was returned; stopping before the next request.");
+        const receiptMessage = {
+          missing: "Telegraph returned no payment receipt.",
+          unreadable: "The payment receipt could not be decoded.",
+          invalid: "The payment receipt failed validation.",
+        }[run.receiptIssue] ?? "No validated escrow receipt was returned.";
+        throw new Error(receiptMessage + " The payment attempt is saved as unresolved. Reconcile it before retrying. The next request was not sent.");
       }
     }
     runLive.dataset.paymentBlocked = "false";

@@ -1,131 +1,92 @@
-import { archivedMinerScores } from "./miner-score-archive.mjs";
+﻿import { series, failures } from "./miner-november-2026.mjs";
 
-const miner = document.querySelector("#miner");
-const intent = document.querySelector("#intent");
-const status = document.querySelector("#status");
-const history = document.querySelector("#history");
-const chart = document.querySelector("#chart");
-const table = document.querySelector("#observations");
-const source = document.querySelector("#source");
-const dayMs = 86400000;
-const firstDay = Date.parse("2026-11-01");
-let records = [];
-let request;
-const linkFilters = new URLSearchParams(location.search);
-
-function render() {
-  const daily = new Map();
-  for (const row of records) {
-    if (row.intent_id !== intent.value) continue;
-    const date = new Date(row.scored_at).toISOString().slice(0, 10);
-    if (!daily.has(date)) daily.set(date, row);
-  }
-  const dates = [...daily.keys()].sort();
-  history.hidden = dates.length === 0;
-  if (!dates.length) {
-    status.textContent = "No ranked scores available for this miner.";
-    return;
-  }
-
-  const today = new Date().toISOString().slice(0, 10);
-  const count = (Date.parse(today) - firstDay) / dayMs + 1;
-  const days = Array.from({ length: count }, (_, index) => {
-    const date = new Date(firstDay + index * dayMs).toISOString().slice(0, 10);
-    return { date, row: daily.get(date) };
-  });
-  const ranks = [...daily.values()].map(row => row.rank);
-  document.querySelector("#latest-rank").textContent = `#${daily.get(dates.at(-1)).rank}`;
-  document.querySelector("#best-rank").textContent = `#${Math.min(...ranks)}`;
-  document.querySelector("#coverage").textContent = `${dates.length} / ${count}`;
-  status.textContent = `2026-11-01 to ${today} · UTC`;
-  table.replaceChildren(...days.slice().reverse().map(({ date, row }) => {
-    const tr = document.createElement("tr");
-    const provenance = row && (row.archived ? "Archive" : "Explorer");
-    for (const value of [date, row ? `#${row.rank}` : "No score", row?.score, row?.epoch_id, provenance]) {
-      tr.insertCell().textContent = value ?? "—";
-    }
-    return tr;
-  }));
-
-  const width = Math.min(3800, Math.max(document.querySelector("#plot").clientWidth - 2, 64 + count * 20));
-  const height = 300;
-  const scale = Math.min(devicePixelRatio || 1, 2);
-  chart.width = width * scale;
-  chart.height = height * scale;
-  chart.style.width = `${width}px`;
-  chart.style.height = `${height}px`;
-  const ctx = chart.getContext("2d");
-  ctx.scale(scale, scale);
-  ctx.font = "12px system-ui";
-  const maxRank = Math.max(1, ...ranks);
-  const ticks = new Set([1, Math.ceil(maxRank / 2), maxRank]);
-  const x = index => 54 + index * (width - 78) / Math.max(count - 1, 1);
-  const y = rank => 24 + (rank - 1) * 226 / Math.max(maxRank - 1, 1);
-  for (const rank of ticks) {
-    ctx.fillStyle = "#d2c3e2";
-    ctx.fillText(`#${rank}`, 9, y(rank) + 4);
-    ctx.fillStyle = "#493658";
-    ctx.fillRect(44, y(rank), width - 56, 1);
-  }
-  const labelEvery = Math.ceil(count / Math.max(1, Math.floor((width - 78) / 42)));
-  days.forEach(({ date, row }, index) => {
-    if (index === count - 1 || (index % labelEvery === 0 && index < count - labelEvery / 2)) {
-      ctx.fillStyle = "#d2c3e2";
-      ctx.fillText(date.slice(5), x(index) - 15, 281);
-    }
-    if (!row) return;
-    ctx.strokeStyle = ctx.fillStyle = row.archived ? "#f1c681" : "#d5afff";
-    ctx.lineWidth = 2;
-    const previous = days[index - 1]?.row;
-    if (previous) {
-      ctx.beginPath();
-      ctx.moveTo(x(index - 1), y(previous.rank));
-      ctx.lineTo(x(index), y(row.rank));
-      ctx.stroke();
-    }
-    ctx.beginPath();
-    ctx.arc(x(index), y(row.rank), 4, 0, Math.PI * 2);
-    ctx.fill();
-  });
+function element(tag, text, attributes = {}) {
+  const node = document.createElement(tag);
+  if (text !== undefined) node.textContent = text;
+  for (const [name, value] of Object.entries(attributes)) node.setAttribute(name, value);
+  return node;
 }
 
-async function load(requestedIntent = null) {
-  request?.abort();
-  const controller = new AbortController();
-  request = controller;
-  const query = new URLSearchParams({ miner: miner.value });
-  source.href = `https://anjoman.ai/api/explorer/scores?${query}`;
-  intent.replaceChildren();
-  intent.disabled = true;
-  history.hidden = true;
-  status.textContent = "Loading Anjoman score history…";
-  try {
-    const response = await fetch(`/api/miner-history?${query}`, { signal: controller.signal });
-    if (!response.ok) throw new Error("Score request failed");
-    const { scores } = await response.json();
-    if (controller.signal.aborted) return;
-    const archive = archivedMinerScores(miner.value);
-    records = [...scores, ...archive]
-      .filter(row => Number.isInteger(row.rank) && row.rank > 0 &&
-        typeof row.intent_id === "string" && Date.parse(row.scored_at) >= firstDay &&
-        Date.parse(row.scored_at) <= Date.now())
-      .sort((a, b) => Date.parse(b.scored_at) - Date.parse(a.scored_at) || b.epoch_id - a.epoch_id);
-    for (const id of [...new Set(records.map(row => row.intent_id))].sort()) {
-      intent.add(new Option(id, id));
+const summary = document.querySelector("#observations");
+const dailySeries = series.map(({ rows }) => {
+  const days = new Map();
+  for (const round of rows) {
+    const [day, , , , rank, score, failed] = round;
+    days.set(day, { rank, score, failed: failed || days.get(day)?.failed });
+  }
+  return days;
+});
+
+for (let day = 1; day <= 25; day++) {
+  const row = document.createElement("tr");
+  row.append(element("th", "Nov " + day, { scope: "row" }));
+  for (const days of dailySeries) {
+    const entry = days.get(day);
+    const cell = element("td", entry ? `#${entry.rank} · ${entry.score}` : "—");
+    if (!entry) cell.setAttribute("aria-label", "No record");
+    if (entry?.failed) {
+      cell.className = "failed";
+      cell.setAttribute("aria-label", cell.textContent + ", at least one failed round");
+      cell.title = "At least one failed round";
     }
-    if ([...intent.options].some((option) => option.value === requestedIntent)) intent.value = requestedIntent;
-    intent.disabled = !intent.options.length;
-    render();
-  } catch {
-    if (!controller.signal.aborted) {
-      status.textContent = "Score history is temporarily unavailable. Reload the page to retry.";
+    row.append(cell);
+  }
+  summary.append(row);
+}
+
+const filters = new URLSearchParams(location.search);
+for (const { label, slug, intent, rows } of series) {
+  const detail = element("details", undefined, { id: intent });
+  const header = element("summary", label);
+  header.append(element("small", slug));
+  detail.append(header);
+  document.querySelector("#rounds").append(detail);
+
+  function renderRounds() {
+    const last = rows.at(-1);
+    const metrics = element("dl", undefined, { class: "metrics" });
+    for (const [name, value] of [
+      ["Rounds recorded", `${rows.length} (${rows.filter(row => row[6]).length} failed)`],
+      ["Best rank", "#" + Math.min(...rows.map(row => row[4]))],
+      ["Latest round", `#${last[4]} · ${last[5]} · Nov ${last[0]}, ${last[1]}`],
+      ["First record", "Nov " + rows[0][0]],
+    ]) {
+      const metric = document.createElement("div");
+      metric.append(element("dt", name), element("dd", value));
+      metrics.append(metric);
     }
+
+    const region = element("div", undefined, {
+      class: "table-wrap", role: "region", tabindex: "0", "aria-label": label + " rounds",
+    });
+    const table = document.createElement("table");
+    const headings = table.createTHead().insertRow();
+    for (const name of ["Day", "Time (IST)", "Epoch", "Rank", "Score", "Note"]) {
+      headings.append(element("th", name, { scope: "col" }));
+    }
+    const body = table.createTBody();
+    for (const [day, time, epoch, renumbered, rank, score, failed] of rows) {
+      const row = body.insertRow();
+      row.append(element("th", "Nov " + day, { scope: "row" }));
+      for (const value of [time, epoch + (renumbered ? "†" : ""), "#" + rank, score, failed ? "Failed" : ""]) {
+        row.append(element("td", value));
+      }
+      if (failed) row.className = "failed";
+    }
+    region.append(table);
+    detail.append(metrics, region);
+  }
+
+  detail.addEventListener("toggle", () => {
+    if (detail.open && !detail.querySelector("table")) renderRounds();
+  });
+  if (filters.get("miner") === slug && (!filters.has("intent") || filters.get("intent") === intent)) {
+    detail.open = true;
   }
 }
 
-miner.addEventListener("change", () => load());
-intent.addEventListener("change", render);
-const linkedMiner = linkFilters.get("miner");
-const hasLinkedMiner = [...miner.options].some((option) => option.value === linkedMiner);
-if (hasLinkedMiner) miner.value = linkedMiner;
-load(hasLinkedMiner ? linkFilters.get("intent") : null);
+for (const [title, count, first, excerpt] of failures) {
+  const detail = document.createElement("details");
+  detail.append(element("summary", `${title} × ${count}`), element("p", first), element("blockquote", excerpt));
+  document.querySelector("#failures").append(detail);
+}

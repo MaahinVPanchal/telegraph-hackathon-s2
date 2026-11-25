@@ -292,3 +292,64 @@ body.terminal { margin:0; color:var(--ld-text); background:radial-gradient(ellip
   .evidence-layout { display: block; }
   .evidence-art { display: none; }
 }
+
+/* Shared typography and live wallet layout */
+.terminal .field-label, .terminal .token-input, .terminal .text-input,
+.terminal .primary-action, .terminal .action-button, .terminal .secondary-action { font-size: 1rem; line-height: 1.4; }
+.terminal .field-help, .terminal .mode-help, .terminal .boundary-note,
+.terminal .action-note, .terminal .wallet-status, .terminal .empty-state,
+.terminal .wallet-guide p, .terminal .wallet-guide dl > div,
+.terminal .evidence-panel .limit-list li span, .terminal .evidence-panel .limit-list strong {
+  font-size: .9375rem; line-height: 1.55; overflow-wrap: anywhere;
+}
+.terminal .eyebrow { font-size: .8125rem; line-height: 1.4; }
+.terminal .mode-console .workspace-tab { font-size: 1rem; line-height: 1.35; white-space: normal; min-width: 0; }
+.terminal .mode-console .workspace-tab span, .terminal .mode-badge { font-size: .8125rem; line-height: 1.35; }
+.terminal .workspace-results :is(p, li, dd, summary, code) { overflow-wrap: anywhere; }
+.terminal .workspace-results .memo-stat { min-width: 0; }
+.terminal .glass header { flex-wrap: wrap; gap: 6px; }
+.terminal .glass h2 { font-size: 1.0625rem; }
+.terminal .glass a, .terminal .terminal-metrics, .terminal .terminal-rows small,
+.terminal .terminal-rows time, .terminal .card-note, .terminal .rank-data,
+.terminal .pipeline li strong, .terminal .pipeline li small { font-size: .8125rem; }
+.terminal .pipeline li { min-width: 0; }
+.terminal .pipeline li :is(strong, small) { overflow-wrap: anywhere; }
+.terminal #live-panel { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 18px; }
+.terminal #live-panel h2 { font-size: clamp(1.9rem, 4vw, 3rem); line-height: 1.12; }
+.terminal .wallet-tools { margin-block: 1rem; }
+.terminal .wallet-tools summary { padding-block: .55rem; cursor: pointer; }
+.balance-card {
+  margin-block: 1rem 1.35rem; padding: clamp(.75rem, 2vw, 1.25rem);
+  background: #151121; border: 1px solid #765c92; border-radius: 14px;
+}
+.balance-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .65rem; margin-bottom: .8rem; }
+.balance-heading h3 { margin: 0; font-size: 1.125rem; line-height: 1.3; }
+.balance-metrics {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: .6rem; margin-bottom: .8rem;
+}
+.balance-metrics > div { padding: .65rem; background: #241a35; border-radius: .55rem; min-width: 0; }
+.balance-metrics span { color: var(--ld-secondary); display: block; font-size: .875rem; line-height: 1.4; }
+.balance-metrics strong { display: block; margin-top: .25rem; overflow-wrap: anywhere; }
+#bal-breakdown { color: var(--ld-secondary); margin-bottom: .65rem; font-size: .9375rem; overflow-wrap: anywhere; }
+.terminal #live-panel .boundary-note code { overflow-wrap: anywhere; }
+.terminal #live-panel .wallet-guide dl > div { flex-wrap: wrap; }
+.terminal #live-panel .wallet-guide dd { text-align: start; overflow-wrap: anywhere; }
+@media (max-width: 850px) {
+  .terminal #live-panel { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 500px) {
+  .terminal .mode-console .workspace-tab { padding-inline-end: 4px; }
+  .terminal .mode-console .workspace-tab span { font-size: .875rem; }
+  .terminal #live-panel .primary-action { width: 100%; }
+}
+.terminal .terminal-cta, .terminal .terminal-outline { font-size: .9375rem; }
+.terminal #route-detail { font-size: .8125rem; }
+@media (max-width: 500px) {
+  .terminal-engine {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px;
+  }
+  .terminal-engine > img, .terminal #route-detail { grid-column: 1 / -1; }
+  .terminal .engine-node { position: static; justify-content: center; font-size: .8125rem; }
+  .terminal #route-detail { position: static; min-height: 2.4em; padding-top: .25rem; }
+}

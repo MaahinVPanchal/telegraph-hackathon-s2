@@ -15,7 +15,9 @@ Mock mode is **SIMULATED / OFFLINE**. It makes no Engine calls, payments or sign
 
 ## Miner rank history
 
-Run `npm run web` and open **Miner rank history** from the header. Select a miner and Intent to see the latest recorded rank for every UTC day from November 1, 2026 to today. The table identifies Anjoman Explorer scores and archived observations. Days with unavailable scores are marked as gaps. The page requires network access and opens without a wallet.
+Run `npm run web` and open **Miner rank history** from the header. The report covers November 1-25, 2026 in IST across six intents.
+Expand an intent for individual rounds, or open the failure groups for Explorer error excerpts. Days with unavailable scores
+are marked as gaps. The page uses a bundled snapshot and opens without a wallet or a live Explorer request.
 
 ## Optional MetaMask account connection
 

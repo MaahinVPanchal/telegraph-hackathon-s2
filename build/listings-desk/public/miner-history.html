@@ -1,73 +1,57 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
+<head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Miner rank history | LeaderLight</title>
-<style>
-  :root { color-scheme: dark; font: 16px system-ui, sans-serif; background: #100b17; color: #f6efff; }
-  body { margin: 0; background: radial-gradient(ellipse at top right, #33204c, transparent 48rem); }
-  main { max-width: 76rem; margin: auto; padding: 2rem clamp(1rem, 4vw, 3rem) 4rem; }
-  a { color: #dbc1ff; }
-  .masthead { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem; padding-bottom:1rem; border-bottom:1px solid #4a365e; }
-  .back { display:inline-flex; align-items:center; min-height:44px; padding:0 .9rem; border:1px solid #73598b; border-radius:.55rem; text-decoration:none; }
-  .back:hover { background:#33204c; }
-  :focus-visible { outline:2px solid #ddc1ff; outline-offset:3px; }
-  h1 { font-size: clamp(2rem, 6vw, 4rem); margin-bottom: .5rem; }
-  p { color: #d2c3e2; line-height: 1.5; }
-  .filters { display: grid; grid-template-columns:repeat(auto-fit,minmax(min(15rem,100%),1fr)); gap: 1rem; margin: 2rem 0 1rem; }
-  label { display: grid; gap: .4rem; max-width: 100%; }
-  select { width: 100%; min-height: 44px; background: #22172f; color: inherit; border: 1px solid #73598b; border-radius: .4rem; padding: .4rem; font: inherit; }
-  .scroll { overflow: auto; background: #191122; border: 1px solid #4a365e; border-radius: .6rem; margin-bottom: 1rem; }
-  .metrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.65rem; margin:0 0 1rem; }
-  .metrics div { background:#21162e; border:1px solid #4a365e; border-radius:.65rem; padding:clamp(.55rem,2vw,1.15rem); }
-  .metrics dt { color:#d2c3e2; font-size:.82rem; }
-  .metrics dd { margin:.25rem 0 0; font-size:clamp(1.15rem,4vw,2rem); font-weight:750; font-variant-numeric:tabular-nums; }
-  figure { margin:0; }
-  figcaption { padding:1rem 1rem 0; font-weight:700; }
-  .table-scroll { max-height:25rem; }
-  thead { position:sticky; top:0; background:#241833; }
-  tbody tr:nth-child(even) { background:#22182e; }
-  canvas { display: block; }
-  table { width: 100%; border-collapse: collapse; text-align: left; }
-  caption, th, td { padding: .7rem; }
-  caption { text-align: left; font-weight: bold; }
-  th, td { border-top: 1px solid #4a365e; }
-  td:first-child { white-space: nowrap; }
-</style>
+<link rel="stylesheet" href="/miner-history.css">
+<script type="module" src="/miner-history.mjs"></script>
+</head>
+<body>
 <main>
-  <header class="masthead"><strong>LeaderLight</strong><a class="back" href="/">← Assessment desk</a></header>
+  <header class="masthead"><strong>LeaderLight</strong><a href="/">Assessment desk</a></header>
   <h1>Miner rank history</h1>
-  <p>Latest recorded rank per UTC day for the selected Intent. Rank #1 is highest. Gaps indicate days with no available score.</p>
-  <div class="filters">
-    <label>Miner
-      <select id="miner">
-        <option value="onchain-metric-publicnode">On-chain metrics</option>
-        <option value="weather-verify-openmeteo">Weather verification</option>
-        <option value="fx-now-frankfurter">FX rates</option>
-      </select>
-    </label>
-    <label>Intent <select id="intent" disabled></select></label>
-  </div>
-  <p id="status" role="status"></p>
-  <section id="history" hidden>
-    <dl class="metrics">
-      <div><dt>Latest rank</dt><dd id="latest-rank"></dd></div>
-      <div><dt>Best daily rank</dt><dd id="best-rank"></dd></div>
-      <div><dt>Days with scores</dt><dd id="coverage"></dd></div>
-    </dl>
-    <figure id="plot" class="scroll" tabindex="0" aria-label="Scrollable daily rank chart">
-      <figcaption>Daily rank · UTC</figcaption>
-      <canvas id="chart" aria-hidden="true"></canvas>
-    </figure>
-    <div class="scroll table-scroll" tabindex="0" role="region" aria-label="Scrollable daily observations">
-      <table>
-        <caption>Daily observations</caption>
-        <thead><tr><th scope="col">Date (UTC)</th><th scope="col">Rank</th><th scope="col">Score</th><th scope="col">Epoch</th><th scope="col">Source</th></tr></thead>
+  <p class="subtitle">November 1–25, 2026 · India Standard Time (IST)</p>
+
+  <aside class="notice" aria-labelledby="epoch-note">
+    <h2 id="epoch-note">Epoch numbering changed mid-month</h2>
+    <p>The supplied snapshots preserve the original epoch numbers for older records that Explorer later reported as epoch 0. A † marks the new numbering. Compare rounds by date and time across the change. The cause is unconfirmed.</p>
+    <p>FX first shows the new numbering on Nov 17. On-chain and weather snapshots first show it on Nov 18, with no records for new epochs 1–3. Coverage begins Nov 2 for on-chain and weather and Nov 4 for FX.</p>
+  </aside>
+
+  <section aria-labelledby="month-title">
+    <h2 id="month-title">The month at a glance</h2>
+    <p id="month-key">Each cell shows the last recorded round of the IST day as rank · score. <span class="failed">Red</span> means the snapshot flagged at least one failed round that day. A dash means no record was available. Scroll sideways to see all six intents.</p>
+    <div class="table-wrap" role="region" aria-label="Daily ranks for six intents" tabindex="0">
+      <table aria-describedby="month-key">
+        <thead><tr><th scope="col">Day</th><th scope="col">On-chain</th><th scope="col">Weather forecast</th><th scope="col">Weather verify</th><th scope="col">CAD</th><th scope="col">EUR</th><th scope="col">SEK</th></tr></thead>
         <tbody id="observations"></tbody>
       </table>
     </div>
+    <noscript><p>Enable JavaScript to display the saved score tables.</p></noscript>
   </section>
-  <p>Sources include <a id="source" href="https://anjoman.ai/">Anjoman Explorer scores</a> and the November 12 miner snapshot.</p>
+
+  <section aria-labelledby="rounds-title">
+    <h2 id="rounds-title">Round-by-round history</h2>
+    <p>Open an intent to see every recorded round. Failed rounds use the snapshot’s failure flags, including when a zero score is recorded without a failure.</p>
+    <div id="rounds"></div>
+  </section>
+
+  <section aria-labelledby="failures-title">
+    <h2 id="failures-title">Failure modes</h2>
+    <p>Grouped by the recorded Explorer error. Expand a group to read the supplied excerpt.</p>
+    <div id="failures"></div>
+  </section>
+
+  <section aria-labelledby="sources-title">
+    <h2 id="sources-title">Sources</h2>
+    <p>This fixed report is based on the supplied Explorer snapshots. The links below open the current source records, which may use different epoch numbers.</p>
+    <ul class="sources">
+      <li><a href="https://anjoman.ai/api/explorer/scores?miner=onchain-metric-publicnode">On-chain scores</a></li>
+      <li><a href="https://anjoman.ai/api/explorer/scores?miner=weather-verify-openmeteo">Weather scores</a></li>
+      <li><a href="https://anjoman.ai/api/explorer/scores?miner=fx-now-frankfurter">FX scores</a></li>
+    </ul>
+  </section>
 </main>
-<script type="module" src="/miner-history.mjs"></script>
+</body>
 </html>

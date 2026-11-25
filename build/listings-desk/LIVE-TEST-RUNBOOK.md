@@ -1,5 +1,13 @@
 # LeaderLight Sepolia demo runbook
 
+## Release priorities
+
+1. Lead the assessment report with the decision, supporting evidence, serving miner and Intent, charge, and receipt status. Link to rank history when the miner and Intent match a tracked entry.
+2. Review the exact test USDC charge before opening MetaMask. Show when a request is blocked before signing, when a receipt is saved, and when settlement is pending. Export validated receipts as JSON.
+3. Record a blocked request and an allowed paid Sepolia request on the reviewer build. Save the fresh receipt and link it and the recording from the app README.
+
+The first two priorities were implemented in `ffa1514`. The third is complete when the recording and validated receipt from the same live run are linked in the README.
+
 ## Scope and readiness
 
 The target is a two- to five-minute recording and a fresh public protocol receipt from the same approved Sepolia run. Use the exact Vercel build intended for reviewers, a funded test wallet, and Ethereum Sepolia (chain ID 11155111). The wallet owner approves the exact displayed amount interactively.

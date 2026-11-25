@@ -434,7 +434,11 @@ function startLocalServer() {
       return;
     }
     const staticFiles = {
+      "/terminal.css": ["../public/terminal.css", "text/css; charset=utf-8"],
+      "/terminal.mjs": ["../public/terminal.mjs", "text/javascript; charset=utf-8"],
+      "/assets/terminal-engine.svg": ["../public/assets/terminal-engine.svg", "image/svg+xml"],
       "/miner-history.html": ["../public/miner-history.html", "text/html; charset=utf-8"],
+      "/miner-score-archive.mjs": ["../public/miner-score-archive.mjs", "text/javascript; charset=utf-8"],
       "/miner-history.mjs": ["../public/miner-history.mjs", "text/javascript; charset=utf-8"],
       "/live-payment.mjs": ["../public/live-payment.mjs", "text/javascript; charset=utf-8"],
       "/assets/telegraph-mark.png": ["../public/assets/telegraph-mark.png", "image/png"],

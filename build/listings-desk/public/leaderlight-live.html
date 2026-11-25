@@ -682,312 +682,6 @@ html{scroll-padding-top:20px}body{background:radial-gradient(ellipse at 76% 8%,#
 .memo-verdict{white-space:normal;overflow-wrap:anywhere;max-width:100%;line-height:1.5}.memo-result-head{flex-wrap:wrap;gap:14px}.memo-result-head>div{min-width:0}
 </style>
 <style>
-:root {
-  color-scheme: light;
-  --ld-page: #f4f6f2;
-  --ld-surface: #ffffff;
-  --ld-surface-raised: #edf3ee;
-  --ld-border: #dce5dd;
-  --ld-primary: #14806c;
-  --ld-primary-strong: #0e6656;
-  --ld-text: #1b2923;
-  --ld-secondary: #64746b;
-  --ld-caution: #9a6719;
-  --ld-danger: #b34444;
-  --ld-focus: #14806c;
-}
-body { background: radial-gradient(ellipse at 78% 0%, #e6f0e9 0, transparent 35rem), var(--ld-page); color: var(--ld-text); }
-.app-shell { max-width: 1440px; margin: 0 auto; padding: 0 clamp(18px, 4vw, 56px) 48px; }
-.site-header { min-height: 82px; padding: 16px 0; border-color: var(--ld-border); }
-.brand-name { color: var(--ld-text); }
-.brand-subtitle, .network-lockup small { color: var(--ld-secondary); }
-.brand-mark { background: var(--ld-primary); }
-.brand-mark::after { background: var(--ld-surface); }
-.brand-mark span { background: var(--ld-primary); }
-.leaderlight-mark { background: var(--ld-primary); color: white; }
-.network-lockup { border-color: var(--ld-border); }
-.mode-badge { border-color: #b8d9cc; background: #e8f4ee; color: var(--ld-primary-strong); }
-.mode-badge--real, .mode-badge--invalid { border-color: #e7d4b1; background: #fbf3e5; color: var(--ld-caution); }
-.wallet-connect, .action-button, .secondary-action, .primary-action { border-radius: 10px; }
-.wallet-connect { border-color: var(--ld-border); background: var(--ld-surface); color: var(--ld-text); box-shadow: 0 2px 8px #173d2a0a; }
-.wallet-connect:hover:not(:disabled), .action-button:hover:not(:disabled) { border-color: #9bcabb; background: #f2f8f4; }
-.wallet-status { min-height: 0; margin: 12px 0; padding-left: 0; color: var(--ld-secondary); }
-.workspace-grid { display: block; margin-top: 12px; }
-.workspace-main { padding-top: 0; }
-.workspace-tabs { gap: 8px; margin: 22px 0 20px; padding: 6px; border: 1px solid var(--ld-border); border-radius: 14px; background: #eaf0eb; }
-.workspace-tab { border-radius: 10px; color: var(--ld-secondary); }
-.workspace-tab span { color: inherit; opacity: .82; }
-.workspace-tab:hover { background: #f7faf7; color: var(--ld-text); }
-.workspace-tab { background: rgba(13, 17, 25, .92) !important; border-color: var(--ld-border) !important; color: var(--ld-secondary) !important; }
-.workspace-tab span { color: var(--ld-secondary) !important; }
-.workspace-tab:hover:not(.is-active) { background: rgba(45, 212, 168, .07) !important; color: var(--ld-text) !important; }
-.workspace-tab.is-active { border-color: #b8d9cc; background: var(--ld-surface); color: var(--ld-primary-strong); box-shadow: 0 2px 8px #173d2a0a; }
-.workspace-tab.is-active span { color: var(--ld-secondary); }
-.workspace-tab:focus-visible { outline-color: var(--ld-focus); }
-.hero-split { display: block; }
-.hero { max-width: 900px; padding: 34px 0 38px; }
-.hero .eyebrow, .eyebrow { color: var(--ld-primary-strong); }
-.hero .eyebrow::before { background: var(--ld-primary); }
-.hero h1 { font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: clamp(42px, 5.4vw, 72px); font-weight: 750; letter-spacing: -.055em; color: var(--ld-text); }
-.hero h1 span { color: var(--ld-primary); }
-.hero-copy { color: var(--ld-secondary); }
-@media (max-width: 1023px) { .signal-map { display: none !important; } }
-.flowline { border-color: var(--ld-border); }
-.flowline b { color: var(--ld-primary); }
-.flowline small { color: var(--ld-secondary); }
-.chip { border-color: var(--ld-border); border-radius: 999px; background: #eaf3ed; color: #456657; }
-.setup-grid, .live-grid { gap: 18px; }
-.panel, .leaderboard-panel { border: 1px solid var(--ld-border); border-radius: 16px; background: var(--ld-surface); box-shadow: 0 8px 28px #173d2a0a; }
-.panel::after, .leaderboard-panel::after { display: none; }
-.panel h2 { color: var(--ld-text); }
-.token-input, .text-input { border-color: var(--ld-border); border-radius: 10px; background: #fbfcfa; color: var(--ld-text); }
-.token-input:focus, .text-input:focus { border-color: var(--ld-primary); box-shadow: 0 0 0 3px #14806c20; }
-.primary-action { background: var(--ld-primary); color: #fff; box-shadow: 0 4px 14px #14806c20; }
-.primary-action:hover:not(:disabled) { background: var(--ld-primary-strong); box-shadow: 0 5px 18px #14806c30; }
-.action-button { border-color: var(--ld-border); background: #f8faf8; color: var(--ld-text); }
-.live-block { border-color: var(--ld-border); background: linear-gradient(145deg, #f3f8f4, #fff 60%); }
-.balance-card { border-color: var(--ld-border) !important; border-radius: 12px !important; background: #f7faf7 !important; }
-.balance-card strong[style*="--ld-caution"] { color: var(--ld-primary-strong) !important; }
-.balance-card strong[style*="--ld-primary-strong"] { color: var(--ld-primary-strong) !important; }
-.wallet-guide { border-color: var(--ld-border); border-radius: 16px; background: linear-gradient(145deg, #edf5ef, #fff); }
-.wallet-symbol { color: var(--ld-primary); }
-.out-region { border-color: var(--ld-border); }
-.empty-state { border-color: #cbd9cf; border-radius: 12px; background: #f8faf8; }
-.leaderboard-panel { margin-left: 0; }
-.app-footer { margin-left: 0; border-color: var(--ld-border); }
-.memo-page { background: var(--ld-page) !important; color: var(--ld-text) !important; }
-.memo-shell, .memo-section, .memo-stat, .memo-card, .memo-evidence { border-color: var(--ld-border) !important; border-radius: 12px !important; background-color: var(--ld-surface) !important; color: var(--ld-text); }
-.memo-card-title code, .memo-section-title, .memo-subtitle { color: var(--ld-primary-strong) !important; }
-.memo-receipt-details { background: #f3f7f3 !important; border-color: var(--ld-border) !important; }
-@media (max-width: 760px) {
-  .app-shell { padding: 0 18px 36px; }
-  .workspace-grid { display: block; }
-  .hero-split { display: flex; flex-direction: column; align-items: stretch; gap: 0; }
-  .hero { padding: 18px 0 26px; }
-  .hero h1 { font-size: clamp(42px, 11vw, 58px); }
-  .signal-map { display: none; }
-  .hero-chips { margin: 0 0 20px; }
-  .setup-grid, .live-grid { grid-template-columns: 1fr; }
-  .leaderboard-panel, .app-footer { margin-left: 0; }
-}
-@media (max-width: 520px) {
-  .site-header { display: flex; flex-wrap: wrap; gap: 12px; }
-  .header-actions { display: contents; }
-  .brand { flex: 1; }
-  .wallet-connect { margin-left: auto; }
-  .mode-badge { max-width: 132px; }
-  .workspace-tabs { grid-template-columns: 1fr; }
-  .workspace-tab { min-height: 56px; }
-  .panel { padding: 20px; }
-}
-@media (max-width: 760px) {
-  .site-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; align-items: center; }
-  .brand { grid-column: 1; grid-row: 1; min-width: 0; }
-  .wallet-connect { grid-column: 2; grid-row: 1; }
-  .network-lockup { grid-column: 1; grid-row: 2; }
-  .mode-badge { grid-column: 2; grid-row: 2; }
-}
-</style><style>
-/* ── Paper & ink editorial design layer ── */
-:root {
-  --ld-page: #faf9f5;
-  --ld-surface: #ffffff;
-  --ld-surface-raised: #fffefa;
-  --ld-border: rgba(28, 27, 24, .12);
-  --ld-border-soft: rgba(28, 27, 24, .08);
-  --ld-primary: #d97757;
-  --ld-primary-strong: #c05a3a;
-  --ld-text: #1c1b18;
-  --ld-secondary: #6f6a60;
-  --ld-caution: #b45309;
-  --ld-danger: #b91c1c;
-  --ld-focus: rgba(217, 119, 87, .4);
-  --ld-ink: #161512;
-  --ld-hairline: rgba(28, 27, 24, .09);
-  color-scheme: light;
-}
-html { background: var(--ld-page); }
-body {
-  background:
-    radial-gradient(ellipse 50% 30% at 92% -6%, rgba(217, 119, 87, .05), transparent),
-    var(--ld-page) !important;
-  font: 15.5px/1.6 "Segoe UI", system-ui, sans-serif;
-}
-::selection { background: rgba(217, 119, 87, .18); }
-
-/* ── header: hairline brand bar ── */
-.site-header { border-bottom: 1px solid var(--ld-hairline) !important; }
-.brand-name { font-family: Command, "Arial Narrow", sans-serif; font-size: .95rem !important; letter-spacing: .18em !important; }
-.brand-subtitle { font-size: .68rem !important; letter-spacing: .26em !important; text-transform: uppercase; color: var(--ld-secondary) !important; }
-.leaderlight-mark {
-  background: var(--ld-ink) !important;
-  color: #faf9f5 !important;
-  border-radius: 10px !important; clip-path: none !important;
-  font-family: Command, "Arial Narrow", ui-sans-serif, system-ui, sans-serif !important;
-}
-.leaderlight-mark span { color: #faf9f5 !important; }
-.network-lockup small { letter-spacing: .08em !important; }
-.wallet-connect {
-  background: var(--ld-ink) !important; color: #faf9f5 !important;
-  border: 1px solid var(--ld-ink) !important; border-radius: 999px !important;
-  padding: 10px 20px !important;
-}
-.wallet-connect:hover:not(:disabled) { background: #33312c !important; }
-
-/* ── hero: editorial spread with the routed-intent plate ── */
-.hero-split { grid-template-columns: minmax(0, 1.06fr) minmax(280px, .94fr) !important; gap: 40px !important; align-items: center !important; }
-.hero { padding: clamp(30px, 4.5vw, 56px) 0 30px !important; max-width: 640px; }
-.hero::before { width: 44px !important; height: 2px !important; background: var(--ld-primary) !important; }
-.hero .eyebrow, .eyebrow {
-  color: var(--ld-primary-strong) !important;
-  font-size: .68rem !important; letter-spacing: .24em !important; font-weight: 700;
-}
-.hero h1 {
-  font-family: Command, "Arial Narrow", ui-sans-serif, system-ui, sans-serif !important;
-  font-size: clamp(2.7rem, 5.4vw, 4.6rem) !important;
-  line-height: .99 !important; letter-spacing: -.015em !important;
-  font-weight: 400 !important;
-  color: var(--ld-text) !important;
-  max-width: none !important;
-}
-.hero h1 span { color: var(--ld-primary) !important; }
-.hero-copy { font-size: 1.04rem !important; max-width: 30rem !important; line-height: 1.65 !important; }
-/* the routed-intent plate */
-.signal-map {
-  display: flex !important; flex-direction: column; justify-content: space-between;
-  min-height: 330px;
-  background: linear-gradient(165deg, #161512, #0d0c0a 70%);
-  border: 1px solid rgba(28, 27, 24, .2);
-  border-radius: 18px;
-  padding: 22px 22px 16px;
-  box-shadow: 0 24px 60px rgba(28, 27, 24, .18), inset 0 1px 0 rgba(255, 255, 255, .06);
-}
-.signal-map svg { width: 100%; height: auto; flex: 1; }
-.map-label {
-  color: #c9c2b4 !important; font-size: .62rem !important; letter-spacing: .22em !important;
-  text-transform: uppercase; margin-bottom: 14px !important;
-}
-.map-footer {
-  color: #6f6a60 !important; font-size: .62rem !important; letter-spacing: .14em !important;
-  text-transform: uppercase; border-top: 1px solid rgba(255, 255, 255, .08) !important;
-  padding-top: 12px !important; margin-top: 12px !important;
-}
-.signal-map .core, .signal-map .node-a, .signal-map .node-b, .signal-map .node-c { color: #e8e2d6 !important; }
-/* the three-step flowline */
-.flowline { border-color: transparent !important; display: flex; gap: 0; padding: 0 !important; margin: 26px 0 22px !important; }
-.flowline > div { flex: 1; position: relative; padding: 2px 18px 0 0 !important; border-top: 1px solid var(--ld-hairline) !important; }
-.flowline > div::before {
-  content: ""; position: absolute; top: -3px; left: 0; width: 7px; height: 7px;
-  border-radius: 50%; background: var(--ld-page); border: 1.5px solid var(--ld-primary);
-}
-.flowline > div:first-child::before { background: var(--ld-primary); }
-.flowline b { display: block; font-weight: 700; font-size: .84rem; color: var(--ld-text) !important; }
-.flowline small { font-size: .72rem !important; color: var(--ld-secondary) !important; }
-.flowline > div b { color: var(--ld-text) !important; }
-/* chips */
-.hero-chips { gap: 8px !important; margin-top: 20px !important; }
-.chip {
-  background: transparent !important; border: 1px solid var(--ld-hairline) !important;
-  color: var(--ld-secondary) !important; border-radius: 999px !important;
-  font-size: .7rem !important; letter-spacing: .02em; padding: 6px 13px !important;
-}
-
-/* ── workspace switch: segmented paper control ── */
-.workspace-tabs {
-  background: rgba(28, 27, 24, .05) !important;
-  border: 1px solid var(--ld-border-soft) !important;
-  border-radius: 14px !important; padding: 5px !important;
-}
-.workspace-tab {
-  background: transparent !important; border: 1px solid transparent !important;
-  color: var(--ld-secondary) !important; border-radius: 10px !important;
-}
-.workspace-tab span { color: var(--ld-secondary) !important; }
-.workspace-tab:hover { background: rgba(31, 30, 29, .04) !important; color: var(--ld-text) !important; }
-.workspace-tab.is-active {
-  background: #ffffff !important;
-  border-color: rgba(28, 27, 24, .14) !important;
-  color: var(--ld-text) !important;
-  box-shadow: 0 1px 3px rgba(28, 27, 24, .08) !important;
-}
-.workspace-tab.is-active span { color: var(--ld-primary-strong) !important; }
-
-/* ── cards ── */
-.panel, .workspace-nav, .leaderboard-panel, .balance-card,
-.workspace-panel, .live-grid > .panel, .aside.panel {
-  background: #ffffff !important;
-  border: 1px solid var(--ld-border-soft) !important;
-  border-radius: 16px !important;
-  box-shadow: 0 1px 2px rgba(28, 27, 24, .04), 0 12px 32px rgba(28, 27, 24, .05) !important;
-}
-.panel h2, .wallet-guide h2 { color: var(--ld-text) !important; letter-spacing: -.01em; }
-.eyebrow { color: var(--ld-primary-strong) !important; font-size: .66rem !important; letter-spacing: .22em !important; }
-.field-label { font-weight: 650 !important; color: var(--ld-text) !important; }
-.field-help, .mode-help, .boundary-note { color: var(--ld-secondary) !important; }
-.token-input, .text-input {
-  background: #fdfcfa !important;
-  border: 1px solid rgba(28, 27, 24, .16) !important;
-  border-radius: 10px !important;
-}
-/* live block */
-.live-block {
-  background: linear-gradient(170deg, rgba(217, 119, 87, .05), transparent 55%) !important;
-  border: 1px solid rgba(217, 119, 87, .18) !important;
-  border-radius: 14px !important;
-}
-.live-block > h2 { font-size: 1.22rem !important; }
-.balance-card strong { font-variant-numeric: tabular-nums !important; }
-.balance-card span { color: var(--ld-secondary) !important; }
-/* mode badge */
-.mode-badge { border-radius: 999px !important; font-size: .64rem !important; letter-spacing: .14em !important; }
-.mode-badge--live { border-color: rgba(22, 163, 74, .4) !important; color: #15803d !important; }
-.mode-badge--live::before { background: #16a34a !important; }
-/* buttons */
-.primary-action {
-  background: var(--ld-ink) !important; color: #faf9f5 !important;
-  border-radius: 999px !important;
-  box-shadow: 0 2px 10px rgba(28, 27, 24, .22) !important;
-}
-.primary-action:hover:not(:disabled) {
-  background: #33312c !important;
-  box-shadow: 0 4px 16px rgba(28, 27, 24, .3) !important;
-  transform: translateY(-1px);
-}
-.action-button {
-  background: #ffffff !important;
-  border: 1px solid rgba(28, 27, 24, .14) !important;
-  border-radius: 999px !important;
-}
-.action-button:hover:not(:disabled) {
-  border-color: rgba(217, 119, 87, .5) !important;
-  background: rgba(217, 119, 87, .05) !important;
-}
-/* leaderboard */
-.leaderboard-panel { border-radius: 16px !important; }
-.lb-row { border-color: var(--ld-hairline) !important; }
-/* footer */
-.app-footer { border-top: 1px solid var(--ld-hairline) !important; }
-.app-footer p { letter-spacing: .01em; }
-:focus-visible { outline: 2px solid var(--ld-focus) !important; outline-offset: 2px; }
-
-.history-link {
-  display: inline-flex; align-items: center; gap: .55rem; min-height: 44px;
-  padding: 0 .95rem; border: 1px solid #d6c8ec; border-radius: 10px;
-  color: #4c287a; background: #f9f5ff; font-weight: 700; text-decoration: none;
-}
-.history-link:hover { background: #eee3fa; border-color: #9b74be; }
-.workspace-tabs { gap: 8px !important; padding: 6px !important; border-radius: 14px !important; }
-.workspace-tab { min-height: 64px; text-align: left; border-radius: 9px !important; }
-.workspace-tab.is-active { box-shadow: inset 3px 0 #7551a3, 0 1px 4px #2c143018; }
-.header-actions button, .workspace-main button:not(.workspace-tab) { min-height: 44px !important; }
-.action-button, .wallet-connect, .wallet-disconnect { border-radius: 9px !important; }
-button:disabled { opacity: .55; cursor: not-allowed; }
-@media(max-width:760px) {
-  .header-actions { display:flex; flex: 1 1 100%; flex-wrap:wrap; align-items:center; gap:8px; }
-  .header-actions .wallet-connect { margin-left:0; }
-}
-</style>
-<style>
 .wallet-tools { margin-top: 16px; }
 .wallet-tools summary { width: fit-content; cursor: pointer; font-weight: 700; }
 .wallet-tools .action-row { margin-top: 12px; }
@@ -998,12 +692,16 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 .payment-review .action-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .payment-review button { min-height: 44px; }
 </style>
-</head><body>
+<link rel="stylesheet" href="/terminal.css">
+</head><body class="terminal">
 <main class="app-shell">
 <header class="site-header">
-<div class="brand"><span aria-hidden="true" class="leaderlight-mark">L<span>↗</span></span><span><span class="brand-name">LEADERLIGHT</span><span class="brand-subtitle">LISTINGS DESK</span></span></div><div class="network-lockup"><img alt="Telegraph" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACkAAAAwCAYAAACMuVOlAAAACXBIWXMAABYlAAAWJQFJUiTwAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAOdEVYdFNvZnR3YXJlAEZpZ21hnrGWYwAAAX9JREFUeAHtmdFtgzAQhs/EL0g8dARGaEdgk2SCdoOqE3SEjtARmhHYIN6gkUDiCdH7I0gTQpuAwb5I/iTnYmyJDxuks63KsmxIME3TvEV0B0DSkHD0arXK6rr+4v/paQOGmYshD0RR9M7hoasr/FRVlQ6IGjxAHMeGHMPfya5zOb6TEIEQnU/9QRwPQJ45fjiSRHn0cg5bFKWUUf0O0qYeqKGL0kTVXw2SRNV/jVJE1bUOEkSvSgLfojdJAp+iN0sCX6KjJIEP0dGSwLXoJEngUnSyJHAlaiUJXIhaS4KlRWeRBEuKziYJlhKdVRK0orve5TxJkieayOxLWhZ8Pa1zlr3nsCEp8ALqA5sNXSmK4pvjI0khCNoSBG0JgrYEQVuCoC1B0JYgOJKLpBeCHNZdHfkg77ZmnLTm5Ah2eOH7dhv7W03CBFue+b5p6/CbmQsSvOAwkn1BwGcpGy57H6cPvAQ5q+shQcAj+dnv7AtM95qEcxcHoJqnNSPBaK3NDxWIZQFxCp7vAAAAAElFTkSuQmCC"/><span>TELEGRAPH<small>Independent app / not endorsed</small></span></div>
-<div class="header-actions"><a class="history-link" href="/miner-history.html">Miner rank history <span aria-hidden="true">&nearr;</span></a>
-<span class="mode-badge" id="mode-badge">SIMULATED / OFFLINE</span>
+<div class="brand"><span aria-hidden="true" class="leaderlight-mark">L<span>↗</span></span><span><span class="brand-name">LeaderLight</span><span class="brand-subtitle">LISTINGS DESK</span></span></div><div class="network-lockup"><img alt="Telegraph" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACkAAAAwCAYAAACMuVOlAAAACXBIWXMAABYlAAAWJQFJUiTwAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAOdEVYdFNvZnR3YXJlAEZpZ21hnrGWYwAAAX9JREFUeAHtmdFtgzAQhs/EL0g8dARGaEdgk2SCdoOqE3SEjtARmhHYIN6gkUDiCdH7I0gTQpuAwb5I/iTnYmyJDxuks63KsmxIME3TvEV0B0DSkHD0arXK6rr+4v/paQOGmYshD0RR9M7hoasr/FRVlQ6IGjxAHMeGHMPfya5zOb6TEIEQnU/9QRwPQJ45fjiSRHn0cg5bFKWUUf0O0qYeqKGL0kTVXw2SRNV/jVJE1bUOEkSvSgLfojdJAp+iN0sCX6KjJIEP0dGSwLXoJEngUnSyJHAlaiUJXIhaS4KlRWeRBEuKziYJlhKdVRK0orve5TxJkieayOxLWhZ8Pa1zlr3nsCEp8ALqA5sNXSmK4pvjI0khCNoSBG0JgrYEQVuCoC1B0JYgOJKLpBeCHNZdHfkg77ZmnLTm5Ah2eOH7dhv7W03CBFue+b5p6/CbmQsSvOAwkn1BwGcpGy57H6cPvAQ5q+shQcAj+dnv7AtM95qEcxcHoJqnNSPBaK3NDxWIZQFxCp7vAAAAAElFTkSuQmCC"/><span>TELEGRAPH<small>Independent app / not endorsed</small></span></div>
+<nav class="terminal-nav" aria-label="Main navigation">
+<a href="#desk" aria-current="location">&#8962; <span>Desk</span></a><a href="/miner-history.html" aria-label="Miner rank history">&#9820; <span>Miner Rank</span></a><a href="#candidate-form">&#9672; <span>Simulate</span></a><a href="#out">&#9636; <span>Reports</span></a>
+</nav>
+<div class="header-actions"><button class="command-trigger" id="open-command" type="button"><kbd>Ctrl K</kbd><span>Search</span></button>
+<button class="notification-trigger" id="open-notifications" type="button" aria-label="Desk notifications"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg></button>
 <button class="wallet-connect" id="wallet-connect" type="button">Connect MetaMask</button>
 <button class="wallet-disconnect" hidden id="wallet-disconnect" type="button">Disconnect (this page)</button>
 <button class="action-button" hidden id="wallet-switch" type="button">Switch to Ethereum Sepolia</button>
@@ -1012,39 +710,78 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 <p aria-atomic="true" aria-live="polite" class="wallet-status" id="wallet-status" role="status">Wallet not connected. Connect to unlock the live flow — signing happens only when you approve it.</p>
 <div class="workspace-grid">
 <div class="workspace-main">
+<div class="terminal-hero" id="desk">
+<section class="terminal-intro" aria-labelledby="hero-title">
+<p class="sovereign">Sovereign intelligence</p>
+<h1 id="hero-title">See the risk.<br><span>Keep the signal.</span></h1>
+<p>A listing intelligence desk built on Telegraph. Trace the evidence. Keep uncertainty in view.</p>
+<div class="terminal-actions"><button id="hero-connect" class="terminal-cta" type="button"><span class="fox" aria-hidden="true"></span> Connect MetaMask <span aria-hidden="true">&#8594;</span></button><button id="open-demo" class="terminal-outline" type="button">Watch Demo <span aria-hidden="true">&#9655;</span></button></div>
+<ul class="terminal-features" aria-label="Desk capabilities"><li><b aria-hidden="true">&#8984;</b> Intent-routed</li><li><b aria-hidden="true">&#9671;</b> Evidence-first</li><li><b aria-hidden="true">&#11041;</b> Tamper-evident</li><li><b aria-hidden="true">&#8249;&#8250;</b> Open &amp; verifiable</li></ul>
+</section>
+<div class="terminal-engine" aria-label="Interactive intelligence routing diagram">
+<img src="/assets/terminal-engine.svg" alt="" width="750" height="390" fetchpriority="high">
+<button type="button" class="engine-node intent" data-route="Define the candidate and the checks to request." aria-pressed="false"><b aria-hidden="true">&#9678;</b> Intent</button>
+<button type="button" class="engine-node evidence" data-route="Review returned evidence and flag missing checks." aria-pressed="false"><b aria-hidden="true">&#9671;</b> Evidence</button>
+<button type="button" class="engine-node miner" data-route="Telegraph routes intents to miners that can answer them." aria-pressed="false"><b aria-hidden="true">&#9874;</b> Miner</button>
+<button type="button" class="engine-node receipt" data-route="Inspect receipt and settlement details in the assessment report." aria-pressed="false"><b aria-hidden="true">&#9636;</b> Receipt</button>
+<p id="route-detail" aria-live="polite">Telegraph routing diagram</p>
+</div></div>
+<div class="mode-console">
 <nav aria-label="Assessment mode" class="workspace-tabs" role="tablist">
 <button aria-controls="offline-panel" aria-selected="true" class="workspace-tab is-active" data-workspace-tab="offline" id="offline-tab" role="tab" type="button">Offline assessment<span>Private fixtures · no wallet or payment</span></button>
 <button aria-controls="live-panel" aria-selected="false" class="workspace-tab" data-workspace-tab="live" id="live-tab" role="tab" type="button">LIVE · Sepolia<span>Connect MetaMask · approval required per action</span></button>
 </nav>
-<div class="hero-split"><section aria-labelledby="hero-title" class="hero">
-<p class="eyebrow">Sovereign intelligence</p>
-<h1 id="hero-title">See the risk.<br/><span>Keep the signal.</span></h1>
-<p class="hero-copy">A listing intelligence desk built on Telegraph. Trace the evidence. Keep uncertainty in view.</p>
-
-</section><div class="signal-map"><div class="map-label">INTELLIGENCE, ROUTED BY INTENT</div><svg aria-hidden="true" viewbox="0 0 340 300"><defs><radialgradient id="glow"><stop stop-color="#9b6bfc" stop-opacity=".36"></stop><stop offset="1" stop-color="#9b6bfc" stop-opacity="0"></stop></radialgradient></defs><circle cx="170" cy="148" fill="url(#glow)" r="120"></circle><path d="M170 23L280 86V212L170 275L60 212V86Z" fill="none" stroke="#433057"></path><path d="M170 48L258 99V199L170 250L82 199V99Z" fill="none" stroke="#8c65b5"></path><path d="M170 48V110M258 199L200 165M82 199L140 165" stroke="#cfb271" stroke-width="1.5"></path><circle cx="170" cy="148" fill="#120d1d" r="43" stroke="#b493ff"></circle><circle cx="170" cy="148" fill="none" r="54" stroke="#614282" stroke-dasharray="2 8"></circle><g fill="#d9bb77"><circle cx="170" cy="48" r="5"></circle><circle cx="258" cy="199" r="5"></circle><circle cx="82" cy="199" r="5"></circle></g><g fill="#b493ff"><circle cx="60" cy="86" r="2"></circle><circle cx="280" cy="86" r="2"></circle><circle cx="170" cy="275" r="2"></circle></g></svg><div class="core"><img alt="" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACkAAAAwCAYAAACMuVOlAAAACXBIWXMAABYlAAAWJQFJUiTwAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAOdEVYdFNvZnR3YXJlAEZpZ21hnrGWYwAAAX9JREFUeAHtmdFtgzAQhs/EL0g8dARGaEdgk2SCdoOqE3SEjtARmhHYIN6gkUDiCdH7I0gTQpuAwb5I/iTnYmyJDxuks63KsmxIME3TvEV0B0DSkHD0arXK6rr+4v/paQOGmYshD0RR9M7hoasr/FRVlQ6IGjxAHMeGHMPfya5zOb6TEIEQnU/9QRwPQJ45fjiSRHn0cg5bFKWUUf0O0qYeqKGL0kTVXw2SRNV/jVJE1bUOEkSvSgLfojdJAp+iN0sCX6KjJIEP0dGSwLXoJEngUnSyJHAlaiUJXIhaS4KlRWeRBEuKziYJlhKdVRK0orve5TxJkieayOxLWhZ8Pa1zlr3nsCEp8ALqA5sNXSmK4pvjI0khCNoSBG0JgrYEQVuCoC1B0JYgOJKLpBeCHNZdHfkg77ZmnLTm5Ah2eOH7dhv7W03CBFue+b5p6/CbmQsSvOAwkn1BwGcpGy57H6cPvAQ5q+shQcAj+dnv7AtM95qEcxcHoJqnNSPBaK3NDxWIZQFxCp7vAAAAAElFTkSuQmCC"/></div><span class="node node-a">INTENT</span><span class="node node-b">EVIDENCE</span><span class="node node-c">RECEIPT</span><div class="map-footer">Routing illustration / not live network activity</div></div></div><div aria-label="Assessment journey" class="flowline"><div><b>01</b><span>Start offline<small>No wallet needed</small></span></div><div><b>02</b><span>Review &amp; approve<small>Explicit identities + payment</small></span></div><div><b>03</b><span>Inspect evidence<small>Keep unknowns visible</small></span></div></div><div aria-label="Workspace facts" class="hero-chips">
-<span class="chip">3 miners tracked</span>
-<span class="chip">Challenge priced before signing</span>
+<svg class="mode-wave" viewBox="0 0 180 32" aria-hidden="true"><path d="M1 23H23C39 23 43 8 56 8S72 24 84 24 99 6 110 6 125 19 136 19 153 4 163 7 171 14 179 14" /></svg>
+<span class="mode-badge" id="mode-badge" role="status">SIMULATED / OFFLINE</span>
 </div>
+<section class="terminal-bento" aria-label="Intelligence dashboard">
+<article class="glass overview"><header><h2><span aria-hidden="true">&#9637;</span> Network Overview</h2></header>
+<div class="overview-body"><div class="risk-gauge" aria-label="Risk index unavailable">
+<svg viewBox="0 0 112 112" aria-hidden="true"><defs><linearGradient id="gauge-spectrum"><stop stop-color="#ffb454"/><stop offset=".55" stop-color="#e879f9"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient></defs><path d="M24 90a43 43 0 1 1 64 0"/><path class="gauge-fill" pathLength="100" d="M24 90a43 43 0 1 1 64 0"/></svg>
+<div><strong>&mdash;</strong><small>Risk Index</small></div></div>
+<dl class="terminal-metrics"><div><dt>Signal</dt><dd>&mdash;</dd></div><div><dt>Uncertainty</dt><dd>&mdash;</dd></div><div><dt>Valid evidence</dt><dd id="overview-evidence">&mdash;</dd></div><div><dt>Check coverage</dt><dd id="overview-coverage">&mdash;</dd></div></dl></div>
+<p class="card-note" id="overview-source">Risk index, signal and uncertainty unavailable.</p></article>
+<article class="glass activity"><header><h2><span aria-hidden="true">&#9874;</span> Recent Miner Activity</h2><a href="/miner-history.html">View All &#8599;</a></header>
+<ul class="terminal-rows" id="miner-activity" aria-busy="true"><li class="skeleton">Loading score observations&hellip;</li></ul><p class="card-note">Score history &middot; Approval and wallet data unavailable</p></article>
+<article class="glass rank"><header><h2><span aria-hidden="true">&#9820;</span> Miner Rank</h2><a href="/miner-history.html">View Rank &#8599;</a></header>
+<ul class="terminal-rows" id="miner-ranks" aria-busy="true"><li class="skeleton">Loading recorded ranks&hellip;</li></ul><p class="card-note">Latest score per miner &middot; Rank within intent and epoch</p></article>
+<article class="glass pipeline" id="pipeline"><header><h2><span aria-hidden="true">&#11041;</span> Flow: Listing Intelligence</h2></header>
+<ol><li><b aria-hidden="true">&#8623;</b><span><strong>Upload Intent</strong><small>Define what to check</small></span></li><li><b aria-hidden="true">&#9671;</b><span><strong>Retrieve Evidence</strong><small>Query trusted sources</small></span></li><li><b aria-hidden="true">&#8767;</b><span><strong>Assess Risk</strong><small>Review findings</small></span></li><li><b aria-hidden="true">&#9636;</b><span><strong>Generate Receipt</strong><small>Inspect testnet receipts</small></span></li></ol>
+</article>
+<a class="glass trace-card" href="#out"><span class="crystal" aria-hidden="true"></span><div><h2>Trace &middot; Verify &middot; Decide</h2><p>From intent to receipt, with evidence at every step.</p></div><span aria-hidden="true">&#8594;</span></a>
+</section>
 <section aria-label="Assessment setup" aria-labelledby="offline-tab" class="setup-grid workspace-panel" data-workspace-panel="offline" id="offline-panel" role="tabpanel">
+<div class="assessment-journey">
+<ol aria-label="Assessment steps">
+<li><span aria-hidden="true">&#9889;</span><div><strong>Start offline</strong><small>No wallet needed</small></div></li>
+<li><span aria-hidden="true">&#9671;</span><div><strong>Review &amp; approve</strong><small>Explicit identities and payment</small></div></li>
+<li><span aria-hidden="true">&#9723;</span><div><strong>Inspect evidence</strong><small>Keep unknowns visible</small></div></li>
+</ol>
+<a href="/miner-history.html">3 miners tracked <span aria-hidden="true">&#8599;</span></a>
+</div>
 <form class="panel" id="candidate-form" novalidate="">
 <p class="eyebrow">01 / Candidate · offline</p>
-<h2>Start with the token.</h2>
+<h2>Start with the <em>token.</em></h2>
 <label class="field-label" for="token">Token symbol or contract address</label>
 <input aria-describedby="token-help" autocomplete="off" class="token-input" id="token" maxlength="120" name="token" placeholder="e.g. PEPE or 0x…" required="" type="text"/>
 <p class="field-help" id="token-help">Token-only input. Treasury, deployer, social identities, chain and repository are not inferred.</p>
-<button class="primary-action" id="run-button" type="submit">Run offline demo</button>
+<button class="primary-action" id="run-button" type="submit"><span aria-hidden="true">&#9655;</span> Run offline demo</button>
 <p class="mode-help">Offline fixtures only. No Engine calls, payments, or signatures.</p>
 
+<div class="assessment-stack" aria-hidden="true"><i></i><i></i><i>&#9723;</i></div>
 </form>
-<aside aria-labelledby="limits-title" class="panel">
+<aside aria-labelledby="limits-title" class="panel evidence-panel">
 <p class="eyebrow">Evidence overview</p>
-<h2 id="limits-title">Clarity includes the unknown.</h2>
+<h2 id="limits-title">Clarity includes the <em>unknown.</em></h2>
+<div class="evidence-layout">
 <ul class="limit-list">
 <li><span>Sanctions and social checks</span><strong>Explicit identities only</strong></li>
 <li><span>On-chain checks</span><strong>Balance does not prove concentration</strong></li>
 <li><span>Audit and repository history</span><strong>Unsupported by current contracts</strong></li>
 <li><span>MetaMask connection</span><strong>Account access only</strong></li>
 </ul>
+<div class="evidence-art" aria-hidden="true"><i></i><i></i><i></i></div>
+</div>
 <p class="boundary-note">Connecting requests account access only. Testnet actions use the selected MetaMask provider and Sepolia; each signature or transaction requires its own approval.</p>
 </aside>
 </section><section aria-label="Live assessment and wallet boundaries" aria-labelledby="live-tab" class="live-grid workspace-panel" data-workspace-panel="live" hidden id="live-panel" role="tabpanel"><div class="panel live-block" id="live-assessment">
@@ -1097,6 +834,19 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 <section aria-busy="false" aria-label="Assessment result" aria-live="polite" class="out-region workspace-results" id="out">
 <p class="empty-state">Choose Offline assessment or LIVE · Sepolia above to begin. Results appear here for the selected mode.</p>
 </section>
+<dialog class="terminal-dialog" id="command-dialog" aria-labelledby="command-title">
+<form method="dialog"><button class="terminal-close" aria-label="Close search">&times;</button></form>
+<h2 id="command-title">Search the desk</h2><input type="search" id="command-query" aria-label="Search commands" placeholder="Find an action&hellip;" autofocus>
+<nav id="command-results" aria-label="Commands"><a href="#desk">Desk overview</a><a href="/miner-history.html">Miner rank history</a><a href="#candidate-form">Simulate an assessment</a><a href="#live-assessment">Live Sepolia assessment</a><a href="#out">Assessment reports</a></nav><p id="command-empty" hidden>No matching commands.</p>
+</dialog>
+<dialog class="terminal-dialog" id="notification-dialog" aria-labelledby="notification-title">
+<form method="dialog"><button class="terminal-close" aria-label="Close notifications">&times;</button></form><h2 id="notification-title">Desk notifications</h2><p id="desk-notification"></p>
+</dialog>
+<dialog class="terminal-dialog" id="demo-dialog" aria-labelledby="demo-title">
+<form method="dialog"><button class="terminal-close" aria-label="Close demo">&times;</button></form><h2 id="demo-title">Offline demo walkthrough</h2>
+<ol><li>Enter a token symbol or contract address.</li><li>Run the assessment using private fixtures.</li><li>Review the evidence checks and open questions in the report.</li></ol>
+<a class="terminal-cta" href="#candidate-form">Open offline assessment &#8594;</a>
+</dialog>
 <dialog aria-labelledby="payment-review-title" aria-describedby="payment-review-request payment-review-amount" class="payment-review" id="payment-review">
   <h2 id="payment-review-title">Review escrow charge</h2>
   <p id="payment-review-request"></p>
@@ -1145,6 +895,7 @@ form.addEventListener("submit", async (event) => {
     ? "SIMULATED/OFFLINE — rendering local fixtures; no Engine calls, payments, or signatures."
     : "REAL mode — checking the explicitly supplied token; required identities are not inferred.";
   output.replaceChildren(loading);
+  output.dataset.stage = "retrieve";
 
   try {
     const response = await fetch("/memo?token=" + encodeURIComponent(input.value.trim()));
@@ -1156,12 +907,14 @@ form.addEventListener("submit", async (event) => {
     const parsed = new DOMParser().parseFromString(html, "text/html");
     const memo = parsed.querySelector(".listings-memo");
     if (!memo) throw new Error("The result memo could not be displayed.");
+    output.dataset.stage = "assess";
     output.replaceChildren(document.importNode(memo, true));
   } catch (error) {
     const message = document.createElement("p");
     message.className = "request-error";
     message.setAttribute("role", "alert");
     message.textContent = "Failed: " + String(error?.message ?? error);
+    output.dataset.stage = "error";
     output.replaceChildren(message);
   } finally {
     button.disabled = false;
@@ -1182,6 +935,7 @@ function selectWorkspaceMode(mode, focus = false) {
   });
   modePanels.forEach((panel) => { panel.hidden = panel.dataset.workspacePanel !== mode; });
   workspaceMain.classList.toggle("mode-live", mode === "live");
+  window.dispatchEvent(new CustomEvent("listings:mode", { detail: mode }));
   output.hidden = Boolean(output.dataset.resultMode && output.dataset.resultMode !== mode);
 }
 modeTabs.forEach((tab, index) => {
@@ -1676,6 +1430,7 @@ if (runLive) runLive.addEventListener("click", async () => {
   const state = Object.assign(document.createElement("p"), { className: "request-state request-state--real", role: "status" });
   state.textContent = "LIVE — checking the selected MetaMask account and testnet; no signature occurs until a trusted challenge is validated.";
   out.replaceChildren(state);
+  out.dataset.stage = "retrieve";
   const results = [];
   let signatureRequested = false;
   try {
@@ -1725,6 +1480,7 @@ if (runLive) runLive.addEventListener("click", async () => {
         amountMicro: run.amountMicro,
         wallet,
       });
+      out.dataset.stage = results.some((result) => result.paymentStatus === "protocol_receipt") ? "receipt" : "assess";
       out.replaceChildren(renderLiveMemo(results, wallet));
       if (run.paymentStatus !== "protocol_receipt") {
         throw new Error("No validated escrow receipt was returned; stopping before the next request.");
@@ -1773,6 +1529,7 @@ if (runLive) runLive.addEventListener("click", async () => {
           });
         }
       }
+      out.dataset.stage = "error";
       if (results.length) out.replaceChildren(renderLiveMemo(results, wallet, stopped));
       else out.replaceChildren(Object.assign(document.createElement("p"), {
         className: "request-error", role: "alert",
@@ -1795,7 +1552,6 @@ if (runLive) runLive.addEventListener("click", async () => {
 
 // === Live UI state: enable the testnet actions once a wallet connects ===
 const liveState = document.getElementById("live-state");
-const modeBadge = document.getElementById("mode-badge");
 const mintBtn = document.getElementById("mint-usdc");
 const fundBtn = document.getElementById("fund-escrow");
 const fund002 = document.getElementById("fund-002");
@@ -1841,10 +1597,6 @@ function setLiveState(address, chainId = connectedWallet()?.chainId) {
     : onSepolia
       ? "Wallet " + address.slice(0, 6) + "…" + address.slice(-4) + " connected to Ethereum Sepolia. Each transaction or request requires a separate approval."
       : `Connected, but on the wrong network (chain ${chainDecimal}). Balances load only on Ethereum Sepolia.`;
-  if (modeBadge) {
-    modeBadge.textContent = onSepolia ? "TESTNET LIVE" : "SIMULATED / OFFLINE";
-    modeBadge.classList.toggle("mode-badge--live", onSepolia);
-  }
   const switchButton = document.getElementById("wallet-switch");
   if (switchButton) switchButton.hidden = !address || onSepolia;
   if (stepConnect) stepConnect.classList.toggle("done", onSepolia);
@@ -2130,4 +1882,5 @@ if (fundBtn) fundBtn.addEventListener("click", () => {
   if (optionsEl) optionsEl.style.display = optionsEl.style.display === "none" ? "block" : "none";
 });
 
-</script></body></html>
+</script><script type="module" src="/terminal.mjs"></script>
+</body></html>

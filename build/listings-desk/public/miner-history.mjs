@@ -1,3 +1,5 @@
+import { archivedMinerScores } from "./miner-score-archive.mjs";
+
 const miner = document.querySelector("#miner");
 const intent = document.querySelector("#intent");
 const status = document.querySelector("#status");
@@ -7,23 +9,6 @@ const table = document.querySelector("#observations");
 const source = document.querySelector("#source");
 const dayMs = 86400000;
 const firstDay = Date.parse("2026-11-01");
-// November 12 devnode miner snapshot and docs/ONCHAIN-ARCHIVE-2026-11-13.md.
-const archivedScores = {
-  "onchain-metric-publicnode": [
-    ["ONCHAIN_METRIC_VERIFY_GENERAL", 2072, 39, 0, "2026-11-12T08:16:22Z"],
-    ["ONCHAIN_METRIC_VERIFY_GENERAL", 2074, 11, 0.8186, "2026-11-12T14:41:41.758925Z"],
-    ["ONCHAIN_METRIC_VERIFY_GENERAL", 2076, 39, 0, "2026-11-12T20:30:24Z"],
-  ],
-  "weather-verify-openmeteo": [
-    ["WEATHER_FORECAST_GENERAL", 2074, 12, 0.8792, "2026-11-12T14:16:56.501384Z"],
-    ["WEATHER_FORECAST_VERIFY_GENERAL", 2074, 6, 0.9087, "2026-11-12T15:14:48.014269Z"],
-  ],
-  "fx-now-frankfurter": [
-    ["FX_NOW_CAD", 2074, 4, 1, "2026-11-12T12:47:49.189668Z"],
-    ["FX_NOW_EUR", 2074, 7, 0.87, "2026-11-12T12:48:15.333369Z"],
-    ["FX_NOW_SEK", 2074, 4, 1, "2026-11-12T12:45:40.380252Z"],
-  ],
-};
 let records = [];
 let request;
 const linkFilters = new URLSearchParams(location.search);
@@ -119,8 +104,7 @@ async function load(requestedIntent = null) {
     if (!response.ok) throw new Error("Score request failed");
     const { scores } = await response.json();
     if (controller.signal.aborted) return;
-    const archive = archivedScores[miner.value].map(([intent_id, epoch_id, rank, score, scored_at]) =>
-      ({ intent_id, epoch_id, rank, score, scored_at, archived: true }));
+    const archive = archivedMinerScores(miner.value);
     records = [...scores, ...archive]
       .filter(row => Number.isInteger(row.rank) && row.rank > 0 &&
         typeof row.intent_id === "string" && Date.parse(row.scored_at) >= firstDay &&

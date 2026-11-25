@@ -430,7 +430,7 @@ export function renderHtmlFragment(memo) {
     </div>
     <div class="memo-stat-grid" aria-label="Run summary">
       <div class="memo-stat"><span>Responses</span><strong>${escapeHtml(runCounts.responses ?? 0)}</strong><small>${escapeHtml(runCounts.failed ?? 0)} failed · ${escapeHtml(runCounts.unknown ?? 0)} unknown</small></div>
-      <div class="memo-stat"><span>Valid evidence checks</span><strong>${escapeHtml(validChecks.length)} / ${escapeHtml(totalChecks)}</strong><small>${escapeHtml(runCounts.validEvidence ?? 0)} valid evidence responses</small></div>
+      <div class="memo-stat"><span>Valid evidence checks</span><strong data-evidence-count="${escapeHtml(validChecks.length)}" data-check-count="${escapeHtml(totalChecks)}">${escapeHtml(validChecks.length)} / ${escapeHtml(totalChecks)}</strong><small>${escapeHtml(runCounts.validEvidence ?? 0)} valid evidence responses</small></div>
       <div class="memo-stat"><span>${escapeHtml(memo.actualSpendDescription ?? "actual spent")}</span><strong>${escapeHtml(memo.actualSpentUsd)}</strong><small>${escapeHtml(paymentStatus)}</small></div>
       <div class="memo-stat"><span>${escapeHtml(memo.estimateDescription ?? "demonstration estimate; not spent")}</span><strong>${escapeHtml(memo.estimatedCostUsd)}</strong><small>Estimate only</small></div>
     </div>

@@ -1,0 +1,52 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 750 390" fill="none">
+<defs>
+  <radialGradient id="aura"><stop stop-color="#8b5cf6" stop-opacity=".35"/><stop offset="1" stop-color="#8b5cf6" stop-opacity="0"/></radialGradient>
+  <radialGradient id="heat"><stop stop-color="#ff7849" stop-opacity=".48"/><stop offset="1" stop-color="#ff7849" stop-opacity="0"/></radialGradient>
+  <linearGradient id="edge"><stop stop-color="#ffb454"/><stop offset=".45" stop-color="#f1a0ff"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient>
+  <linearGradient id="top" x1="0" y1="1" x2="1" y2="0" gradientUnits="objectBoundingBox"><stop stop-color="#9563ff" stop-opacity=".1"/><stop offset=".5" stop-color="#b48aff" stop-opacity=".4"/><stop offset="1" stop-color="#322663" stop-opacity=".2"/></linearGradient>
+  <linearGradient id="left" x2="1" y2="1"><stop stop-color="#ffb454" stop-opacity=".65"/><stop offset=".45" stop-color="#ff7849" stop-opacity=".06"/><stop offset="1" stop-color="#a654ff" stop-opacity=".55"/></linearGradient>
+  <linearGradient id="right" x2="1" y2="1"><stop stop-color="#b7a4ff" stop-opacity=".28"/><stop offset=".55" stop-color="#633cff" stop-opacity=".12"/><stop offset="1" stop-color="#a066ff" stop-opacity=".75"/></linearGradient>
+  <pattern id="stars" width="13" height="13" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r=".8" fill="#b59aff" opacity=".4"/></pattern>
+  <filter id="light" x="-45%" y="-65%" width="190%" height="230%"><feGaussianBlur stdDeviation="6"/></filter>
+  <g id="slab">
+    <path d="M217 260 375 190 533 260 375 332Z" fill="url(#top)" stroke="url(#edge)"/>
+    <path d="M217 260 375 332V357L217 285Z" fill="url(#left)" stroke="url(#edge)"/>
+    <path d="M375 332 533 260V285L375 357Z" fill="url(#right)" stroke="url(#edge)"/>
+    <path d="M259 261 375 211 491 261 375 312Z M300 261 375 228 450 261 375 295Z" stroke="#bc9dff" opacity=".32"/>
+  </g>
+</defs>
+<style>
+  .orbit{animation:drift 15s linear infinite}.routes{animation:drift 7s linear infinite}
+  .cube{animation:float 5.5s ease-in-out infinite}
+  @keyframes drift{to{stroke-dashoffset:-120}}
+  @keyframes float{50%{transform:translateY(-8px)}}
+  @media(prefers-reduced-motion:reduce),(max-width:600px){.orbit,.routes,.cube{animation:none}}
+</style>
+<ellipse cx="376" cy="220" rx="260" ry="190" fill="url(#aura)"/>
+<ellipse cx="377" cy="331" rx="195" ry="68" fill="url(#heat)"/>
+<path d="M0 241Q95 309 178 297T365 308Q505 364 750 204V390H0Z" fill="url(#stars)" opacity=".66"/>
+<g stroke="#7646cc" opacity=".28">
+  <path d="M0 265Q90 330 184 310T363 330Q545 382 750 231M0 277Q90 342 184 321T363 338Q545 390 750 243M0 289Q90 355 184 332T363 346Q545 400 750 255M0 301Q90 367 184 343T363 354Q545 408 750 267M0 313Q90 379 184 354T363 362Q545 416 750 279"/>
+</g>
+<ellipse cx="375" cy="301" rx="229" ry="68" stroke="url(#edge)" stroke-dasharray="1 6" class="orbit"/>
+<ellipse cx="375" cy="301" rx="205" ry="55" stroke="url(#edge)" opacity=".6"/>
+<path d="M204 236a171 171 0 1 1 342 0" stroke="url(#edge)" opacity=".7"/>
+<g class="routes" stroke="#b497ff" stroke-dasharray="2 4" opacity=".8">
+  <path d="M115 86Q180 83 222 115L291 157M110 222Q168 220 209 192L290 150M638 88Q563 91 524 124L449 150M647 229Q575 226 540 197L454 155"/>
+</g>
+<g fill="#ffb454"><circle cx="222" cy="115" r="3"/><circle cx="252" cy="61" r="4"/><circle cx="375" cy="8" r="3"/><circle cx="524" cy="124" r="3"/><circle cx="540" cy="197" r="4"/><circle cx="209" cy="192" r="4"/></g>
+<g stroke="#b294ee" opacity=".32">
+  <path d="M236 146 375 63 514 146V202L375 283 236 202Z M236 146 375 226 514 146 M236 202 375 121 514 202 M375 63V283M270 130 475 220M477 130 272 220"/>
+</g>
+<use href="#slab"/><use href="#slab" transform="translate(52 3) scale(.86)"/><use href="#slab" transform="translate(105 6) scale(.72)"/>
+<path d="M218 284 375 357 532 284" stroke="#d46eff" stroke-width="5" opacity=".53" filter="url(#light)"/>
+<path d="M310 326 375 357 432 331" stroke="#ffae52" stroke-width="4" opacity=".73" filter="url(#light)"/>
+<g class="cube">
+  <path d="M302 106 375 65 448 106V191L375 233 302 191Z" stroke="url(#edge)" stroke-width="10" opacity=".8" filter="url(#light)"/>
+  <path d="M302 106 375 65 448 106 375 147Z" fill="url(#top)" stroke="url(#edge)" stroke-width="1.5"/>
+  <path d="M302 106 375 147V233L302 191Z" fill="url(#left)" stroke="url(#edge)" stroke-width="1.5"/>
+  <path d="M375 147 448 106V191L375 233Z" fill="url(#right)" stroke="url(#edge)" stroke-width="1.5"/>
+  <path d="M302 191 375 150 448 191M375 65v85M320 115v66l71 41M430 116v66l-72 41" stroke="#dabdff" opacity=".22"/>
+  <text x="375" y="179" text-anchor="middle" fill="#fff7ff" font-size="77" font-weight="600" font-family="system-ui">Σ</text>
+</g>
+</svg>

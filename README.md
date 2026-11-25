@@ -4,11 +4,13 @@
 
 LeaderLight helps reviewers assess a token listing, inspect the evidence behind the recommendation, and review payment outcomes for Telegraph intelligence requests.
 
-- [Open LeaderLight](https://leaderlight.vercel.app/) and select the simulated mode for a wallet-free walkthrough. Live requests use MetaMask and Ethereum Sepolia.
+- [Open LeaderLight](https://leaderlight.vercel.app/) and select **Offline assessment** for a wallet-free walkthrough. **LIVE · Sepolia** uses MetaMask and Ethereum Sepolia.
 - [Read the app setup and payment evidence](build/listings-desk/README.md) for local commands, miner rank history, and receipt details.
 - [Browse the miner configurations](build/miner-kit/) for on-chain metrics, weather, and FX.
 
-**🟢 3 miners live on testnet · 🟢 real purchases with on-chain receipts · 🟢 escrow funded ($5) · 🟡 grace period until ~Nov 2 · 📅 season opens Nov 1**
+## Season II project archive
+
+The notes below record the October setup, chain migration, and early testnet runs. See the [LeaderLight README](build/listings-desk/README.md) for the app setup and the status of the saved receipt references.
 
 > **Deep-dive companion:** `docs/COMPLETE-WALKTHROUGH.md` — the full beginner-to-hackathon documentation (concepts, every command, failure post-mortems, tx tracing, rubric mapping, repo policy).
 >
@@ -91,7 +93,7 @@ LeaderLight helps reviewers assess a token listing, inspect the evidence behind 
 - Verified on-chain that all four target Intents are **canonical** (`isCanonicalIntent` = true), so registration can't revert on intent grounds.
 
 ### 🌐 Ch.4 — Hosting & registration *(26 Oct — a three-act saga)*
-- The main repo is private, so GitHub can't serve YAMLs from it (raw URLs 404). Created a **separate public repo** [`MaahinVPanchal/telegraph-miner-yaml`](https://github.com/MaahinVPanchal/telegraph-miner-yaml) holding only the three YAMLs — they're public by design anyway (every registered miner's YAML is publicly readable).
+- The main repo was private at the time, so its raw YAML URLs returned 404. We created a [separate public repo for the three miner YAMLs](https://github.com/MaahinVPanchal/telegraph-miner-yaml).
 - **Act 1:** first `registerMiner` rejected — `external_path is required` (the deployed node schema is stricter than the docs). Fixed all YAMLs, cross-checked against live miners' configs.
 - **Act 2:** second attempt rejected — `YAML hash mismatch`: **GitHub raw's CDN served stale bytes for ~5 min after the push**. New rule: fetch the URL, hash what it *serves*, only submit when it matches.
 - **Act 3:** ✅ both miners **ACTIVE** — network catalogue grew **1,919 → 1,921** the day we registered.

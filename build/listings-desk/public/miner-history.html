@@ -5,14 +5,28 @@
 <title>Miner rank history | LeaderLight</title>
 <style>
   :root { color-scheme: dark; font: 16px system-ui, sans-serif; background: #100b17; color: #f6efff; }
-  main { max-width: 70rem; margin: 3rem auto; padding: 0 1rem; }
+  body { margin: 0; background: radial-gradient(ellipse at top right, #33204c, transparent 48rem); }
+  main { max-width: 76rem; margin: auto; padding: 2rem clamp(1rem, 4vw, 3rem) 4rem; }
   a { color: #dbc1ff; }
+  .masthead { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem; padding-bottom:1rem; border-bottom:1px solid #4a365e; }
+  .back { display:inline-flex; align-items:center; min-height:44px; padding:0 .9rem; border:1px solid #73598b; border-radius:.55rem; text-decoration:none; }
+  .back:hover { background:#33204c; }
+  :focus-visible { outline:2px solid #ddc1ff; outline-offset:3px; }
   h1 { font-size: clamp(2rem, 6vw, 4rem); margin-bottom: .5rem; }
   p { color: #d2c3e2; line-height: 1.5; }
-  .filters { display: flex; flex-wrap: wrap; gap: 1rem; margin: 2rem 0 1rem; }
+  .filters { display: grid; grid-template-columns:repeat(auto-fit,minmax(min(15rem,100%),1fr)); gap: 1rem; margin: 2rem 0 1rem; }
   label { display: grid; gap: .4rem; max-width: 100%; }
   select { width: 100%; min-height: 44px; background: #22172f; color: inherit; border: 1px solid #73598b; border-radius: .4rem; padding: .4rem; font: inherit; }
   .scroll { overflow: auto; background: #191122; border: 1px solid #4a365e; border-radius: .6rem; margin-bottom: 1rem; }
+  .metrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.65rem; margin:0 0 1rem; }
+  .metrics div { background:#21162e; border:1px solid #4a365e; border-radius:.65rem; padding:clamp(.55rem,2vw,1.15rem); }
+  .metrics dt { color:#d2c3e2; font-size:.82rem; }
+  .metrics dd { margin:.25rem 0 0; font-size:clamp(1.15rem,4vw,2rem); font-weight:750; font-variant-numeric:tabular-nums; }
+  figure { margin:0; }
+  figcaption { padding:1rem 1rem 0; font-weight:700; }
+  .table-scroll { max-height:25rem; }
+  thead { position:sticky; top:0; background:#241833; }
+  tbody tr:nth-child(even) { background:#22182e; }
   canvas { display: block; }
   table { width: 100%; border-collapse: collapse; text-align: left; }
   caption, th, td { padding: .7rem; }
@@ -21,7 +35,7 @@
   td:first-child { white-space: nowrap; }
 </style>
 <main>
-  <a href="/">← Back to LeaderLight</a>
+  <header class="masthead"><strong>LeaderLight</strong><a class="back" href="/">← Assessment desk</a></header>
   <h1>Miner rank history</h1>
   <p>Latest recorded rank per UTC day for the selected Intent. Rank #1 is highest. Gaps indicate days with no available score.</p>
   <div class="filters">
@@ -36,18 +50,24 @@
   </div>
   <p id="status" role="status"></p>
   <section id="history" hidden>
-    <div class="scroll" tabindex="0" role="region" aria-label="Scrollable daily rank chart">
+    <dl class="metrics">
+      <div><dt>Latest rank</dt><dd id="latest-rank"></dd></div>
+      <div><dt>Best daily rank</dt><dd id="best-rank"></dd></div>
+      <div><dt>Days with scores</dt><dd id="coverage"></dd></div>
+    </dl>
+    <figure id="plot" class="scroll" tabindex="0" aria-label="Scrollable daily rank chart">
+      <figcaption>Daily rank · UTC</figcaption>
       <canvas id="chart" aria-hidden="true"></canvas>
-    </div>
-    <div class="scroll">
+    </figure>
+    <div class="scroll table-scroll" tabindex="0" role="region" aria-label="Scrollable daily observations">
       <table>
         <caption>Daily observations</caption>
-        <thead><tr><th scope="col">Date (UTC)</th><th scope="col">Rank</th><th scope="col">Score</th><th scope="col">Epoch</th></tr></thead>
+        <thead><tr><th scope="col">Date (UTC)</th><th scope="col">Rank</th><th scope="col">Score</th><th scope="col">Epoch</th><th scope="col">Source</th></tr></thead>
         <tbody id="observations"></tbody>
       </table>
     </div>
   </section>
-  <p>Source: <a id="source" href="https://anjoman.ai/">Anjoman Explorer scores</a></p>
+  <p>Sources include <a id="source" href="https://anjoman.ai/">Anjoman Explorer scores</a> and the November 12 miner snapshot.</p>
 </main>
 <script type="module" src="/miner-history.mjs"></script>
 </html>

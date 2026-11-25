@@ -969,12 +969,29 @@ body {
 .app-footer { border-top: 1px solid var(--ld-hairline) !important; }
 .app-footer p { letter-spacing: .01em; }
 :focus-visible { outline: 2px solid var(--ld-focus) !important; outline-offset: 2px; }
+
+.history-link {
+  display: inline-flex; align-items: center; gap: .55rem; min-height: 44px;
+  padding: 0 .95rem; border: 1px solid #d6c8ec; border-radius: 10px;
+  color: #4c287a; background: #f9f5ff; font-weight: 700; text-decoration: none;
+}
+.history-link:hover { background: #eee3fa; border-color: #9b74be; }
+.workspace-tabs { gap: 8px !important; padding: 6px !important; border-radius: 14px !important; }
+.workspace-tab { min-height: 64px; text-align: left; border-radius: 9px !important; }
+.workspace-tab.is-active { box-shadow: inset 3px 0 #7551a3, 0 1px 4px #2c143018; }
+.header-actions button, .workspace-main button:not(.workspace-tab) { min-height: 44px !important; }
+.action-button, .wallet-connect, .wallet-disconnect { border-radius: 9px !important; }
+button:disabled { opacity: .55; cursor: not-allowed; }
+@media(max-width:760px) {
+  .header-actions { display:flex; flex: 1 1 100%; flex-wrap:wrap; align-items:center; gap:8px; }
+  .header-actions .wallet-connect { margin-left:0; }
+}
 </style>
 </head><body>
 <main class="app-shell">
 <header class="site-header">
 <div class="brand"><span aria-hidden="true" class="leaderlight-mark">L<span>↗</span></span><span><span class="brand-name">LEADERLIGHT</span><span class="brand-subtitle">LISTINGS DESK</span></span></div><div class="network-lockup"><img alt="Telegraph" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACkAAAAwCAYAAACMuVOlAAAACXBIWXMAABYlAAAWJQFJUiTwAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAOdEVYdFNvZnR3YXJlAEZpZ21hnrGWYwAAAX9JREFUeAHtmdFtgzAQhs/EL0g8dARGaEdgk2SCdoOqE3SEjtARmhHYIN6gkUDiCdH7I0gTQpuAwb5I/iTnYmyJDxuks63KsmxIME3TvEV0B0DSkHD0arXK6rr+4v/paQOGmYshD0RR9M7hoasr/FRVlQ6IGjxAHMeGHMPfya5zOb6TEIEQnU/9QRwPQJ45fjiSRHn0cg5bFKWUUf0O0qYeqKGL0kTVXw2SRNV/jVJE1bUOEkSvSgLfojdJAp+iN0sCX6KjJIEP0dGSwLXoJEngUnSyJHAlaiUJXIhaS4KlRWeRBEuKziYJlhKdVRK0orve5TxJkieayOxLWhZ8Pa1zlr3nsCEp8ALqA5sNXSmK4pvjI0khCNoSBG0JgrYEQVuCoC1B0JYgOJKLpBeCHNZdHfkg77ZmnLTm5Ah2eOH7dhv7W03CBFue+b5p6/CbmQsSvOAwkn1BwGcpGy57H6cPvAQ5q+shQcAj+dnv7AtM95qEcxcHoJqnNSPBaK3NDxWIZQFxCp7vAAAAAElFTkSuQmCC"/><span>TELEGRAPH<small>Independent app / not endorsed</small></span></div>
-<div class="header-actions">
+<div class="header-actions"><a class="history-link" href="/miner-history.html">Miner rank history <span aria-hidden="true">&nearr;</span></a>
 <span class="mode-badge" id="mode-badge">SIMULATED / OFFLINE</span>
 <button class="wallet-connect" id="wallet-connect" type="button">Connect MetaMask</button>
 <button class="wallet-disconnect" hidden id="wallet-disconnect" type="button">Disconnect (this page)</button>
@@ -984,7 +1001,6 @@ body {
 <p aria-atomic="true" aria-live="polite" class="wallet-status" id="wallet-status" role="status">Wallet not connected. Connect to unlock the live flow — signing happens only when you approve it.</p>
 <div class="workspace-grid">
 <div class="workspace-main">
-<p><a href="/miner-history.html" style="color:var(--ld-primary)">Miner rank history</a></p>
 <nav aria-label="Assessment mode" class="workspace-tabs" role="tablist">
 <button aria-controls="offline-panel" aria-selected="true" class="workspace-tab is-active" data-workspace-tab="offline" id="offline-tab" role="tab" type="button">Offline assessment<span>Private fixtures · no wallet or payment</span></button>
 <button aria-controls="live-panel" aria-selected="false" class="workspace-tab" data-workspace-tab="live" id="live-tab" role="tab" type="button">LIVE · Sepolia<span>Connect MetaMask · approval required per action</span></button>
@@ -996,7 +1012,6 @@ body {
 
 </section><div class="signal-map"><div class="map-label">INTELLIGENCE, ROUTED BY INTENT</div><svg aria-hidden="true" viewbox="0 0 340 300"><defs><radialgradient id="glow"><stop stop-color="#9b6bfc" stop-opacity=".36"></stop><stop offset="1" stop-color="#9b6bfc" stop-opacity="0"></stop></radialgradient></defs><circle cx="170" cy="148" fill="url(#glow)" r="120"></circle><path d="M170 23L280 86V212L170 275L60 212V86Z" fill="none" stroke="#433057"></path><path d="M170 48L258 99V199L170 250L82 199V99Z" fill="none" stroke="#8c65b5"></path><path d="M170 48V110M258 199L200 165M82 199L140 165" stroke="#cfb271" stroke-width="1.5"></path><circle cx="170" cy="148" fill="#120d1d" r="43" stroke="#b493ff"></circle><circle cx="170" cy="148" fill="none" r="54" stroke="#614282" stroke-dasharray="2 8"></circle><g fill="#d9bb77"><circle cx="170" cy="48" r="5"></circle><circle cx="258" cy="199" r="5"></circle><circle cx="82" cy="199" r="5"></circle></g><g fill="#b493ff"><circle cx="60" cy="86" r="2"></circle><circle cx="280" cy="86" r="2"></circle><circle cx="170" cy="275" r="2"></circle></g></svg><div class="core"><img alt="" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACkAAAAwCAYAAACMuVOlAAAACXBIWXMAABYlAAAWJQFJUiTwAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAOdEVYdFNvZnR3YXJlAEZpZ21hnrGWYwAAAX9JREFUeAHtmdFtgzAQhs/EL0g8dARGaEdgk2SCdoOqE3SEjtARmhHYIN6gkUDiCdH7I0gTQpuAwb5I/iTnYmyJDxuks63KsmxIME3TvEV0B0DSkHD0arXK6rr+4v/paQOGmYshD0RR9M7hoasr/FRVlQ6IGjxAHMeGHMPfya5zOb6TEIEQnU/9QRwPQJ45fjiSRHn0cg5bFKWUUf0O0qYeqKGL0kTVXw2SRNV/jVJE1bUOEkSvSgLfojdJAp+iN0sCX6KjJIEP0dGSwLXoJEngUnSyJHAlaiUJXIhaS4KlRWeRBEuKziYJlhKdVRK0orve5TxJkieayOxLWhZ8Pa1zlr3nsCEp8ALqA5sNXSmK4pvjI0khCNoSBG0JgrYEQVuCoC1B0JYgOJKLpBeCHNZdHfkg77ZmnLTm5Ah2eOH7dhv7W03CBFue+b5p6/CbmQsSvOAwkn1BwGcpGy57H6cPvAQ5q+shQcAj+dnv7AtM95qEcxcHoJqnNSPBaK3NDxWIZQFxCp7vAAAAAElFTkSuQmCC"/></div><span class="node node-a">INTENT</span><span class="node node-b">EVIDENCE</span><span class="node node-c">RECEIPT</span><div class="map-footer">Routing illustration / not live network activity</div></div></div><div aria-label="Assessment journey" class="flowline"><div><b>01</b><span>Start offline<small>No wallet needed</small></span></div><div><b>02</b><span>Review &amp; approve<small>Explicit identities + payment</small></span></div><div><b>03</b><span>Inspect evidence<small>Keep unknowns visible</small></span></div></div><div aria-label="Workspace facts" class="hero-chips">
 <span class="chip">3 miners tracked</span>
-<span class="chip"><span id="chip-miners">…</span> in network catalogue</span>
 <span class="chip">Challenge priced before signing</span>
 </div>
 <section aria-label="Assessment setup" aria-labelledby="offline-tab" class="setup-grid workspace-panel" data-workspace-panel="offline" id="offline-panel" role="tabpanel">
@@ -1067,13 +1082,6 @@ body {
 </section>
 </div>
 </div>
-<section aria-labelledby="lb-title" class="leaderboard-panel">
-<p class="eyebrow">Live boards</p>
-<h2 id="lb-title">Your miners, ranked</h2>
-<p class="field-help">Public leaderboard data from the Telegraph devnode — no wallet needed.</p>
-<button class="action-button" id="lb-refresh" type="button">Refresh ranks</button>
-<div aria-live="polite" id="lb-body">Loading ranks…</div>
-</section>
 <footer class="app-footer"><p>Leaderlight / Listings Desk<br/><span>Application policy and supplied evidence only.</span></p><p>Independent app, not endorsed by Telegraph. The Telegraph mark belongs to its owner. Wallet connection alone never authorizes a signature, transaction or payment.</p></footer>
 </main>
 <script>
@@ -1994,51 +2002,5 @@ if (fundBtn) fundBtn.addEventListener("click", () => {
   const optionsEl = document.getElementById("funding-options");
   if (optionsEl) optionsEl.style.display = optionsEl.style.display === "none" ? "block" : "none";
 });
-
-// The leaderboard panel
-const lbRefresh = document.getElementById("lb-refresh");
-const lbBody = document.getElementById("lb-body");
-function leaderboardRow(intent, rank, score) {
-  const row = element("div", "lb-row");
-  row.append(element("span", "lb-intent", intent));
-  if (rank != null) row.append(element("span", "lb-rank", rank === "absent" ? "absent" : `#${rank}`));
-  if (score != null) row.append(element("span", "lb-score", score));
-  return row;
-}
-
-async function lbLoad() {
-  if (lbRefresh) lbRefresh.disabled = true;
-  try {
-    const miners = await (await fetch("https://devnode.telegraphprotocol.com/api/miners")).json();
-    if (!Array.isArray(miners)) throw new Error("Miner catalogue response is not a list.");
-    const chip = document.getElementById("chip-miners");
-    if (chip) chip.textContent = miners.length.toLocaleString("en-US");
-    const ours = ["onchain-metric-publicnode", "weather-verify-openmeteo", "fx-now-frankfurter"];
-    const groups = ours.map((slug) => {
-      const m = miners.find((x) => x.slug === slug);
-      const group = document.createElement("section");
-      if (!m) {
-        group.append(leaderboardRow(slug, "absent"));
-        return group;
-      }
-      group.append(element("p", "eyebrow", `${slug} · ${m.activation_status ?? "status unavailable"}`));
-      const scores = Array.isArray(m.scores) ? m.scores : [];
-      if (!scores.length) group.append(leaderboardRow("No scores reported"));
-      for (const score of scores) {
-        const rank = typeof score.rank === "string" || Number.isSafeInteger(score.rank)
-          ? score.rank
-          : "—";
-        const value = typeof score.score === "number" && Number.isFinite(score.score)
-          ? score.score.toFixed(4)
-          : "—";
-        group.append(leaderboardRow(score.intent_id ?? "Unknown intent", rank, value));
-      }
-      return group;
-    });
-    lbBody.replaceChildren(...groups);
-  } catch (error) { lbBody.textContent = "Failed: " + String(error?.message ?? error); }
-  if (lbRefresh) lbRefresh.disabled = false;
-}
-if (lbRefresh) { lbRefresh.addEventListener("click", lbLoad); lbLoad(); }
 
 </script></body></html>

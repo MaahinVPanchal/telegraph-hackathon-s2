@@ -987,6 +987,17 @@ button:disabled { opacity: .55; cursor: not-allowed; }
   .header-actions .wallet-connect { margin-left:0; }
 }
 </style>
+<style>
+.wallet-tools { margin-top: 16px; }
+.wallet-tools summary { width: fit-content; cursor: pointer; font-weight: 700; }
+.wallet-tools .action-row { margin-top: 12px; }
+.payment-review { max-width: min(420px, calc(100vw - 40px)); padding: 24px; border: 1px solid var(--ld-border); border-radius: 16px; color: var(--ld-text); background: var(--ld-surface); }
+.payment-review::backdrop { background: #17112099; }
+.payment-review h2 { margin: 0 0 10px; }
+.payment-review .review-amount { display: block; font-size: 1.6rem; font-weight: 750; overflow-wrap: anywhere; }
+.payment-review .action-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.payment-review button { min-height: 44px; }
+</style>
 </head><body>
 <main class="app-shell">
 <header class="site-header">
@@ -1040,10 +1051,13 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 <p class="eyebrow">02 / Live · Ethereum Sepolia testnet</p>
 <h2>Ask with explicit identities.</h2>
 <p class="field-help" id="live-state">Connect MetaMask (top right) to enable live actions. Payments sign in your browser from your own wallet.</p>
+<details class="wallet-tools">
+<summary>Manage test funds</summary>
 <div class="action-row">
 <button class="action-button" disabled="" id="mint-usdc" type="button">Mint 10 test USDC</button>
 <button class="action-button" disabled="" id="fund-escrow" type="button">Fund escrow</button>
 </div>
+</details>
 <div class="balance-card" id="balance-card" style="margin: 16px 0; padding: 14px; border: 1px solid var(--ld-border); border-radius: 6px; background: rgba(9,8,14,.55); font-size: 12px;">
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
   <strong style="color: var(--ld-caution); text-transform: uppercase; letter-spacing: .08em; font-size: 11px;">Sepolia Balance &amp; Escrow Setup</strong>
@@ -1060,9 +1074,12 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 <div id="funding-options" style="display: none; padding-top: 8px; border-top: 1px dashed var(--ld-border);">
   <span style="display: block; font-size: 11px; margin-bottom: 6px; color: var(--ld-caution);">Top-up needed for planned assessment ($0.02 max):</span>
   <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-    <button class="action-button" id="fund-002" style="min-height: 32px; padding: 4px 12px; font-size: 11px;" type="button">Top-up $0.02 (Exact run)</button>
-    <button class="action-button" id="fund-100" style="min-height: 32px; padding: 4px 12px; font-size: 11px;" type="button">Top-up $1.00 (Standard)</button>
-    <button class="action-button" id="fund-300" style="min-height: 32px; padding: 4px 12px; font-size: 11px;" type="button">Top-up $3.00 (Legacy)</button>
+    <button class="action-button" id="fund-002" type="button">Add $0.02 to escrow</button>
+    <details>
+      <summary>Other amounts</summary>
+      <button class="action-button" id="fund-100" type="button">Add $1.00</button>
+      <button class="action-button" id="fund-300" type="button">Add $3.00</button>
+    </details>
   </div>
 </div>
 </div>
@@ -1072,14 +1089,24 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 <label class="field-label" for="treasury-name">Sanctions: treasury entity name</label>
 <input autocomplete="off" class="text-input" id="treasury-name" placeholder="e.g. Pepe Treasury Holdings SA" type="text"/>
 <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-  <button class="primary-action" disabled="" id="run-live" type="button">Run LIVE assessment (signs + pays)</button>
+  <button class="primary-action" disabled="" id="run-live" type="button">Review live charges</button>
   <button class="action-button" id="new-assessment" style="min-height: 44px; padding: 8px 16px; font-size: 13px;" type="button">New assessment</button>
 </div>
-<p class="mode-help">Up to two explicit sanctions requests. The validated challenge is capped at $0.01 per call and $0.02 per run. A receipt is not final epoch settlement.</p>
+<p class="mode-help">Review the exact test USDC amount for each request before opening MetaMask. Up to $0.01 per request and $0.02 per assessment.</p>
 </div><aside class="panel wallet-guide"><p class="eyebrow">Wallet &amp; network</p><div aria-hidden="true" class="wallet-symbol">┇</div><h2>Your keys.<br/>Your approval.</h2><p>Use the wallet connection at the top of this workspace. Connecting grants account access only.</p><dl><div><dt>Network</dt><dd>Ethereum Sepolia / 11155111</dd></div><div><dt>Per-call ceiling</dt><dd>$0.01 test USDC</dd></div><div><dt>Per-run ceiling</dt><dd>$0.02 test USDC</dd></div></dl><p class="boundary-note">Funding is an on-demand testnet transaction (with selectable $0.02, $1.00, or $3.00 amounts). Each signature or transaction needs your own approval. Receipts, delivery evidence and final settlement are different states.</p></aside></section>
 <section aria-busy="false" aria-label="Assessment result" aria-live="polite" class="out-region workspace-results" id="out">
 <p class="empty-state">Choose Offline assessment or LIVE · Sepolia above to begin. Results appear here for the selected mode.</p>
 </section>
+<dialog aria-labelledby="payment-review-title" aria-describedby="payment-review-request payment-review-amount" class="payment-review" id="payment-review">
+  <h2 id="payment-review-title">Review escrow charge</h2>
+  <p id="payment-review-request"></p>
+  <strong class="review-amount" id="payment-review-amount"></strong>
+  <p>Continue to review and sign this request in MetaMask.</p>
+  <form class="action-row" method="dialog">
+    <button autofocus class="action-button" value="cancel">Cancel</button>
+    <button class="primary-action" id="approve-live-charge" value="approve">Continue to MetaMask</button>
+  </form>
+</dialog>
 </div>
 </div>
 <footer class="app-footer"><p>Leaderlight / Listings Desk<br/><span>Application policy and supplied evidence only.</span></p><p>Independent app, not endorsed by Telegraph. The Telegraph mark belongs to its owner. Wallet connection alone never authorizes a signature, transaction or payment.</p></footer>
@@ -1432,7 +1459,8 @@ function appendDetail(grid, label, value, code = false) {
   const wrapper = document.createElement("div");
   wrapper.append(element("dt", "", label));
   const detail = document.createElement("dd");
-  if (code) detail.append(element("code", "", value));
+  if (value instanceof Node) detail.append(value);
+  else if (code) detail.append(element("code", "", value));
   else detail.textContent = String(value);
   wrapper.append(detail);
   grid.append(wrapper);
@@ -1450,7 +1478,42 @@ function formattedDuration(value) {
     : "Not validated";
 }
 
-function renderLiveMemo(list, wallet, runError = null) {
+const historyIntentsByMiner = new Map([
+  ["onchain-metric-publicnode", ["ONCHAIN_METRIC_VERIFY_GENERAL"]],
+  ["weather-verify-openmeteo", ["WEATHER_FORECAST_GENERAL", "WEATHER_FORECAST_VERIFY_GENERAL"]],
+  ["fx-now-frankfurter", ["FX_NOW_CAD", "FX_NOW_EUR", "FX_NOW_SEK"]],
+]);
+
+function providerDetail(data, receipt, intent) {
+  const name = typeof data.miner_name === "string" ? data.miner_name.trim() : "";
+  const slug = typeof data.miner_slug === "string" ? data.miner_slug.trim() : name;
+  const id = receipt?.miner ?? data.miner_id;
+  const label = name ? (id == null ? name : `${name} (#${id})`) : (id == null ? "Unavailable" : `#${id}`);
+  if (!receipt || !historyIntentsByMiner.get(slug)?.includes(intent)) return label;
+  const query = new URLSearchParams({ miner: slug, intent });
+  const link = element("a", "", `${label} · Rank history`);
+  link.href = `/miner-history.html?${query}`;
+  return link;
+}
+
+function sanctionsFinding(data, params) {
+  const result = data.result;
+  const statuses = data.field_status;
+  if (!result || result.name !== params?.name || typeof result.matched !== "boolean" ||
+      !Array.isArray(result.lists) || !result.lists.length ||
+      result.lists.some((list) => typeof list !== "string" || !list.trim()) ||
+      !Array.isArray(result.matches) || result.matched !== (result.matches.length > 0) ||
+      result.matches.some((entry) => !(
+        (typeof entry === "string" && entry.trim()) ||
+        (entry && typeof entry === "object" && !Array.isArray(entry) &&
+          Object.values(entry).some((value) => typeof value === "string" && value.trim()))
+      )) ||
+      !Number.isFinite(result.match_score) || result.match_score < 0 || result.match_score > 1 ||
+      (statuses != null && ["name", "matched", "matches", "lists", "match_score"].some((field) => statuses[field] !== "ok"))) return null;
+  return { matched: result.matched, lists: result.lists };
+}
+
+function renderLiveMemo(list, wallet, runError = null, savedHistory = false) {
   const shell = document.createElement("div");
   shell.className = "listings-memo";
   const receiptAmounts = [];
@@ -1466,7 +1529,10 @@ function renderLiveMemo(list, wallet, runError = null) {
       });
     const answerMatches = isMatchingAnswer(data, { intent: run.intent, params: run.params });
     if (receiptValid) receiptAmounts.push(BigInt(run.receipt.amount_uusdc));
-    return { ...run, data, receiptValid, answerMatches };
+    const finding = receiptValid && answerMatches && run.intent === "SANCTIONS_SCREENING_MATCH_GENERAL"
+      ? sanctionsFinding(data, run.params)
+      : null;
+    return { ...run, data, receiptValid, answerMatches, finding };
   });
   const totalMicro = receiptAmounts.reduce((sum, amount) => sum + amount, 0n);
   const heading = document.createElement("div");
@@ -1474,13 +1540,19 @@ function renderLiveMemo(list, wallet, runError = null) {
   const headingCopy = document.createElement("div");
   headingCopy.append(element("p", "memo-eyebrow", "LIVE sanctions assessment · testnet"));
   const candidateName = list.find((run) => typeof run.params?.name === "string")?.params.name ?? "candidate";
-  headingCopy.append(element("h2", "", candidateName));
+  headingCopy.append(element("h2", "", savedHistory ? "Saved assessments" : candidateName));
   heading.append(headingCopy);
-  heading.append(element("span", "memo-verdict status--unknown", `${receiptAmounts.length} protocol receipt${receiptAmounts.length === 1 ? "" : "s"} validated`));
+  const matchReported = displayedRuns.some((run) => run.finding?.matched);
+  const fullyScreened = !runError && displayedRuns.length && displayedRuns.every((run) => run.finding);
+  if (!savedHistory) {
+    const verdict = matchReported ? "Escalate · match reported" : fullyScreened ? "No match reported" : "Review · evidence incomplete";
+    const tone = matchReported ? "status--no-go" : fullyScreened ? "status--valid" : "status--review";
+    heading.append(element("span", `memo-verdict ${tone}`, verdict));
+  }
   shell.append(heading);
 
   const info = element("p", "memo-mode-note memo-mode-note--real",
-    "Protocol receipts are not final epoch settlement or proof of answer accuracy. Missing or uncertain payment evidence remains unknown.");
+    "The result covers the requested sanctions checks and the lists reported by the miner. Protocol receipts document payment and await independent epoch settlement verification.");
   shell.append(info);
   if (runError) shell.append(element("p", "request-error", `Assessment stopped: ${runError}`));
 
@@ -1491,21 +1563,26 @@ function renderLiveMemo(list, wallet, runError = null) {
     const card = element("div", "memo-card");
     const cardHead = element("div", "memo-card-head");
     const title = element("span", "memo-card-title");
-    title.append(element("code", "", run.intent ?? data.intent ?? "Unknown intent"));
+    title.append(element("span", "", run.params?.name ?? "Requested entity"));
     cardHead.append(title);
+    const paymentStatus = run.paymentStatus ?? run.status;
     const state = run.receiptValid
-      ? "PROTOCOL RECEIPT · EPOCH SETTLEMENT UNCONFIRMED"
-      : run.paymentStatus === "not_authorized"
-        ? "NO PAYMENT AUTHORIZED"
-        : run.status === "authorization_pending" || run.status === "unknown"
-          ? "UNKNOWN · RECONCILIATION REQUIRED"
-          : "NO VALID RECEIPT";
-    cardHead.append(element("span", "memo-pill status--unknown", state));
+      ? "Receipt saved · settlement pending"
+      : paymentStatus === "not_authorized" || paymentStatus === "answered_without_payment"
+        ? "No payment authorized"
+        : paymentStatus === "authorization_pending" || paymentStatus === "unknown"
+          ? "Unknown · reconciliation required"
+          : "No valid receipt";
+    cardHead.append(element("span", `memo-pill ${run.receiptValid ? "status--receipt-valid" : "status--unknown"}`, state));
     card.append(cardHead);
 
     const grid = element("dl", "memo-data-grid");
-    appendDetail(grid, "Answer identity", run.answerMatches ? "Matches requested intent and input" : "Not verified");
-    appendDetail(grid, "Miner", `${data.miner_name ?? "Not provided"}${data.miner_id == null ? "" : ` (#${data.miner_id})`}`);
+    const intent = run.intent ?? data.intent ?? "Unavailable";
+    appendDetail(grid, "Intent", intent, true);
+    appendDetail(grid, "Miner", providerDetail(data, run.receiptValid ? run.receipt : null, intent));
+    appendDetail(grid, "Finding", run.finding ? (run.finding.matched ? "Match reported" : "No match reported") : "Evidence incomplete");
+    if (run.finding) appendDetail(grid, "Reported lists", run.finding.lists.join(", "));
+    appendDetail(grid, "Answer identity", run.answerMatches ? "Matches requested intent and input" : "Unverified");
     appendDetail(grid, "Engine cost", formattedCost(data.cost_usd));
     appendDetail(grid, "Latency", formattedDuration(data.duration_ms));
     appendDetail(grid, "Receipt amount", run.receiptValid ? `${run.receipt.amount_uusdc} µUSDC` : "Unavailable");
@@ -1514,7 +1591,26 @@ function renderLiveMemo(list, wallet, runError = null) {
     appendDetail(grid, "Protocol status", run.receiptValid ? `Epoch ${run.receipt.epoch_id} · not independently settled` : "Unknown or absent");
     if (!run.receiptValid && run.receipt) appendDetail(grid, "Raw receipt (unvalidated)", JSON.stringify(run.receipt), true);
     card.append(grid);
-    const raw = element("pre", "memo-raw", JSON.stringify(data.result ?? data, null, 2));
+    if (run.receiptValid) {
+      const receipt = run.receipt;
+      const evidence = {
+        receipt_hash: receipt.receipt_hash,
+        epoch_id: receipt.epoch_id,
+        amount_uusdc: String(receipt.amount_uusdc),
+        miner_id: receipt.miner,
+        intent,
+        network: TRUSTED_NETWORK,
+        protocol_timestamp: receipt.timestamp,
+        exported_at_utc: new Date().toISOString(),
+      };
+      const download = element("a", "history-link", "Download receipt JSON");
+      download.download = "leaderlight-sepolia-receipt.json";
+      download.href = "data:application/json;charset=utf-8," + encodeURIComponent(JSON.stringify(evidence, null, 2) + "\n");
+      card.append(download);
+    }
+    const raw = element("details", "memo-raw");
+    raw.append(element("summary", "", "Raw Engine result"));
+    raw.append(element("pre", "memo-raw", JSON.stringify(data.result ?? data, null, 2)));
     card.append(raw);
     section.append(card);
   }
@@ -1524,6 +1620,27 @@ function renderLiveMemo(list, wallet, runError = null) {
     : "Verified receipt total unavailable; no amount has been inferred.";
   shell.append(element("p", "memo-footer", `Validated receipt amounts: ${totalText}${window.__identicalAssessmentNames ? " Identical deployer and treasury names were checked once and charged once." : ""}`));
   return shell;
+}
+
+const paymentReview = document.getElementById("payment-review");
+
+function reviewLiveCharge(amount, job, index, count, isCurrent) {
+  const micros = amount.toString().padStart(7, "0");
+  const decimal = micros.slice(-6).replace(/0+$/, "").padEnd(2, "0");
+  document.getElementById("payment-review-amount").textContent = `${micros.slice(0, -6)}.${decimal} test USDC`;
+  document.getElementById("payment-review-request").textContent = `Request ${index + 1} of ${count} · Sanctions check for ${job.params.name}`;
+  paymentReview.returnValue = "";
+  return new Promise((resolve) => {
+    const onWalletChange = () => {
+      if (!isCurrent() && paymentReview.open) paymentReview.close("cancel");
+    };
+    paymentReview.showModal();
+    window.addEventListener("listings:wallet", onWalletChange);
+    paymentReview.addEventListener("close", () => {
+      window.removeEventListener("listings:wallet", onWalletChange);
+      resolve(paymentReview.returnValue === "approve" && isCurrent());
+    }, { once: true });
+  });
 }
 
 if (runLive) runLive.addEventListener("click", async () => {
@@ -1554,14 +1671,17 @@ if (runLive) runLive.addEventListener("click", async () => {
   out.dataset.resultMode = "live";
   out.hidden = false;
   runLive.dataset.inFlight = "true";
+  setLiveState(wallet);
   out.setAttribute("aria-busy", "true");
   const state = Object.assign(document.createElement("p"), { className: "request-state request-state--real", role: "status" });
   state.textContent = "LIVE — checking the selected MetaMask account and testnet; no signature occurs until a trusted challenge is validated.";
   out.replaceChildren(state);
   const results = [];
+  let signatureRequested = false;
   try {
     for (let i = 0; i < jobs.length; i++) {
       const job = jobs[i];
+      signatureRequested = false;
       if (!walletContextIsCurrent(provider, wallet, revision)) throw new Error("Wallet account or network changed; stopping before another request.");
       const requestId = await paymentRequestId(wallet, job.intent, job.params);
       const saved = readAttemptLedger().attempts[requestId];
@@ -1585,7 +1705,10 @@ if (runLive) runLive.addEventListener("click", async () => {
           origin: window.location.origin,
           resource: "/v1/ask",
           isCurrent: () => walletContextIsCurrent(provider, wallet, revision),
+          confirmCharge: (amount) => reviewLiveCharge(amount, job, i, jobs.length,
+            () => walletContextIsCurrent(provider, wallet, revision)),
           onAttempt: (attempt) => {
+            if (attempt.status === "authorization_pending") signatureRequested = true;
             if (attempt.authorizationStarted && (attempt.status === "authorization_pending" || attempt.status === "unknown")) {
               runLive.dataset.paymentBlocked = "true";
             }
@@ -1610,18 +1733,23 @@ if (runLive) runLive.addEventListener("click", async () => {
     runLive.dataset.paymentBlocked = "false";
   } catch (error) {
     const failure = String(error?.message ?? error);
+    const stopped = error?.code === "PAYMENT_REVIEW_CANCELED"
+      ? "Canceled before signing. This request did not authorize a payment."
+      : error?.code === 4001
+        ? "Signature declined in MetaMask. This request did not authorize a payment."
+        : signatureRequested ? failure : "Blocked before signing. " + failure;
     if (/payment outcome could not be saved/i.test(failure)) {
       out.replaceChildren(Object.assign(document.createElement("p"), {
         className: "request-error", role: "alert",
         textContent: /before signing/i.test(failure)
-          ? "Payment history could not be saved before signing. No signature was requested and no payment was authorized. Nothing was cleared; do not clear these records."
+          ? "Blocked before signing. Payment history could not be saved before signing. No signature was requested and no payment was authorized. Nothing was cleared; do not clear these records."
           : "The wallet may have authorized this payment, but the outcome could not be saved. Reconcile the saved request before trying again. No payment history was cleared; do not clear these records.",
       }));
       runLive.dataset.paymentBlocked = "true";
     } else if (/unresolved authorization|prior request may already have been authorized|already authorized in the current assessment run|New assessment before repeating/i.test(failure)) {
       out.replaceChildren(Object.assign(document.createElement("p"), {
         className: "request-error", role: "alert",
-        textContent: "This tab did not request a signature. A saved unresolved payment is already blocking this wallet, possibly from another tab. Reconcile that request before retrying; the block remains in place.",
+        textContent: "Blocked before signing. This tab did not request a signature. A saved unresolved payment is already blocking this wallet, possibly from another tab. Reconcile that request before retrying; the block remains in place.",
       }));
       runLive.dataset.paymentBlocked = "true";
     } else {
@@ -1645,10 +1773,10 @@ if (runLive) runLive.addEventListener("click", async () => {
           });
         }
       }
-      if (results.length) out.replaceChildren(renderLiveMemo(results, wallet, String(error?.message ?? error)));
+      if (results.length) out.replaceChildren(renderLiveMemo(results, wallet, stopped));
       else out.replaceChildren(Object.assign(document.createElement("p"), {
         className: "request-error", role: "alert",
-        textContent: "LIVE failed before a result was received: " + String(error?.message ?? error),
+        textContent: stopped,
       }));
     } catch (renderError) {
       out.replaceChildren(Object.assign(document.createElement("p"), {
@@ -1661,8 +1789,7 @@ if (runLive) runLive.addEventListener("click", async () => {
   } finally {
     runLive.dataset.inFlight = "false";
     out.setAttribute("aria-busy", "false");
-    const isBlocked = runLive.dataset.paymentBlocked === "true";
-    runLive.disabled = !connectedAddress() || isBlocked;
+    setLiveState(connectedAddress());
   }
 });
 
@@ -1695,7 +1822,7 @@ if (newAssessmentBtn) {
     runLive.dataset.paymentBlocked = "false";
     out.replaceChildren(Object.assign(document.createElement("p"), {
       className: "empty-state",
-      textContent: "Ready for a new assessment. Enter entity names and click Run LIVE.",
+      textContent: "Ready for a new assessment. Enter entity names and select Review live charges.",
     }));
     if (actionNote) actionNote.textContent = "Started fresh assessment lifecycle.";
     setLiveState(connectedAddress(), connectedWallet()?.chainId);
@@ -1707,7 +1834,7 @@ function setLiveState(address, chainId = connectedWallet()?.chainId) {
   const onSepolia = Boolean(address) && String(chainId).toLowerCase() === LIVE_PAYMENT_LIMITS.chainId;
   const chainDecimal = /^0x[0-9a-f]+$/i.test(String(chainId)) ? BigInt(chainId).toString(10) : String(chainId);
   for (const c of liveControls) {
-    c.disabled = !onSepolia || (c === runLive && runLive.dataset.paymentBlocked === "true");
+    c.disabled = !onSepolia || runLive.dataset.inFlight === "true" || (c === runLive && runLive.dataset.paymentBlocked === "true");
   }
   if (liveState) liveState.textContent = !address
     ? "Connect MetaMask (top right) to enable testnet actions. No signature or payment is requested by connecting."
@@ -1742,7 +1869,7 @@ try {
       wallet: attempt.wallet,
     }));
   if (previousAttempts.length) {
-    out.replaceChildren(renderLiveMemo(previousAttempts, connectedAddress() ?? "saved on this device"));
+    out.replaceChildren(renderLiveMemo(previousAttempts, connectedAddress() ?? "saved on this device", null, true));
   }
 } catch (error) {
   out.replaceChildren(Object.assign(document.createElement("p"), {

@@ -10,11 +10,18 @@ const browser=await chromium.launch({...(process.env.CHROME_BIN ? {executablePat
 const results=[];let errors=[];
 try{
  const c=await browser.newContext();await c.route('**/*',async route=>{
- const u=new URL(route.request().url());if(u.hostname==='127.0.0.1')return route.continue();
- if(u.pathname==='/api/miners')return route.fulfill({json:[{slug:'onchain-metric-publicnode',activation_status:'active',scores:[{intent_id:'ONCHAIN_METRIC_VERIFY_GENERAL',rank:15,score:.142}]},{slug:'weather-verify-openmeteo',activation_status:'active',scores:[]},{slug:'fx-now-frankfurter',activation_status:'active',scores:[]}]});
+ const u=new URL(route.request().url());
+ if(u.hostname==='127.0.0.1'&&u.pathname==='/api/miner-history')return route.fulfill({json:{scores:[]}});
+ if(u.hostname==='127.0.0.1')return route.continue();
  return route.abort();});
  const p=await c.newPage();p.on('pageerror',e=>errors.push(e.message));
- await p.goto('http://127.0.0.1:18778');await p.waitForFunction(()=>document.querySelector('#lb-body').textContent.includes('onchain-metric-publicnode'));await p.evaluate(()=>document.fonts.ready);
+ await p.goto('http://127.0.0.1:18778');
+ await p.getByRole('link',{name:'Miner rank history'}).click();
+ await p.waitForSelector('#chart');
+ assert.match(await p.locator('#observations').innerText(),/2026-11-12/);
+ await p.getByRole('link',{name:'Assessment desk'}).click();
+ await p.evaluate(()=>document.fonts.ready);
+ results.push({test:'rank history opens and returns to assessment',pass:true});
  for(const w of [320,390,1280]){await p.setViewportSize({width:w,height:900});assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await p.screenshot({path:`${root}/review/screenshots/disconnected-${w}.png`,fullPage:true});results.push({test:'disconnected/no overflow',width:w,pass:true});}
  await p.setViewportSize({width:1280,height:900});await p.fill('#token','PEPE');await p.click('#run-button');await p.waitForSelector('#out .listings-memo');assert.match(await p.locator('#out').innerText(),/SIMULATED|Simulated|simulated/);await p.screenshot({path:`${root}/review/screenshots/offline-result-1280.png`,fullPage:true});results.push({test:'real local /memo path, offline result and honest labels',pass:true});
  await p.setViewportSize({width:390,height:844});assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await p.screenshot({path:`${root}/review/screenshots/offline-result-390.png`,fullPage:true});assert.equal(await p.locator('#out .listings-memo').count(),1);results.push({test:'mobile memo remains rendered without sidebar navigation',pass:true});

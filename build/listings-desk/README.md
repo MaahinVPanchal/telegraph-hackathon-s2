@@ -48,6 +48,8 @@ Receipt/response diagnostics are collapsed by default on the desk memo, with an 
 
 ### Previously reported escrow delivery records
 
+For a fresh browser payment and recording, see the [Sepolia demo runbook](LIVE-TEST-RUNBOOK.md).
+
 The repository's 12 November milestone records two 10,000 μUSDC (0.01 USDC) sanctions-intent requests: one reported through `https://devnode.telegraphprotocol.com/engine/v1/ask`, and one through `https://leaderlight.vercel.app/api/engine/v1/ask`. The milestone also records that the MetaMask signing popup was **not** tested in a live browser.
 
 Earlier lookups of the epoch-2068 delivery API returned the records below. On November 25, 2026, both URLs returned HTTP 404. A fresh Sepolia browser run with a saved receipt is needed to verify the current deployment.

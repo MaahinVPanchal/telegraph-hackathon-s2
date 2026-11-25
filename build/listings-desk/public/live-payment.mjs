@@ -908,6 +908,7 @@ export async function performPaidAsk({
   fetchImpl,
   intentToken,
   isCurrent = () => true,
+  confirmCharge,
   onAttempt = () => {},
 }) {
   if (typeof fetchImpl !== "function") throw new TypeError("trusted Engine fetch implementation is required");
@@ -1048,6 +1049,15 @@ export async function performPaidAsk({
     const validated = validateEscrowChallenge(challenge, {
       wallet: normalizedWallet, network, payTo, origin, resource, requestUrl, runReservedMicro,
     });
+
+    if (confirmCharge) {
+      if (!await confirmCharge(validated.amount)) {
+        const error = new Error("Payment review canceled before signing.");
+        error.code = "PAYMENT_REVIEW_CANCELED";
+        throw error;
+      }
+      await assertSepolia(provider, normalizedWallet, isCurrent);
+    }
 
     const authorization = {
       from: validated.payer,

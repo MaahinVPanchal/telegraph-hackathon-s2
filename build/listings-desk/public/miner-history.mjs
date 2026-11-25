@@ -26,6 +26,7 @@ const archivedScores = {
 };
 let records = [];
 let request;
+const linkFilters = new URLSearchParams(location.search);
 
 function render() {
   const daily = new Map();
@@ -103,7 +104,7 @@ function render() {
   });
 }
 
-async function load() {
+async function load(requestedIntent = null) {
   request?.abort();
   const controller = new AbortController();
   request = controller;
@@ -128,6 +129,7 @@ async function load() {
     for (const id of [...new Set(records.map(row => row.intent_id))].sort()) {
       intent.add(new Option(id, id));
     }
+    if ([...intent.options].some((option) => option.value === requestedIntent)) intent.value = requestedIntent;
     intent.disabled = !intent.options.length;
     render();
   } catch {
@@ -137,6 +139,9 @@ async function load() {
   }
 }
 
-miner.addEventListener("change", load);
+miner.addEventListener("change", () => load());
 intent.addEventListener("change", render);
-load();
+const linkedMiner = linkFilters.get("miner");
+const hasLinkedMiner = [...miner.options].some((option) => option.value === linkedMiner);
+if (hasLinkedMiner) miner.value = linkedMiner;
+load(hasLinkedMiner ? linkFilters.get("intent") : null);

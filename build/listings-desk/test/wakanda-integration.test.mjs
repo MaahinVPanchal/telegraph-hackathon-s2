@@ -30,3 +30,18 @@ test('/memo serves a full styled document, not a bare fragment',async()=>{
  assert.match(handler, /renderHtml\(memo\)/);
  assert.doesNotMatch(handler, /renderHtmlFragment\s*\(/);
 });
+
+test('live sanctions evidence accepts omitted empty matches only for an explicit no-match', () => {
+ const source = html.match(/^function sanctionsFinding\(data, params\) \{[\s\S]+?^\}/m)[0];
+ const finding = new Function(source + '\nreturn sanctionsFinding;')();
+ const params = { name: 'Sample Entity' };
+ const result = { ...params, matched: false, matches: [], lists: ['Example list (2026-11-10)'], match_score: 0 };
+ const field_status = { name: 'ok', matched: 'ok', matches: 'missing', lists: 'ok', match_score: 'ok' };
+ const expected = { matched: false, lists: result.lists };
+ assert.deepEqual(finding({ result, field_status }, params), expected);
+ assert.deepEqual(finding({ result: { ...result, matches: null }, field_status }, params), expected);
+ assert.equal(finding({ result: { ...result, matched: true }, field_status }, params), null);
+ assert.equal(finding({ result: { ...result, matches: ['Reported match'] }, field_status }, params), null);
+ assert.equal(finding({ result, field_status: { ...field_status, lists: 'missing' } }, params), null);
+ assert.equal(finding({ result, field_status: { ...field_status, matches: 'rejected' } }, params), null);
+});

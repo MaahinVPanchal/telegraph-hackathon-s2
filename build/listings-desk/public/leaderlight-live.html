@@ -1253,17 +1253,21 @@ function providerDetail(data, receipt, intent) {
 function sanctionsFinding(data, params) {
   const result = data.result;
   const statuses = data.field_status;
+  // The Engine can mark an empty matches list missing on a no-match response.
+  const emptyMatchesOmitted = result?.matched === false && statuses?.matches === "missing" &&
+    (result.matches == null || (Array.isArray(result.matches) && result.matches.length === 0));
+  const matches = emptyMatchesOmitted ? [] : result?.matches;
   if (!result || result.name !== params?.name || typeof result.matched !== "boolean" ||
       !Array.isArray(result.lists) || !result.lists.length ||
       result.lists.some((list) => typeof list !== "string" || !list.trim()) ||
-      !Array.isArray(result.matches) || result.matched !== (result.matches.length > 0) ||
-      result.matches.some((entry) => !(
+      !Array.isArray(matches) || result.matched !== (matches.length > 0) ||
+      matches.some((entry) => !(
         (typeof entry === "string" && entry.trim()) ||
         (entry && typeof entry === "object" && !Array.isArray(entry) &&
           Object.values(entry).some((value) => typeof value === "string" && value.trim()))
       )) ||
       !Number.isFinite(result.match_score) || result.match_score < 0 || result.match_score > 1 ||
-      (statuses != null && ["name", "matched", "matches", "lists", "match_score"].some((field) => statuses[field] !== "ok"))) return null;
+      (statuses != null && ["name", "matched", "matches", "lists", "match_score"].some((field) => statuses[field] !== "ok" && !(field === "matches" && emptyMatchesOmitted)))) return null;
   return { matched: result.matched, lists: result.lists };
 }
 

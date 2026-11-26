@@ -28,16 +28,16 @@ export default async function handler(req, res) {
         throw new Error("Incomplete score history");
       }
       total = page.total;
-      for (const { miner_slug, intent_id, epoch_id, rank, score, scored_at } of page.scores) {
+      for (const { miner_slug, intent_id, epoch_id, rank, score, scored_at, failure_reason } of page.scores) {
         if (miner_slug !== slug) throw new Error("Unexpected miner");
-        scores.push({ intent_id, epoch_id, rank, score, scored_at });
+        scores.push({ intent_id, epoch_id, rank, score, scored_at, failure_reason });
       }
       offset += page.scores.length;
     } while (offset < total);
 
     res.writeHead(200, {
       "Content-Type": "application/json; charset=utf-8",
-      "Cache-Control": "public, max-age=60",
+      "Cache-Control": "no-store",
     }).end(JSON.stringify({ scores }));
   } catch {
     res.writeHead(502, { "Content-Type": "application/json; charset=utf-8" })

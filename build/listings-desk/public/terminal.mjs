@@ -22,12 +22,22 @@ function updatePresentation() {
     else step.removeAttribute("aria-current");
   }
 
-  const counts = !live && visible ? report.querySelector("[data-evidence-count][data-check-count]") : null;
-  byId("overview-evidence").textContent = counts?.dataset.evidenceCount ?? "—";
-  byId("overview-coverage").textContent = counts ? counts.textContent : "—";
-  byId("overview-source").textContent = counts
-    ? "Simulated memo · Risk index, signal and uncertainty unavailable."
-    : "Risk index, signal and uncertainty unavailable.";
+  const gauge = byId("overview-gauge");
+  gauge.hidden = live;
+  gauge.parentElement.style.gridTemplateColumns = live ? "1fr" : "";
+  for (const metric of document.querySelectorAll("[data-overview-offline]")) metric.hidden = live;
+
+  const counts = visible ? report.querySelector(live
+    ? "[data-completed-checks][data-valid-checks][data-expected-checks]"
+    : "[data-evidence-count][data-check-count]") : null;
+  byId("overview-evidence").textContent = (live ? counts?.dataset.validChecks : counts?.dataset.evidenceCount) ?? "—";
+  byId("overview-coverage").textContent = counts
+    ? (live ? counts.dataset.completedChecks + " / " + counts.dataset.expectedChecks : counts.textContent)
+    : "—";
+  byId("overview-source").textContent = live
+    ? (counts ? "Live sanctions checks completed · Ethereum Sepolia" : "Run a live sanctions assessment to see check coverage.")
+    : (counts ? "Simulated memo · Risk index, signal and uncertainty unavailable."
+      : "Risk index, signal and uncertainty unavailable.");
 }
 window.addEventListener("listings:mode", () => queueMicrotask(updatePresentation));
 window.addEventListener("listings:wallet", updatePresentation);
@@ -120,7 +130,7 @@ for (const node of nodes) {
 const dateFormat = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
 
 async function loadMiner(slug) {
-  const response = await fetch("/api/miner-history?" + new URLSearchParams({ miner: slug }), { signal: AbortSignal.timeout(14000) });
+  const response = await fetch("/api/miner-history?" + new URLSearchParams({ miner: slug }), { cache: "no-store", signal: AbortSignal.timeout(14000) });
   if (!response.ok) throw new Error("Score history unavailable");
   const { scores } = await response.json();
   return scores;

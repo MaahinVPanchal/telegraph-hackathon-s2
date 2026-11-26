@@ -736,10 +736,10 @@ html{scroll-padding-top:20px}body{background:radial-gradient(ellipse at 76% 8%,#
 </div>
 <section class="terminal-bento" aria-label="Intelligence dashboard">
 <article class="glass overview"><header><h2><span aria-hidden="true">&#9637;</span> Network Overview</h2></header>
-<div class="overview-body"><div class="risk-gauge" aria-label="Risk index unavailable">
+<div class="overview-body"><div class="risk-gauge" id="overview-gauge" aria-label="Risk index unavailable">
 <svg viewBox="0 0 112 112" aria-hidden="true"><defs><linearGradient id="gauge-spectrum"><stop stop-color="#ffb454"/><stop offset=".55" stop-color="#e879f9"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient></defs><path d="M24 90a43 43 0 1 1 64 0"/><path class="gauge-fill" pathLength="100" d="M24 90a43 43 0 1 1 64 0"/></svg>
 <div><strong>&mdash;</strong><small>Risk Index</small></div></div>
-<dl class="terminal-metrics"><div><dt>Signal</dt><dd>&mdash;</dd></div><div><dt>Uncertainty</dt><dd>&mdash;</dd></div><div><dt>Valid evidence</dt><dd id="overview-evidence">&mdash;</dd></div><div><dt>Check coverage</dt><dd id="overview-coverage">&mdash;</dd></div></dl></div>
+<dl class="terminal-metrics"><div data-overview-offline><dt>Signal</dt><dd>&mdash;</dd></div><div data-overview-offline><dt>Uncertainty</dt><dd>&mdash;</dd></div><div><dt>Valid evidence</dt><dd id="overview-evidence">&mdash;</dd></div><div><dt>Check coverage</dt><dd id="overview-coverage">&mdash;</dd></div></dl></div>
 <p class="card-note" id="overview-source">Risk index, signal and uncertainty unavailable.</p></article>
 <article class="glass activity"><header><h2><span aria-hidden="true">&#9874;</span> Recent Miner Activity</h2><a href="/miner-history.html">View All &#8599;</a></header>
 <ul class="terminal-rows" id="miner-activity" aria-busy="true"><li class="skeleton">Loading score observations&hellip;</li></ul><p class="card-note">Score history &middot; Approval and wallet data unavailable</p></article>
@@ -1271,7 +1271,7 @@ function sanctionsFinding(data, params) {
   return { matched: result.matched, lists: result.lists };
 }
 
-function renderLiveMemo(list, wallet, runError = null, savedHistory = false) {
+function renderLiveMemo(list, wallet, runError = null, savedHistory = false, expectedChecks = list.length) {
   const shell = document.createElement("div");
   shell.className = "listings-memo";
   const receiptAmounts = [];
@@ -1291,6 +1291,11 @@ function renderLiveMemo(list, wallet, runError = null, savedHistory = false) {
       : null;
     return { ...run, data, receiptValid, answerMatches, finding };
   });
+  if (!savedHistory) {
+    shell.dataset.completedChecks = displayedRuns.filter((run) => run.receiptValid && run.answerMatches).length;
+    shell.dataset.validChecks = displayedRuns.filter((run) => run.finding).length;
+    shell.dataset.expectedChecks = expectedChecks;
+  }
   const totalMicro = receiptAmounts.reduce((sum, amount) => sum + amount, 0n);
   const heading = document.createElement("div");
   heading.className = "memo-result-head";
@@ -1538,7 +1543,7 @@ if (runLive) runLive.addEventListener("click", async () => {
         }
       }
       out.dataset.stage = "error";
-      if (results.length) out.replaceChildren(renderLiveMemo(results, wallet, stopped));
+      if (results.length) out.replaceChildren(renderLiveMemo(results, wallet, stopped, false, jobs.length));
       else out.replaceChildren(Object.assign(document.createElement("p"), {
         className: "request-error", role: "alert",
         textContent: stopped,

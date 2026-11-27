@@ -197,6 +197,29 @@ pre.memo-raw {
   overflow-x: auto;
 }
 .memo-empty { color: var(--ld-secondary); }
+.status--not-sent, .status--not-paid {
+  border-color: var(--ld-border);
+  background: var(--ld-surface-raised);
+  color: var(--ld-secondary);
+}
+.walk-stage {
+  display: grid;
+  grid-template-columns: 92px minmax(0,1fr);
+  gap: 8px;
+  padding: 7px 0;
+  border-top: 1px dashed var(--ld-border);
+}
+.walk-stage:first-child { border-top: 0; padding-top: 0; }
+.walk-stage dt {
+  color: var(--ld-secondary);
+  font-size: .7rem;
+  font-weight: 750;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  padding-top: 2px;
+}
+.walk-stage dd { margin: 0; overflow-wrap: anywhere; }
+.walkthrough-card--not-sent { opacity: .8; }
 .memo-footer {
   display: flex;
   flex-wrap: wrap;
@@ -260,20 +283,49 @@ pre.memo-raw {
 <svg class="hero-contours" viewBox="0 0 680 230" preserveAspectRatio="xMaxYMid slice" aria-hidden="true"><g fill="none" stroke="#bca28a" stroke-width="1"><path opacity="0.12" d="M25 252C190 248 172 43 339 43S535 184 710 54"/><path opacity="0.15" d="M20 242C186 235 176 36 343 38S532 177 710 46"/><path opacity="0.18" d="M15 232C182 222 180 29 347 33S529 170 710 38"/><path opacity="0.20" d="M10 222C178 209 184 22 351 28S526 163 710 30"/><path opacity="0.23" d="M5 212C174 196 188 15 355 23S523 156 710 22"/><path opacity="0.26" d="M0 202C170 183 192 8 359 18S520 149 710 14"/><path opacity="0.29" d="M-5 192C166 170 196 1 363 13S517 142 710 6"/><path opacity="0.32" d="M-10 182C162 157 200 -6 367 8S514 135 710 -2"/><path opacity="0.34" d="M-15 172C158 144 204 -13 371 3S511 128 710 -10"/><path opacity="0.37" d="M-20 162C154 131 208 -20 375 -2S508 121 710 -18"/><path opacity="0.40" d="M-25 152C150 118 212 -27 379 -7S505 114 710 -26"/><path opacity="0.43" d="M-30 142C146 105 216 -34 383 -12S502 107 710 -34"/><path opacity="0.46" d="M-35 132C142 92 220 -41 387 -17S499 100 710 -42"/><path opacity="0.48" d="M-40 122C138 79 224 -48 391 -22S496 93 710 -50"/></g></svg></div>
 <div class="mode-console">
 <nav aria-label="Assessment mode" class="workspace-tabs" role="tablist">
-<button aria-controls="offline-panel" aria-selected="true" class="workspace-tab is-active" data-workspace-tab="offline" id="offline-tab" role="tab" type="button">Offline assessment<span>Private fixtures. No wallet or payment required.</span></button>
+<button aria-controls="offline-panel" aria-selected="true" class="workspace-tab is-active" data-workspace-tab="offline" id="offline-tab" role="tab" type="button">Preview the memo format<span>Fixture data. No wallet or payment required.</span></button>
 <button aria-controls="live-panel" aria-selected="false" class="workspace-tab" data-workspace-tab="live" id="live-tab" role="tab" type="button">LIVE · Sepolia<span>Explicit identities and individual transaction approvals.</span></button>
 </nav>
 <span class="mode-badge" id="mode-badge" role="status">SIMULATED / OFFLINE</span>
 </div>
 <section aria-label="Assessment setup" aria-labelledby="offline-tab" class="setup-grid workspace-panel" data-workspace-panel="offline" id="offline-panel" role="tabpanel">
 <form class="panel" id="candidate-form" novalidate="">
-<p class="eyebrow">Offline assessment</p>
-<h2>Start with the <em>token.</em></h2>
+<p class="eyebrow">Preview · fixture data</p>
+<h2>See what a memo looks like.</h2>
+<label class="field-label" for="preview-scenario">Preview scenario</label>
+<select aria-describedby="scenario-help" class="text-input" id="preview-scenario" name="preview-scenario">
+<option value="1">1 · Token only</option>
+<option value="2">2 · Clean explicit identities</option>
+<option value="3">3 · Sanctions screening unavailable</option>
+<option value="4">4 · Bot-like social account</option>
+<option value="5">5 · Sanctioned entity match</option>
+</select>
+<p class="field-help" id="scenario-help">Each scenario runs the real decision pipeline over fixed fixture identities. The preview never screens typed text and can never produce GO.</p>
+<div class="preview-presets" role="group" aria-label="Load a preview preset into the rehearsal inputs">
+<span class="field-label">Presets</span>
+<div class="action-row">
+<button class="action-button preview-preset" data-preview-preset="1" type="button">1 · Token only</button>
+<button class="action-button preview-preset" data-preview-preset="2" type="button">2 · Clean</button>
+<button class="action-button preview-preset" data-preview-preset="3" type="button">3 · Unavailable</button>
+<button class="action-button preview-preset" data-preview-preset="4" type="button">4 · Bot social</button>
+<button class="action-button preview-preset" data-preview-preset="5" type="button">5 · Sanctioned</button>
+</div>
+</div>
 <label class="field-label" for="token">Token symbol or contract address</label>
 <input aria-describedby="token-help" autocomplete="off" class="token-input" id="token" maxlength="120" name="token" placeholder="e.g. PEPE or 0x…" required="" type="text"/>
-<p class="field-help" id="token-help">Token-only input. Treasury, deployer, social identities, chain and repository are not inferred.</p>
-<button class="primary-action" id="run-button" type="submit"><span aria-hidden="true">&#9655;</span> Run offline demo</button>
-<p class="mode-help">Offline fixtures only. No Engine calls, payments, or signatures.</p>
+<p class="field-help" id="token-help">Required, as in the live flow.</p>
+<label class="field-label" for="preview-deployer">Deployer entity name (rehearsal input)</label>
+<input aria-describedby="rehearsal-help" autocomplete="off" class="text-input" id="preview-deployer" name="preview-deployer" placeholder="e.g. Sample Deployer Ltd" type="text"/>
+<label class="field-label" for="preview-treasury">Treasury entity name (rehearsal input)</label>
+<input autocomplete="off" class="text-input" id="preview-treasury" name="preview-treasury" placeholder="e.g. Sample Treasury Foundation" type="text"/>
+<label class="field-label" for="preview-social">Social account (rehearsal input)</label>
+<input autocomplete="off" class="text-input" id="preview-social" name="preview-social" placeholder="e.g. @sample_account" type="text"/>
+<label class="field-label" for="preview-repo">Repository URL (rehearsal input)</label>
+<input autocomplete="off" class="text-input" id="preview-repo" name="preview-repo" placeholder="https://github.com/example/sample-repo" type="text"/>
+<p class="field-help" id="rehearsal-help">Rehearsal only — the preview always renders the selected scenario's fixed fixture identities, never your typed text. In the LIVE workspace these same fields are screened explicitly.</p>
+<button class="primary-action" id="run-button" type="submit"><span aria-hidden="true">&#9655;</span> Preview the memo format</button>
+<p class="mode-help">Preview only. This shows what a risk memo looks like using fake data — no Engine calls, payments, or signatures.</p>
+<p class="mode-help">GO needs audit, on-chain and code-review evidence, which current Telegraph contracts do not support yet.</p>
 
 </form>
 <aside aria-labelledby="limits-title" class="panel evidence-panel">
@@ -334,7 +386,7 @@ pre.memo-raw {
 <p class="action-note" id="action-note" role="status"></p>
 </div><aside class="panel wallet-guide"><p class="eyebrow">Wallet &amp; network</p><h2>Your keys. Your approval.</h2><p>Use the wallet connection at the top of this workspace. Connecting grants account access only.</p><dl><div><dt>Network</dt><dd>Ethereum Sepolia / 11155111</dd></div><div><dt>Per-call ceiling</dt><dd>$0.01 test USDC</dd></div><div><dt>Per-run ceiling</dt><dd>$0.02 test USDC</dd></div></dl><p class="boundary-note">Funding is an on-demand testnet transaction (with selectable $0.02, $1.00, or $3.00 amounts). Each signature or transaction needs your own approval. Receipts, delivery evidence and final settlement are different states.</p></aside></section>
 <section aria-busy="false" aria-label="Assessment result" aria-live="polite" class="out-region workspace-results" id="out">
-<p class="empty-state">Choose Offline assessment or LIVE · Sepolia above to begin. Results appear here for the selected mode.</p>
+<p class="empty-state">Choose Preview the memo format or LIVE · Sepolia above to begin. Results appear here for the selected mode.</p>
 </section>
 <section class="terminal-bento" aria-label="Intelligence dashboard">
 <article class="overview"><header><h2>Risk and evidence</h2></header>
@@ -358,9 +410,9 @@ pre.memo-raw {
 <form method="dialog"><button class="terminal-close" aria-label="Close notifications">&times;</button></form><h2 id="notification-title">Desk notifications</h2><p id="desk-notification"></p>
 </dialog>
 <dialog class="terminal-dialog" id="demo-dialog" aria-labelledby="demo-title">
-<form method="dialog"><button class="terminal-close" aria-label="Close demo">&times;</button></form><h2 id="demo-title">Offline demo walkthrough</h2>
-<ol><li>Enter a token symbol or contract address.</li><li>Run the assessment using private fixtures.</li><li>Review the evidence checks and open questions in the report.</li></ol>
-<a class="terminal-cta" href="#candidate-form">Open offline assessment &#8594;</a>
+<form method="dialog"><button class="terminal-close" aria-label="Close demo">&times;</button></form><h2 id="demo-title">Preview walkthrough</h2>
+<ol><li>Pick a preview scenario (or load one of the presets).</li><li>Render the memo format over fixed fixture data — no Engine calls, payments, or signatures.</li><li>Review the evidence checks and open questions in the report.</li></ol>
+<a class="terminal-cta" href="#candidate-form">Open the preview &#8594;</a>
 </dialog>
 <dialog aria-labelledby="payment-review-title" aria-describedby="payment-review-request payment-review-amount" class="payment-review" id="payment-review">
   <h2 id="payment-review-title">Review escrow charge</h2>
@@ -381,8 +433,37 @@ const form = document.getElementById("candidate-form");
 const input = document.getElementById("token");
 const output = document.getElementById("out");
 const button = document.getElementById("run-button");
+const scenarioSelect = document.getElementById("preview-scenario");
+const rehearsalFields = {
+  deployer: document.getElementById("preview-deployer"),
+  treasury: document.getElementById("preview-treasury"),
+  social: document.getElementById("preview-social"),
+  repo: document.getElementById("preview-repo"),
+};
 const mockMode = true;
-const defaultButtonText = "Run offline demo";
+const defaultButtonText = "Preview the memo format";
+// Preset fixture identities -- keep in sync with src/preview-scenarios.mjs
+// (preview-scenarios.test.mjs asserts the strings match the server fixtures).
+const PREVIEW_PRESETS = {
+  1: { deployer: "", treasury: "", social: "", repo: "" },
+  2: { deployer: "Sample Deployer Ltd", treasury: "Sample Treasury Foundation", social: "@sample_account", repo: "https://github.com/example/sample-repo" },
+  3: { deployer: "Sample Deployer Ltd", treasury: "Sample Treasury Foundation", social: "@sample_account", repo: "https://github.com/example/sample-repo" },
+  4: { deployer: "Sample Deployer Ltd", treasury: "Sample Treasury Foundation", social: "@sample_bot", repo: "https://github.com/example/sample-repo" },
+  5: { deployer: "Sample Sanctioned Entity", treasury: "Sample Treasury Foundation", social: "", repo: "https://github.com/example/sample-repo" },
+};
+function loadPreviewPreset(id) {
+  const preset = PREVIEW_PRESETS[id];
+  if (!preset) return;
+  scenarioSelect.value = String(id);
+  rehearsalFields.deployer.value = preset.deployer;
+  rehearsalFields.treasury.value = preset.treasury;
+  rehearsalFields.social.value = preset.social;
+  rehearsalFields.repo.value = preset.repo;
+}
+document.querySelectorAll("[data-preview-preset]").forEach((presetButton) => {
+  presetButton.addEventListener("click", () =>
+    loadPreviewPreset(Number(presetButton.dataset.previewPreset)));
+});
 
 function validateToken() {
   const value = input.value.trim();
@@ -401,19 +482,18 @@ form.addEventListener("submit", async (event) => {
   button.disabled = true;
   output.dataset.resultMode = "offline";
   output.hidden = false;
-  button.textContent = mockMode ? "Running offline demo…" : "Running assessment…";
+  button.textContent = "Rendering preview…";
   output.setAttribute("aria-busy", "true");
   const loading = document.createElement("p");
-  loading.className = "request-state" + (mockMode ? "" : " request-state--real");
+  loading.className = "request-state";
   loading.setAttribute("role", "status");
-  loading.textContent = mockMode
-    ? "SIMULATED/OFFLINE — rendering local fixtures; no Engine calls, payments, or signatures."
-    : "REAL mode — checking the explicitly supplied token; required identities are not inferred.";
+  loading.textContent = "SIMULATED/OFFLINE — rendering fixture scenarios; no Engine calls, payments, or signatures.";
   output.replaceChildren(loading);
   output.dataset.stage = "retrieve";
 
   try {
-    const response = await fetch("/memo?token=" + encodeURIComponent(input.value.trim()));
+    const response = await fetch("/memo?token=" + encodeURIComponent(input.value.trim()) +
+      "&scenario=" + encodeURIComponent(scenarioSelect.value));
     if (!response.ok) {
       const payload = await response.json().catch(() => null);
       throw new Error(typeof payload?.error === "string" ? payload.error : "Request failed (HTTP " + response.status + ")");

@@ -102,7 +102,7 @@ test("Vercel handlers are mock-only and validate methods and candidate input", a
   pageHandler({ method: "GET" }, page);
   assert.equal(page.statusCode, 200);
   assert.match(page.body, /SIMULATED \/ OFFLINE/);
-  assert.match(page.body, /Run offline demo/);
+  assert.match(page.body, /Preview the memo format/);
   assert.equal(page.headers["Cache-Control"], "no-store");
 
   const memo = httpResponse();
@@ -407,7 +407,11 @@ test("mock receipts are simulated, actual spend is zero, and all renderers are h
   assert.match(html, /<body class="memo-page">/);
   assert.equal((html.match(/<html\b/g) ?? []).length, 1);
   assert.equal((html.match(/<body\b/g) ?? []).length, 1);
-  for (const output of [markdown, html, json]) {
+  // The honesty guard applies to rendered text. The <style> block carries CSS
+  // class hooks such as the "not paid" status pill -- styling selectors, not
+  // claims -- so it is stripped before matching. All visible text stays guarded.
+  const htmlText = html.replace(/<style>[\s\S]*?<\/style>/g, "");
+  for (const output of [markdown, htmlText, json]) {
     assert.match(output, /SIMULATED/);
     assert.match(output, /not spent/);
     assert.doesNotMatch(output, /\b(paid|purchased|signed)\b/i);

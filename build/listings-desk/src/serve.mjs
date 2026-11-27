@@ -7,7 +7,7 @@ import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { runDesk } from "./desk.mjs";
+import { parsePreviewScenario, runPreviewMemo } from "./preview-scenarios.mjs";
 import engineProxy from "../api/engine.js";
 import ledgerProxy from "../api/ledger.js";
 import { MEMO_CSS, renderHtml, THEME_TOKENS } from "./memo.mjs";
@@ -276,9 +276,9 @@ export function renderPage(mode = MODE) {
   if (mode === "mock") return readFileSync(new URL("../public/leaderlight-live.html", import.meta.url), "utf8");
   const isMock = mode === "mock";
   const modeLabel = isMock ? "SIMULATED / OFFLINE" : mode === "real" ? "REAL" : "INVALID MODE";
-  const actionLabel = isMock ? "Run offline demo" : "Run assessment";
+  const actionLabel = isMock ? "Preview the memo format" : "Run assessment";
   const modeHelp = isMock
-    ? "Offline fixtures only. No Engine calls, payments, or signatures."
+    ? "Preview only. This shows what a risk memo looks like using fake data — no Engine calls, payments, or signatures. GO needs audit, on-chain and code-review evidence, which current Telegraph contracts do not support yet."
     : "Token-only page: required entity and account identities are not inferred, so checks needing them remain missing.";
   const PAGE = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#09080e"><title>Telegraph Listings Desk</title>
 <style>${THEME_TOKENS}${PAGE_CSS}${MEMO_CSS}</style></head><body>
@@ -468,8 +468,16 @@ function startLocalServer() {
         res.end(JSON.stringify({ error: "missing or bad token" }));
         return;
       }
+      // Absent/empty scenario falls back to the default (1); anything that is
+      // not an integer from 1 to 5 is rejected instead of silently coerced.
+      const scenario = parsePreviewScenario(url.searchParams.get("scenario"));
+      if (scenario === null) {
+        res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
+        res.end(JSON.stringify({ error: "scenario must be an integer from 1 to 5" }));
+        return;
+      }
       try {
-        const { memo } = await runDesk(token, { mode: MODE });
+        const { memo } = await runPreviewMemo(scenario, token);
         // Full document, matching the deployed /memo route: direct navigation
         // needs a real page. The offline demo fetch extracts .listings-memo from
         // the parsed response, which works the same against a full document.

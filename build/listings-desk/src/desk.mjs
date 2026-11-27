@@ -131,23 +131,30 @@ export async function runDesk(candidateInput, opts = {}) {
   settled.forEach((result, index) => {
     const job = jobs[index];
     if (result.status === "fulfilled") {
-      receipts.push({
-        ...result.value,
-        check: job.check,
-        mode: mode === "mock" ? "mock" : result.value.mode,
-        minerId: mode === "mock" ? null : result.value.minerId,
-        minerName: mode === "mock" ? "SIMULATED" : result.value.minerName,
-        costUsd: mode === "mock" ? 0 : result.value.costUsd,
-        estimatedCostUsd: mode === "mock"
-          ? result.value.estimatedCostUsd ?? result.value.costUsd ?? 0
-          : result.value.estimatedCostUsd,
-        signalHash: mode === "mock" ? null : result.value.signalHash,
-        evidenceStatus: mode === "mock" ? "simulated" : result.value.evidenceStatus,
-        proofStatus: mode === "mock" ? "simulated" : result.value.proofStatus,
-        paymentStatus: mode === "mock" ? "simulated" : result.value.paymentStatus,
-        intent: result.value.intent ?? job.intent,
-        requestInput: result.value.requestInput ?? job.requestInput,
-      });
+      // An injected askImpl may return one receipt or a list: the injected path
+      // runs one generic job per check (requestInput is null), while the real
+      // path builds one job per explicit subject -- a list lets it produce the
+      // same per-subject receipts the real path would.
+      const values = Array.isArray(result.value) ? result.value : [result.value];
+      for (const value of values) {
+        receipts.push({
+          ...value,
+          check: job.check,
+          mode: mode === "mock" ? "mock" : value.mode,
+          minerId: mode === "mock" ? null : value.minerId,
+          minerName: mode === "mock" ? "SIMULATED" : value.minerName,
+          costUsd: mode === "mock" ? 0 : value.costUsd,
+          estimatedCostUsd: mode === "mock"
+            ? value.estimatedCostUsd ?? value.costUsd ?? 0
+            : value.estimatedCostUsd,
+          signalHash: mode === "mock" ? null : value.signalHash,
+          evidenceStatus: mode === "mock" ? "simulated" : value.evidenceStatus,
+          proofStatus: mode === "mock" ? "simulated" : value.proofStatus,
+          paymentStatus: mode === "mock" ? "simulated" : value.paymentStatus,
+          intent: value.intent ?? job.intent,
+          requestInput: value.requestInput ?? job.requestInput,
+        });
+      }
     } else {
       failures.push({
         check: job.check,

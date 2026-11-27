@@ -177,6 +177,29 @@ body.memo-page {
 .memo-finding--warn { border-left-color: var(--ld-caution); }
 .memo-finding--bad { border-left-color: var(--ld-danger); }
 .memo-finding--good { border-left-color: var(--ld-primary); }
+.status--not-sent, .status--not-paid {
+  border-color: var(--ld-border);
+  background: var(--ld-surface-raised);
+  color: var(--ld-secondary);
+}
+.walk-stage {
+  display: grid;
+  grid-template-columns: 92px minmax(0,1fr);
+  gap: 8px;
+  padding: 7px 0;
+  border-top: 1px dashed var(--ld-border);
+}
+.walk-stage:first-child { border-top: 0; padding-top: 0; }
+.walk-stage dt {
+  color: var(--ld-secondary);
+  font-size: .7rem;
+  font-weight: 750;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  padding-top: 2px;
+}
+.walk-stage dd { margin: 0; overflow-wrap: anywhere; }
+.walkthrough-card--not-sent { opacity: .8; }
 .memo-data-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -306,6 +329,28 @@ function candidateItems(candidate, token) {
   ].filter(([, value]) => value != null && value !== "" && (!Array.isArray(value) || value.length > 0));
 }
 
+function walkCard(stage) {
+  const stages = [
+    ["Input", stage.input],
+    ["Request", stage.request],
+    ["Answer", stage.answer],
+    ["Validation", stage.validation],
+    ["Verdict", `${stage.verdict}${stage.reason ? ` — ${stage.reason}` : ""}`],
+  ];
+  return `<article class="memo-card walkthrough-card${stage.sent ? "" : " walkthrough-card--not-sent"}">
+    <header class="memo-card-head">
+      <div class="memo-card-title">${breakableIdentifier(stage.check)}</div>
+      <div class="memo-pill-row">
+        ${stage.sent ? statusPill("sent", "sent (fixture)") : statusPill("not-sent", "not sent")}
+        ${statusPill(stage.verdict)}
+      </div>
+    </header>
+    <dl class="walk-stages">${stages.map(([label, value]) =>
+      `<div class="walk-stage"><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`
+    ).join("")}</dl>
+  </article>`;
+}
+
 function evidenceCard([check, evidence]) {
   const sourceReferences = (evidence.sourceReferences ?? []).filter(Boolean);
   return `<article class="memo-card evidence-card">
@@ -417,7 +462,9 @@ export function renderHtmlFragment(memo) {
   return `<section class="listings-memo" aria-labelledby="memo-title">
     <header class="memo-result-head">
       <div>
-        <p class="memo-eyebrow">02 / Risk memo · ${escapeHtml(modeLabel(memo))}</p>
+        <p class="memo-eyebrow">02 / Risk memo · ${escapeHtml(modeLabel(memo))}${memo.previewScenario
+          ? ` · preview scenario ${escapeHtml(memo.previewScenario.id)}: ${escapeHtml(memo.previewScenario.name)}`
+          : ""}</p>
         <h2 id="memo-title">${escapeHtml(memo.token)}</h2>
         <p class="memo-subline">Evidence completeness: ${escapeHtml(memo.evidenceCompleteness?.status)} · Payment/proof: ${escapeHtml(paymentStatus)}</p>
       </div>
@@ -425,7 +472,7 @@ export function renderHtmlFragment(memo) {
     </header>
     <div class="memo-mode-note${mock ? "" : " memo-mode-note--real"}" role="note">
       ${mock
-        ? `<strong>SIMULATED / OFFLINE.</strong> No Engine calls, payments, or signatures. Actually spent: ${escapeHtml(memo.actualSpentUsd)} USD. Demonstration estimate: ${escapeHtml(memo.estimatedCostUsd)} USD, not spent.`
+        ? `<strong>SIMULATED / OFFLINE — PREVIEW.</strong> Preview with fixture data. Not real evidence. No Engine calls, payments, or signatures. Actually spent: ${escapeHtml(memo.actualSpentUsd)} USD. Demonstration estimate: ${escapeHtml(memo.estimatedCostUsd)} USD, not spent.${memo.previewScenario?.summary ? ` Scenario: ${escapeHtml(memo.previewScenario.summary)}` : ""}`
         : `<strong>REAL mode.</strong> Each response, evidence, proof, and payment status is shown separately. An Engine response or signal hash does not prove answer accuracy or final settlement.`}
     </div>
     <div class="memo-stat-grid" aria-label="Run summary">
@@ -439,6 +486,14 @@ export function renderHtmlFragment(memo) {
       <p><strong>Checks not validated:</strong> ${escapeHtml(missingChecks.length ? missingChecks.join(", ") : "none")}</p>
       ${memo.hardBlock ? `<p><strong>Hard block:</strong> confirmed sanctions match.</p>` : ""}
     </div>
+    ${Array.isArray(memo.previewWalkthrough) && memo.previewWalkthrough.length
+      ? `<section class="memo-section preview-walkthrough" aria-labelledby="walkthrough-heading">
+          <p class="memo-section-label">Preview walkthrough</p>
+          <h3 id="walkthrough-heading">How each check is produced in this preview</h3>
+          <p class="memo-muted">Stages per check: Input → Request → Answer → Validation → Verdict. Fixture answers only; no Engine request is dialed and nothing is paid.</p>
+          <div class="memo-card-list">${memo.previewWalkthrough.map(walkCard).join("")}</div>
+        </section>`
+      : ""}
     <section class="memo-section" aria-labelledby="candidate-heading">
       <p class="memo-section-label">01 / Candidate</p>
       <h3 id="candidate-heading">Inputs considered</h3>

@@ -434,6 +434,10 @@ function startLocalServer() {
       return;
     }
     const staticFiles = {
+      "/assets/inter-normal.woff2": ["../public/assets/inter-normal.woff2", "font/woff2"],
+      "/assets/jetbrains-mono-normal.woff2": ["../public/assets/jetbrains-mono-normal.woff2", "font/woff2"],
+      "/assets/lora-normal.woff2": ["../public/assets/lora-normal.woff2", "font/woff2"],
+      "/assets/lora-italic.woff2": ["../public/assets/lora-italic.woff2", "font/woff2"],
       "/terminal.css": ["../public/terminal.css", "text/css; charset=utf-8"],
       "/terminal.mjs": ["../public/terminal.mjs", "text/javascript; charset=utf-8"],
       "/assets/terminal-engine.svg": ["../public/assets/terminal-engine.svg", "image/svg+xml"],

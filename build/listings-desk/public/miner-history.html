@@ -1,9 +1,10 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Miner rank history | LeaderLight</title>
+<link rel="stylesheet" href="/terminal.css">
 <link rel="stylesheet" href="/miner-history.css">
 <script type="module" src="/miner-history.mjs"></script>
 </head>
@@ -21,7 +22,7 @@
 
   <section aria-labelledby="month-title">
     <h2 id="month-title">The month at a glance</h2>
-    <p id="month-key">Each cell shows the last recorded round of the IST day as rank · score. <span class="failed">Red</span> means the snapshot flagged at least one failed round that day. A dash means no record was available. Scroll sideways to see all six intents.</p>
+    <p id="month-key">Each cell shows the last recorded round of the IST day as rank · score. <span class="failed">Red</span> means the source flagged at least one failed round that day. A dash means no record was available. Scroll sideways to see all six intents.</p>
     <div class="table-wrap" role="region" aria-label="Daily ranks for six intents" tabindex="0">
       <table aria-describedby="month-key">
         <thead><tr><th scope="col">Day</th><th scope="col">On-chain</th><th scope="col">Weather forecast</th><th scope="col">Weather verify</th><th scope="col">CAD</th><th scope="col">EUR</th><th scope="col">SEK</th></tr></thead>
@@ -33,7 +34,7 @@
 
   <section aria-labelledby="rounds-title">
     <h2 id="rounds-title">Round-by-round history</h2>
-    <p>Open an intent to see every recorded round. Failed rounds use the snapshot’s failure flags, including when a zero score is recorded without a failure.</p>
+    <p>Open an intent to see every recorded round. Failure flags come from the supplied records. A zero score can occur without a failure flag.</p>
     <div id="rounds"></div>
   </section>
 
@@ -45,7 +46,7 @@
 
   <section aria-labelledby="sources-title">
     <h2 id="sources-title">Sources</h2>
-    <p>This fixed report is based on the supplied Explorer snapshots. The links below open the current source records, which may use different epoch numbers.</p>
+    <p>This report combines supplied Explorer snapshots with recent Explorer scores fetched when you open or reload the page.</p>
     <ul class="sources">
       <li><a href="https://anjoman.ai/api/explorer/scores?miner=onchain-metric-publicnode">On-chain scores</a></li>
       <li><a href="https://anjoman.ai/api/explorer/scores?miner=weather-verify-openmeteo">Weather scores</a></li>

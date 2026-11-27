@@ -11,11 +11,11 @@ test('UI resolves the same-origin ask URL before calling strict payment guards',
 test('Vercel routes the exact guarded browser ask path to the existing Engine proxy',()=>{
  assert.deepEqual(config.rewrites.find(x=>x.source==='/api/engine/v1/ask'),{source:'/api/engine/v1/ask',destination:'/api/engine'});
 });
-test('refined Wakanda preserves unique runtime controls and embeds its verified mark/font',()=>{
+test('LeaderLight preserves unique runtime controls, headline, and Telegraph mark',()=>{
  for(const id of ['candidate-form','run-button','wallet-connect','run-live','mint-usdc','fund-escrow','deployer-name','treasury-name','out'])assert.equal((html.match(new RegExp('id="'+id+'"','g'))||[]).length,1,id);
  assert.match(html, /href="\/miner-history\.html"/);
  assert.doesNotMatch(html, /id="lb-body"/);
- assert.match(html,/See the risk/);assert.match(html,/Keep the signal/);assert.match(html,/Independent app/);assert.match(html,/data:font\/ttf;base64/);assert.match(html,/data:image\/png;base64/);
+ assert.match(html,/See the risk/);assert.match(html.replace(/<[^>]+>/g, ''),/Keep the signal/);assert.match(html,/Independent app/);assert.match(html,/data:image\/png;base64/);
 });
 test('/memo serves a full styled document, not a bare fragment',async()=>{
  // Regression (2026-11-12): the endpoint returned renderHtmlFragment â€” a bare

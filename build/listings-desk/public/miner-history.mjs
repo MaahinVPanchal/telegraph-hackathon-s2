@@ -115,7 +115,39 @@ for (const { label, slug, intent, rows } of novemberSeries) {
       if (failed) row.className = "failed";
     }
     region.append(table);
-    detail.append(metrics, region);
+    if (rows.length < 2) {
+      detail.append(metrics, region);
+      return;
+    }
+    const values = rows.map((row) => row[5]);
+    const minimum = Math.min(...values);
+    const maximum = Math.max(...values);
+    const range = maximum - minimum;
+    const chart = element("figure", undefined, { class: "score-chart" });
+    const caption = "Recorded scores in round order (" + minimum + " to " + maximum + ")";
+    chart.append(element("figcaption", caption));
+    const namespace = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(namespace, "svg");
+    svg.setAttribute("viewBox", "0 0 300 80");
+    svg.setAttribute("preserveAspectRatio", "none");
+    svg.setAttribute("aria-hidden", "true");
+    for (const y of [8, 40, 72]) {
+      const line = document.createElementNS(namespace, "line");
+      line.setAttribute("x1", "5");
+      line.setAttribute("x2", "295");
+      line.setAttribute("y1", y);
+      line.setAttribute("y2", y);
+      svg.append(line);
+    }
+    const trend = document.createElementNS(namespace, "polyline");
+    trend.setAttribute("points", values.map((score, index) => {
+      const x = 5 + index * 290 / (values.length - 1);
+      const y = range ? 72 - (score - minimum) * 64 / range : 40;
+      return x + "," + y;
+    }).join(" "));
+    svg.append(trend);
+    chart.append(svg);
+    detail.append(metrics, chart, region);
   }
 
   detail.addEventListener("toggle", () => {

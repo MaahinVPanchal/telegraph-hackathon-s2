@@ -1,17 +1,17 @@
 export const THEME_TOKENS = `
 :root {
-  color-scheme: dark;
-  --ld-page: #09080e;
-  --ld-surface: #121018;
-  --ld-surface-raised: #181420;
-  --ld-border: #302637;
-  --ld-primary: #ad7bea;
-  --ld-primary-strong: #c39af4;
-  --ld-text: #eae5f3;
-  --ld-secondary: #a89db8;
-  --ld-caution: #efc77e;
-  --ld-danger: #f09aab;
-  --ld-focus: #e2c6ff;
+  color-scheme: light;
+  --ld-page: #F8F7F4;
+  --ld-surface: #FCFBF9;
+  --ld-surface-raised: #F0EDE8;
+  --ld-border: #E4E0DA;
+  --ld-primary: #B86F52;
+  --ld-primary-strong: #884831;
+  --ld-text: #24221F;
+  --ld-secondary: #625E57;
+  --ld-caution: #80571f;
+  --ld-danger: #a33d33;
+  --ld-focus: #884831;
 }
 `;
 
@@ -41,7 +41,7 @@ body.memo-page {
   padding: 24px;
   border: 1px solid var(--ld-border);
   border-radius: 16px;
-  background: linear-gradient(125deg, rgba(173,123,234,.09), transparent 58%), var(--ld-surface);
+  background: var(--ld-surface);
 }
 .memo-result-head > div { min-width: 0; }
 .memo-eyebrow, .memo-section-label {
@@ -70,8 +70,8 @@ body.memo-page {
 }
 .memo-verdict { min-width: 94px; min-height: 40px; font-size: .88rem; white-space: nowrap; }
 .status--go, .status--valid, .status--simulated, .status--receipt-valid {
-  border-color: rgba(173,123,234,.62);
-  background: rgba(173,123,234,.12);
+  border-color: #ddbdac;
+  background: #f3e5dc;
   color: var(--ld-primary-strong);
 }
 .status--review, .status--unknown, .status--missing, .status--unavailable,
@@ -133,7 +133,7 @@ body.memo-page {
   padding: 14px;
   border: 1px solid var(--ld-border);
   border-radius: 10px;
-  background: rgba(9,8,14,.45);
+  background: var(--ld-surface-raised);
 }
 .memo-card-head {
   display: flex;
@@ -210,7 +210,7 @@ body.memo-page {
   padding: 12px;
   border: 1px solid var(--ld-border);
   border-radius: 8px;
-  background: #0c0a11;
+  background: var(--ld-surface-raised);
   color: var(--ld-text);
   white-space: pre-wrap;
   overflow-wrap: anywhere;

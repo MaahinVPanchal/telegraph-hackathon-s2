@@ -10,7 +10,7 @@ function updatePresentation() {
   const wallet = window.__listingsWallet;
   const sepolia = live && Boolean(wallet?.address) && String(wallet.chainId).toLowerCase() === "0xaa36a7";
   badge.classList.toggle("mode-badge--live", sepolia);
-  badge.textContent = live ? (sepolia ? "SEPOLIA CONNECTED" : "SEPOLIA · NOT READY") : "SIMULATED / OFFLINE";
+  badge.textContent = live ? (sepolia ? "LIVE · SEPOLIA" : "SEPOLIA · NOT READY") : "SIMULATED / OFFLINE";
   byId("hero-connect").hidden = Boolean(wallet?.address);
 
   const visible = !report.hidden;
@@ -21,11 +21,6 @@ function updatePresentation() {
     if (String(index + 1) === pipeline.dataset.step) step.setAttribute("aria-current", "step");
     else step.removeAttribute("aria-current");
   }
-
-  const gauge = byId("overview-gauge");
-  gauge.hidden = live;
-  gauge.parentElement.style.gridTemplateColumns = live ? "1fr" : "";
-  for (const metric of document.querySelectorAll("[data-overview-offline]")) metric.hidden = live;
 
   const counts = visible ? report.querySelector(live
     ? "[data-completed-checks][data-valid-checks][data-expected-checks]"
